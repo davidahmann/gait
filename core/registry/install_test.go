@@ -1,12 +1,16 @@
 package registry
 
 import (
+	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -96,6 +100,183 @@ func TestInstallRemoteRequiresAllowlist(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected allowlist error")
 	}
+}
+
+func TestRegistryHelperBranches(t *testing.T) {
+	if hosts := normalizeAllowHosts([]string{" EXAMPLE.com,example.com", "api.example.com"}); strings.Join(hosts, ",") != "api.example.com,example.com" {
+		t.Fatalf("normalizeAllowHosts mismatch: %#v", hosts)
+	}
+	if !isRemoteSource("https://example.com/pack.json") || !isRemoteSource("http://example.com/pack.json") {
+		t.Fatalf("isRemoteSource should detect http/https")
+	}
+	if isRemoteSource("/tmp/pack.json") {
+		t.Fatalf("isRemoteSource should not detect local path")
+	}
+	if err := enforceAllowHost("https://example.com/pack.json", []string{"example.com"}); err != nil {
+		t.Fatalf("enforceAllowHost expected pass: %v", err)
+	}
+	if err := enforceAllowHost("://bad-url", []string{"example.com"}); err == nil {
+		t.Fatalf("expected parse URL error")
+	}
+	if err := enforceAllowHost("https://example.com/pack.json", nil); err == nil {
+		t.Fatalf("expected missing allow-host error")
+	}
+	if err := enforceAllowHost("https://example.com/pack.json", []string{"other.com"}); err == nil {
+		t.Fatalf("expected allowlist mismatch error")
+	}
+
+	if _, err := parseRegistryManifest([]byte(`{}`)); err == nil {
+		t.Fatalf("expected parseRegistryManifest schema error")
+	}
+	validManifest := []byte(`{"schema_id":"gait.registry.pack","schema_version":"1.0.0","created_at":"2026-01-01T00:00:00Z","producer_version":"0.0.0-dev","pack_name":"p","pack_version":"v","artifacts":[{"path":"a","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}`)
+	if _, err := parseRegistryManifest(validManifest); err != nil {
+		t.Fatalf("parseRegistryManifest valid: %v", err)
+	}
+
+	if err := enforcePin("", "abc"); err != nil {
+		t.Fatalf("enforcePin empty should pass: %v", err)
+	}
+	if err := enforcePin("sha256:abc", "abc"); err != nil {
+		t.Fatalf("enforcePin matching digest should pass: %v", err)
+	}
+	if err := enforcePin("sha256:def", "abc"); err == nil {
+		t.Fatalf("expected pin mismatch")
+	}
+
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	sig, err := sign.SignDigestHex(keyPair.Private, strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatalf("sign digest: %v", err)
+	}
+	signatures := []schemaregistry.SignatureRef{{
+		Alg:          sig.Alg,
+		KeyID:        sig.KeyID,
+		Sig:          sig.Sig,
+		SignedDigest: sig.SignedDigest,
+	}}
+	if err := verifySignatures(signatures, keyPair.Public, strings.Repeat("a", 64)); err != nil {
+		t.Fatalf("verifySignatures valid: %v", err)
+	}
+	if err := verifySignatures(nil, keyPair.Public, strings.Repeat("a", 64)); err == nil {
+		t.Fatalf("expected verifySignatures missing signatures error")
+	}
+	if err := verifySignatures(signatures, ed25519.PublicKey{}, strings.Repeat("a", 64)); err == nil {
+		t.Fatalf("expected verifySignatures missing key error")
+	}
+	if err := verifySignatures(signatures, keyPair.Public, strings.Repeat("b", 64)); err == nil {
+		t.Fatalf("expected verifySignatures digest mismatch error")
+	}
+
+	if cacheDir, err := resolveCacheDir(" /tmp/x "); err != nil || cacheDir != "/tmp/x" {
+		t.Fatalf("resolveCacheDir explicit mismatch: %s err=%v", cacheDir, err)
+	}
+	if cacheDir, err := resolveCacheDir(""); err != nil || !strings.Contains(cacheDir, ".gait/registry") {
+		t.Fatalf("resolveCacheDir default mismatch: %s err=%v", cacheDir, err)
+	}
+
+	if data, err := ioReadAllLimit(strings.NewReader("hello"), 8); err != nil || string(data) != "hello" {
+		t.Fatalf("ioReadAllLimit small read mismatch: %q err=%v", string(data), err)
+	}
+	if _, err := ioReadAllLimit(strings.NewReader("toolong"), 3); err == nil {
+		t.Fatalf("expected ioReadAllLimit payload too large error")
+	}
+
+	clientErr := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return nil, io.ErrUnexpectedEOF
+	})}
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientErr); err == nil {
+		t.Fatalf("expected fetchSource transport error")
+	}
+	clientStatus := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusBadGateway,
+			Body:       io.NopCloser(strings.NewReader("bad")),
+		}, nil
+	})}
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientStatus); err == nil {
+		t.Fatalf("expected fetchSource non-200 status error")
+	}
+	clientLarge := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(bytes.Repeat([]byte("a"), 6*1024*1024))),
+		}, nil
+	})}
+	if _, err := fetchSource(context.Background(), "https://example.com/x", clientLarge); err == nil {
+		t.Fatalf("expected fetchSource large payload error")
+	}
+}
+
+func TestInstallLocalAndErrorBranches(t *testing.T) {
+	workDir := t.TempDir()
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	manifest := schemaregistry.RegistryPack{
+		SchemaID:        "gait.registry.pack",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-dev",
+		PackName:        "local-pack",
+		PackVersion:     "1.0.0",
+		Artifacts:       []schemaregistry.PackArtifact{{Path: "policy.yaml", SHA256: strings.Repeat("a", 64)}},
+	}
+	digest, err := signableManifestDigest(manifest)
+	if err != nil {
+		t.Fatalf("signableManifestDigest: %v", err)
+	}
+	sig, err := sign.SignDigestHex(keyPair.Private, digest)
+	if err != nil {
+		t.Fatalf("sign digest: %v", err)
+	}
+	manifest.Signatures = []schemaregistry.SignatureRef{{
+		Alg:          sig.Alg,
+		KeyID:        sig.KeyID,
+		Sig:          sig.Sig,
+		SignedDigest: sig.SignedDigest,
+	}}
+	manifestPath := filepath.Join(workDir, "registry_pack.json")
+	raw, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	if err := os.WriteFile(manifestPath, raw, 0o600); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	if _, err := Install(context.Background(), InstallOptions{
+		Source:    manifestPath,
+		CacheDir:  filepath.Join(workDir, "cache"),
+		PublicKey: keyPair.Public,
+	}); err != nil {
+		t.Fatalf("Install local source: %v", err)
+	}
+
+	if _, err := Install(context.Background(), InstallOptions{
+		Source:    manifestPath,
+		CacheDir:  filepath.Join(workDir, "cache2"),
+		PublicKey: keyPair.Public,
+		PinDigest: "sha256:" + strings.Repeat("b", 64),
+	}); err == nil {
+		t.Fatalf("expected pin mismatch error")
+	}
+
+	if _, err := Install(context.Background(), InstallOptions{
+		Source:   " ",
+		CacheDir: filepath.Join(workDir, "cache3"),
+	}); err == nil {
+		t.Fatalf("expected missing source error")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
 }
 
 func signableManifestDigest(manifest schemaregistry.RegistryPack) (string, error) {

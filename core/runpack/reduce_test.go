@@ -1,8 +1,10 @@
 package runpack
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -108,5 +110,91 @@ func TestReduceToMinimalNonOKStatus(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("reduce non-ok status: %v", err)
+	}
+}
+
+func TestReduceHelpersAndPredicates(t *testing.T) {
+	if predicate, err := ParseReducePredicate("missing_result"); err != nil || predicate != PredicateMissingResult {
+		t.Fatalf("ParseReducePredicate missing_result mismatch: %s err=%v", predicate, err)
+	}
+	if predicate, err := ParseReducePredicate("NON_OK_STATUS"); err != nil || predicate != PredicateNonOKStatus {
+		t.Fatalf("ParseReducePredicate non_ok_status mismatch: %s err=%v", predicate, err)
+	}
+	if _, err := ParseReducePredicate("unknown"); err == nil {
+		t.Fatalf("expected ParseReducePredicate unknown error")
+	}
+
+	report := ReduceReport{
+		SchemaID:      "gait.runpack.reduce_report",
+		SchemaVersion: "1.0.0",
+		RunID:         "run_x",
+		ReducedRunID:  "run_x_reduced",
+		Predicate:     PredicateMissingResult,
+		StillFailing:  true,
+	}
+	encoded, err := EncodeReduceReport(report)
+	if err != nil {
+		t.Fatalf("EncodeReduceReport: %v", err)
+	}
+	var decoded ReduceReport
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatalf("unmarshal encoded report: %v", err)
+	}
+	if decoded.RunID != report.RunID {
+		t.Fatalf("encoded report mismatch: %#v", decoded)
+	}
+
+	refIDs := collectRefIDs(
+		[]schemarunpack.IntentRecord{{
+			IntentID: "intent_1",
+			Args: map[string]any{
+				"ref_id": "ref_1",
+				"nested": []any{
+					map[string]any{"source_ref": "ref_2"},
+				},
+			},
+		}},
+		[]schemarunpack.ResultRecord{{
+			IntentID: "intent_1",
+			Result: map[string]any{
+				"refs": []any{"ref_3"},
+			},
+		}},
+	)
+	if len(refIDs) < 3 {
+		t.Fatalf("collectRefIDs expected >=3 refs got %d", len(refIDs))
+	}
+
+	refs := filterRefs(schemarunpack.Refs{
+		RunID: "run_in",
+		Receipts: []schemarunpack.RefReceipt{
+			{RefID: "ref_2"},
+			{RefID: "ref_1"},
+		},
+	}, map[string]struct{}{"ref_1": {}}, "run_out")
+	if refs.RunID != "run_out" || len(refs.Receipts) != 1 || refs.Receipts[0].RefID != "ref_1" {
+		t.Fatalf("filterRefs mismatch: %#v", refs)
+	}
+
+	run := filterRunMetadata(schemarunpack.Run{
+		RunID: "run_in",
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "intent", Ref: "intent_1"},
+			{Event: "intent", Ref: "intent_2"},
+			{Event: "status"},
+		},
+	}, "intent_1", "run_out")
+	if run.RunID != "run_out" || len(run.Timeline) != 2 {
+		t.Fatalf("filterRunMetadata mismatch: %#v", run)
+	}
+
+	if got := reducedRunID("run_demo", PredicateMissingResult); !strings.Contains(got, "reduced") {
+		t.Fatalf("reducedRunID missing suffix: %s", got)
+	}
+	if got := reducedRunID("demo", PredicateNonOKStatus); !strings.HasPrefix(got, "run_") {
+		t.Fatalf("reducedRunID missing run_ prefix: %s", got)
+	}
+	if got := defaultReducedPath("/tmp/runpack_run_a.zip", "run_a", PredicateMissingResult); !strings.Contains(got, "runpack_run_a_reduced_missing_result.zip") {
+		t.Fatalf("defaultReducedPath mismatch: %s", got)
 	}
 }

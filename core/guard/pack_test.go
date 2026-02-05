@@ -3,14 +3,17 @@ package guard
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
@@ -181,5 +184,146 @@ func mustWriteJSON(t *testing.T, path string, value any) {
 	}
 	if err := os.WriteFile(path, encoded, 0o600); err != nil {
 		t.Fatalf("write json file %s: %v", path, err)
+	}
+}
+
+func TestGuardHelperBranches(t *testing.T) {
+	workDir := t.TempDir()
+	now := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
+
+	if _, err := BuildPack(BuildOptions{}); err == nil {
+		t.Fatalf("expected BuildPack missing runpack path error")
+	}
+	if _, err := VerifyPack(filepath.Join(workDir, "missing.zip")); err == nil {
+		t.Fatalf("expected VerifyPack missing file error")
+	}
+	if _, err := readTraceRecord(filepath.Join(workDir, "missing.trace")); err == nil {
+		t.Fatalf("expected readTraceRecord missing path error")
+	}
+
+	inventoryPath := filepath.Join(workDir, "inventory.json")
+	mustWriteJSON(t, inventoryPath, schemascout.InventorySnapshot{
+		SchemaID:        "gait.scout.inventory_snapshot",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       now,
+		ProducerVersion: "0.0.0-dev",
+		SnapshotID:      "snap_one",
+		Items:           []schemascout.InventoryItem{},
+	})
+	if payloads, err := readInventorySnapshots([]string{inventoryPath + ", " + inventoryPath}); err != nil || len(payloads) != 1 {
+		t.Fatalf("readInventorySnapshots dedupe: len=%d err=%v", len(payloads), err)
+	}
+	invalidInventoryPath := filepath.Join(workDir, "invalid_inventory.json")
+	if err := os.WriteFile(invalidInventoryPath, []byte("{"), 0o600); err != nil {
+		t.Fatalf("write invalid inventory: %v", err)
+	}
+	if _, err := readInventorySnapshots([]string{invalidInventoryPath}); err == nil {
+		t.Fatalf("expected invalid inventory parse error")
+	}
+
+	tracePath := filepath.Join(workDir, "trace.json")
+	mustWriteJSON(t, tracePath, schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       now,
+		ProducerVersion: "0.0.0-dev",
+		TraceID:         "trace_x",
+		ToolName:        "tool.a",
+		ArgsDigest:      strings.Repeat("a", 64),
+		IntentDigest:    strings.Repeat("b", 64),
+		PolicyDigest:    strings.Repeat("c", 64),
+		Verdict:         "allow",
+	})
+	if summary, err := buildTraceSummary([]string{tracePath}); err != nil || len(summary) == 0 {
+		t.Fatalf("buildTraceSummary: len=%d err=%v", len(summary), err)
+	}
+	if _, err := buildTraceSummary([]string{filepath.Join(workDir, "missing_trace.json")}); err == nil {
+		t.Fatalf("expected buildTraceSummary missing trace error")
+	}
+
+	regressPath := filepath.Join(workDir, "regress.json")
+	mustWriteJSON(t, regressPath, schemaregress.RegressResult{
+		SchemaID:        "gait.regress.result",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       now,
+		ProducerVersion: "0.0.0-dev",
+		FixtureSet:      "fixture",
+		Status:          "pass",
+	})
+	if summary, err := buildRegressSummary([]string{regressPath}); err != nil || len(summary) == 0 {
+		t.Fatalf("buildRegressSummary: len=%d err=%v", len(summary), err)
+	}
+	if _, err := buildRegressSummary([]string{filepath.Join(workDir, "missing_regress.json")}); err == nil {
+		t.Fatalf("expected buildRegressSummary missing file error")
+	}
+
+	if got := inferPackEntryType("runpack_summary.json"); got != "runpack" {
+		t.Fatalf("inferPackEntryType runpack: %s", got)
+	}
+	if got := inferPackEntryType("trace_summary.json"); got != "trace" {
+		t.Fatalf("inferPackEntryType trace: %s", got)
+	}
+	if got := inferPackEntryType("regress_summary.json"); got != "report" {
+		t.Fatalf("inferPackEntryType regress: %s", got)
+	}
+	if got := inferPackEntryType("x.json"); got != "evidence" {
+		t.Fatalf("inferPackEntryType evidence: %s", got)
+	}
+
+	paths := normalizePaths([]string{"a.json,b.json", "b.json", " "})
+	if strings.Join(paths, ",") != "a.json,b.json" {
+		t.Fatalf("normalizePaths mismatch: %#v", paths)
+	}
+
+	referenced, err := buildReferencedRunpackSummary(runpack.Runpack{
+		Run: schemarunpack.Run{RunID: "run_r"},
+		Refs: schemarunpack.Refs{Receipts: []schemarunpack.RefReceipt{
+			{RefID: "ref_b", SourceType: "web", SourceLocator: "b", ContentDigest: strings.Repeat("d", 64), RetrievedAt: now},
+			{RefID: "ref_a", SourceType: "web", SourceLocator: "a", ContentDigest: strings.Repeat("c", 64), RetrievedAt: now},
+		}},
+	})
+	if err != nil || len(referenced) == 0 {
+		t.Fatalf("buildReferencedRunpackSummary: len=%d err=%v", len(referenced), err)
+	}
+
+	contents := []schemaguard.PackEntry{{Path: "a", SHA256: strings.Repeat("a", 64), Type: "evidence"}}
+	packID, err := computePackID("run_1", contents)
+	if err != nil || !strings.HasPrefix(packID, "pack_") {
+		t.Fatalf("computePackID: %s err=%v", packID, err)
+	}
+	if _, err := marshalCanonicalJSON(map[string]any{"k": "v"}); err != nil {
+		t.Fatalf("marshalCanonicalJSON: %v", err)
+	}
+	if got := sha256Hex([]byte("abc")); got != "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad" {
+		t.Fatalf("sha256Hex mismatch: %s", got)
+	}
+
+	longData := bytes.Repeat([]byte("a"), maxEvidenceZipEntryBytes+1)
+	var tooLarge bytes.Buffer
+	if err := zipx.WriteDeterministicZip(&tooLarge, []zipx.File{{Path: "big.bin", Data: longData, Mode: 0o644}}); err != nil {
+		t.Fatalf("write deterministic zip for big file: %v", err)
+	}
+	tooLargePath := filepath.Join(workDir, "too_large.zip")
+	if err := os.WriteFile(tooLargePath, tooLarge.Bytes(), 0o600); err != nil {
+		t.Fatalf("write too_large zip: %v", err)
+	}
+	reader, err := zip.OpenReader(tooLargePath)
+	if err != nil {
+		t.Fatalf("open too_large zip: %v", err)
+	}
+	defer func() { _ = reader.Close() }()
+	if len(reader.File) != 1 {
+		t.Fatalf("expected one file in too_large zip")
+	}
+	if _, err := readZipFile(reader.File[0]); err == nil {
+		t.Fatalf("expected readZipFile size error")
+	}
+	if _, err := hashZipFile(reader.File[0]); err == nil {
+		t.Fatalf("expected hashZipFile size error")
+	}
+
+	builder := Builder{ProducerVersion: "0.0.0-dev"}
+	if _, err := builder.Build(context.Background(), BuildRequest{}); err == nil {
+		t.Fatalf("expected Builder.Build missing runpack error")
 	}
 }
