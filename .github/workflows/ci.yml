@@ -80,9 +80,11 @@ jobs:
             sys.exit(1)
           PY
       - name: Python tests with coverage
+        env:
+          PYTHONPATH: .
         run: |
           cd sdk/python
-          PYTHONPATH=. uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
+          uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
 
   build:
     runs-on: ubuntu-latest
