@@ -57,12 +57,14 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - name: Go tests with coverage
         run: |
-          go test ./... -coverprofile=coverage-go.out
-          go tool cover -func=coverage-go.out | awk '/total:/ {print $$3}' | sed 's/%//' > coverage-go.txt
+          go test ./...
+          go test ./core/... -coverprofile=coverage-go.out
+          go tool cover -func=coverage-go.out | tail -n 1 | awk '{print $$3}' | sed 's/%//' > coverage-go.txt
           python - <<'PY'
           import sys
           with open("coverage-go.txt") as f:
-              cov = float(f.read().strip())
+              raw = f.read().strip() or "0"
+              cov = float(raw)
           if cov < 85.0:
               print(f"Go coverage too low: {cov}%")
               sys.exit(1)

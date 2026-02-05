@@ -21,7 +21,8 @@ lint:
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev mypy)
 
 test:
-	$(GO) test ./... -coverprofile=coverage-go.out
+	$(GO) test ./...
+	$(GO) test ./core/... -coverprofile=coverage-go.out
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing)
 
 test-e2e:
