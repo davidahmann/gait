@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/davidahmann/gait/core/sign"
 )
 
 func TestCLIDemoVerify(t *testing.T) {
@@ -207,7 +210,28 @@ rules:
 		t.Fatalf("write policy file: %v", err)
 	}
 
-	eval := exec.Command(binPath, "gate", "eval", "--policy", policyPath, "--intent", intentPath, "--json")
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	if err := os.WriteFile(privateKeyPath, []byte(base64.StdEncoding.EncodeToString(keyPair.Private)), 0o600); err != nil {
+		t.Fatalf("write private key: %v", err)
+	}
+	publicKeyPath := filepath.Join(workDir, "trace_public.key")
+	if err := os.WriteFile(publicKeyPath, []byte(base64.StdEncoding.EncodeToString(keyPair.Public)), 0o600); err != nil {
+		t.Fatalf("write public key: %v", err)
+	}
+
+	eval := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	)
 	eval.Dir = workDir
 	evalOut, err := eval.CombinedOutput()
 	if err != nil {
@@ -218,6 +242,7 @@ rules:
 		Verdict     string   `json:"verdict"`
 		ReasonCodes []string `json:"reason_codes"`
 		Violations  []string `json:"violations"`
+		TracePath   string   `json:"trace_path"`
 	}
 	if err := json.Unmarshal(evalOut, &evalResult); err != nil {
 		t.Fatalf("parse gate eval json output: %v\n%s", err, string(evalOut))
@@ -230,6 +255,58 @@ rules:
 	}
 	if len(evalResult.Violations) != 1 || evalResult.Violations[0] != "external_target" {
 		t.Fatalf("unexpected gate violations: %#v", evalResult.Violations)
+	}
+	if evalResult.TracePath == "" {
+		t.Fatalf("expected trace path in gate eval output: %s", string(evalOut))
+	}
+	if _, err := os.Stat(filepath.Join(workDir, evalResult.TracePath)); err != nil {
+		t.Fatalf("expected trace record to exist: %v", err)
+	}
+
+	verifyTrace := exec.Command(binPath, "trace", "verify", evalResult.TracePath, "--public-key", publicKeyPath, "--json")
+	verifyTrace.Dir = workDir
+	verifyOut, err := verifyTrace.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait trace verify failed: %v\n%s", err, string(verifyOut))
+	}
+	var verifyResult struct {
+		OK              bool   `json:"ok"`
+		SignatureStatus string `json:"signature_status"`
+	}
+	if err := json.Unmarshal(verifyOut, &verifyResult); err != nil {
+		t.Fatalf("parse trace verify output: %v\n%s", err, string(verifyOut))
+	}
+	if !verifyResult.OK || verifyResult.SignatureStatus != "verified" {
+		t.Fatalf("unexpected trace verify output: %s", string(verifyOut))
+	}
+
+	tracePath := filepath.Join(workDir, evalResult.TracePath)
+	traceBytes, err := os.ReadFile(tracePath)
+	if err != nil {
+		t.Fatalf("read emitted trace: %v", err)
+	}
+	var traceRecord map[string]any
+	if err := json.Unmarshal(traceBytes, &traceRecord); err != nil {
+		t.Fatalf("parse emitted trace: %v", err)
+	}
+	traceRecord["verdict"] = "allow"
+	tamperedBytes, err := json.MarshalIndent(traceRecord, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal tampered trace: %v", err)
+	}
+	tamperedBytes = append(tamperedBytes, '\n')
+	if err := os.WriteFile(tracePath, tamperedBytes, 0o600); err != nil {
+		t.Fatalf("write tampered trace: %v", err)
+	}
+
+	verifyTampered := exec.Command(binPath, "trace", "verify", evalResult.TracePath, "--public-key", publicKeyPath, "--json")
+	verifyTampered.Dir = workDir
+	tamperedOut, err := verifyTampered.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected tampered trace verification to fail with exit code 2")
+	}
+	if code := commandExitCode(t, err); code != 2 {
+		t.Fatalf("unexpected tampered trace verify exit code: got=%d want=2 output=%s", code, string(tamperedOut))
 	}
 
 	invalid := exec.Command(binPath, "gate", "eval", "--policy", policyPath, "--json")

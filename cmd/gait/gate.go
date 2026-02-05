@@ -7,17 +7,24 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/davidahmann/gait/core/gate"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	"github.com/davidahmann/gait/core/sign"
 )
 
 type gateEvalOutput struct {
-	OK          bool     `json:"ok"`
-	Verdict     string   `json:"verdict,omitempty"`
-	ReasonCodes []string `json:"reason_codes,omitempty"`
-	Violations  []string `json:"violations,omitempty"`
-	Error       string   `json:"error,omitempty"`
+	OK           bool     `json:"ok"`
+	Verdict      string   `json:"verdict,omitempty"`
+	ReasonCodes  []string `json:"reason_codes,omitempty"`
+	Violations   []string `json:"violations,omitempty"`
+	TraceID      string   `json:"trace_id,omitempty"`
+	TracePath    string   `json:"trace_path,omitempty"`
+	PolicyDigest string   `json:"policy_digest,omitempty"`
+	IntentDigest string   `json:"intent_digest,omitempty"`
+	Warnings     []string `json:"warnings,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 func runGate(arguments []string) int {
@@ -41,11 +48,21 @@ func runGateEval(arguments []string) int {
 
 	var policyPath string
 	var intentPath string
+	var tracePath string
+	var approvalTokenRef string
+	var keyMode string
+	var privateKeyPath string
+	var privateKeyEnv string
 	var jsonOutput bool
 	var helpFlag bool
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy yaml")
 	flagSet.StringVar(&intentPath, "intent", "", "path to intent request json")
+	flagSet.StringVar(&tracePath, "trace-out", "", "path to emitted trace JSON (default trace_<trace_id>.json)")
+	flagSet.StringVar(&approvalTokenRef, "approval-token-ref", "", "optional approval token reference")
+	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
+	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
+	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -73,16 +90,43 @@ func runGateEval(arguments []string) int {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
 	}
 
+	evalStart := time.Now()
 	result, err := gate.EvaluatePolicy(policy, intent, gate.EvalOptions{ProducerVersion: version})
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	evalLatencyMS := time.Since(evalStart).Seconds() * 1000
+
+	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
+		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(keyMode))),
+		PrivateKeyPath: privateKeyPath,
+		PrivateKeyEnv:  privateKeyEnv,
+	})
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+
+	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
+		ProducerVersion:   version,
+		ApprovalTokenRef:  approvalTokenRef,
+		LatencyMS:         evalLatencyMS,
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         tracePath,
+	})
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
 	}
 
 	return writeGateEvalOutput(jsonOutput, gateEvalOutput{
-		OK:          true,
-		Verdict:     result.Verdict,
-		ReasonCodes: result.ReasonCodes,
-		Violations:  result.Violations,
+		OK:           true,
+		Verdict:      result.Verdict,
+		ReasonCodes:  result.ReasonCodes,
+		Violations:   result.Violations,
+		TraceID:      traceResult.Trace.TraceID,
+		TracePath:    traceResult.TracePath,
+		PolicyDigest: traceResult.PolicyDigest,
+		IntentDigest: traceResult.IntentDigest,
+		Warnings:     warnings,
 	}, exitOK)
 }
 
@@ -112,11 +156,15 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 	if output.OK {
 		fmt.Printf("gate eval: verdict=%s\n", output.Verdict)
+		fmt.Printf("trace: %s\n", output.TracePath)
 		if len(output.ReasonCodes) > 0 {
 			fmt.Printf("reasons: %s\n", joinCSV(output.ReasonCodes))
 		}
 		if len(output.Violations) > 0 {
 			fmt.Printf("violations: %s\n", joinCSV(output.Violations))
+		}
+		for _, warning := range output.Warnings {
+			fmt.Printf("warning: %s\n", warning)
 		}
 		return exitCode
 	}
@@ -126,12 +174,12 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--trace-out trace.json] [--approval-token-ref token] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
 }
 
 func joinCSV(values []string) string {

@@ -10,6 +10,7 @@ type TraceRecord struct {
 	TraceID          string     `json:"trace_id"`
 	ToolName         string     `json:"tool_name"`
 	ArgsDigest       string     `json:"args_digest"`
+	IntentDigest     string     `json:"intent_digest"`
 	PolicyDigest     string     `json:"policy_digest"`
 	Verdict          string     `json:"verdict"`
 	Violations       []string   `json:"violations,omitempty"`

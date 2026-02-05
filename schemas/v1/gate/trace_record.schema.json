@@ -11,6 +11,7 @@
     "trace_id",
     "tool_name",
     "args_digest",
+    "intent_digest",
     "policy_digest",
     "verdict"
   ],
@@ -22,6 +23,7 @@
     "trace_id": { "type": "string" },
     "tool_name": { "type": "string" },
     "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
     "violations": { "type": "array", "items": { "type": "string" }, "default": [] },

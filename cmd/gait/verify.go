@@ -168,6 +168,7 @@ func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait demo")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
+	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json]")
 	fmt.Println("  gait run replay <run_id|path>")

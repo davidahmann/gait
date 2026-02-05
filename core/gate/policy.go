@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	gaitjcs "github.com/davidahmann/gait/core/jcs"
 	"github.com/goccy/go-yaml"
 
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
@@ -128,6 +129,22 @@ func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOpt
 		[]string{"default_" + normalizedPolicy.DefaultVerdict},
 		[]string{},
 	), nil
+}
+
+func PolicyDigest(policy Policy) (string, error) {
+	normalized, err := normalizePolicy(policy)
+	if err != nil {
+		return "", err
+	}
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		return "", fmt.Errorf("marshal normalized policy: %w", err)
+	}
+	digest, err := gaitjcs.DigestJCS(raw)
+	if err != nil {
+		return "", fmt.Errorf("digest policy: %w", err)
+	}
+	return digest, nil
 }
 
 func normalizePolicy(input Policy) (Policy, error) {
