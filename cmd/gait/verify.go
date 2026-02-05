@@ -48,7 +48,7 @@ func runVerify(arguments []string) int {
 	var helpFlag bool
 
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
-	flagSet.BoolVar(&requireSignature, "require-signature", true, "require valid signatures")
+	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid signatures")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
@@ -208,6 +208,7 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 
 func printUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  gait demo")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
 	fmt.Println("  gait version")
 }

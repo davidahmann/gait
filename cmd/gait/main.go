@@ -18,6 +18,8 @@ func run(arguments []string) int {
 	}
 
 	switch arguments[1] {
+	case "demo":
+		return runDemo(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
 	case "version", "--version", "-v":
