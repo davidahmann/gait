@@ -35,7 +35,7 @@ func resolveRunpackPath(input string) (string, error) {
 }
 
 func looksLikePath(input string) bool {
-	if strings.Contains(input, string(os.PathSeparator)) {
+	if strings.Contains(input, "/") || strings.Contains(input, `\`) {
 		return true
 	}
 	return strings.HasSuffix(strings.ToLower(input), ".zip")
