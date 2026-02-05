@@ -659,6 +659,73 @@ func TestCLIPolicyTestExitCodes(t *testing.T) {
 	}
 }
 
+func TestCLIDoctor(t *testing.T) {
+	root := repoRoot(t)
+	binPath := buildGaitBinary(t, root)
+
+	outputDir := filepath.Join(t.TempDir(), "gait-out")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("create output dir: %v", err)
+	}
+
+	doctorOK := exec.Command(
+		binPath,
+		"doctor",
+		"--workdir", root,
+		"--output-dir", outputDir,
+		"--json",
+	)
+	doctorOK.Dir = root
+	okOut, err := doctorOK.CombinedOutput()
+	if err != nil {
+		t.Fatalf("doctor check failed unexpectedly: %v\n%s", err, string(okOut))
+	}
+
+	var okResult struct {
+		OK         bool `json:"ok"`
+		NonFixable bool `json:"non_fixable"`
+		Checks     []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal(okOut, &okResult); err != nil {
+		t.Fatalf("parse doctor ok output: %v\n%s", err, string(okOut))
+	}
+	if !okResult.OK || okResult.NonFixable {
+		t.Fatalf("unexpected doctor ok output: %s", string(okOut))
+	}
+	if !hasCheckStatus(okResult.Checks, "schema_files", "pass") {
+		t.Fatalf("expected schema_files pass check in doctor output: %s", string(okOut))
+	}
+
+	missingWorkDir := t.TempDir()
+	doctorMissing := exec.Command(
+		binPath,
+		"doctor",
+		"--workdir", missingWorkDir,
+		"--json",
+	)
+	doctorMissing.Dir = root
+	missingOut, err := doctorMissing.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected missing schema doctor run to fail with exit code 7")
+	}
+	if code := commandExitCode(t, err); code != 7 {
+		t.Fatalf("unexpected doctor missing dependency exit code: got=%d want=7 output=%s", code, string(missingOut))
+	}
+	var missingResult struct {
+		OK         bool `json:"ok"`
+		NonFixable bool `json:"non_fixable"`
+	}
+	if err := json.Unmarshal(missingOut, &missingResult); err != nil {
+		t.Fatalf("parse doctor missing output: %v\n%s", err, string(missingOut))
+	}
+	if missingResult.OK || !missingResult.NonFixable {
+		t.Fatalf("unexpected doctor missing output: %s", string(missingOut))
+	}
+}
+
 func buildGaitBinary(t *testing.T, root string) string {
 	t.Helper()
 	binDir := t.TempDir()
@@ -698,6 +765,18 @@ func repoRoot(t *testing.T) string {
 func containsString(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCheckStatus(checks []struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}, name string, status string) bool {
+	for _, check := range checks {
+		if check.Name == name && check.Status == status {
 			return true
 		}
 	}

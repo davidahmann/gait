@@ -22,6 +22,8 @@ func run(arguments []string) int {
 		return runApprove(arguments[2:])
 	case "demo":
 		return runDemo(arguments[2:])
+	case "doctor":
+		return runDoctor(arguments[2:])
 	case "gate":
 		return runGate(arguments[2:])
 	case "policy":
