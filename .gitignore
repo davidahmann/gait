@@ -1,6 +1,7 @@
 bin/
 dist/
 /gait
+product/
 coverage-go.out
 coverage-go.txt
 .venv/
