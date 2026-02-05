@@ -14,6 +14,7 @@ import (
 
 const (
 	exitOK               = 0
+	exitPolicyBlocked    = 3
 	exitApprovalRequired = 4
 	exitRegressFailed    = 5
 	exitVerifyFailed     = 2
@@ -170,6 +171,7 @@ func printUsage() {
 	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json]")
 	fmt.Println("  gait demo")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
+	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json]")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json]")

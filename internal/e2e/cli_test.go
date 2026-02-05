@@ -544,6 +544,121 @@ rules:
 	}
 }
 
+func TestCLIPolicyTestExitCodes(t *testing.T) {
+	root := repoRoot(t)
+	binPath := buildGaitBinary(t, root)
+	workDir := t.TempDir()
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	intentContent := []byte(`{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": {"path": "/tmp/out.txt"},
+  "targets": [{"kind":"path","value":"/tmp/out.txt"}],
+  "arg_provenance": [{"arg_path":"args.path","source":"user"}],
+  "context": {"identity":"alice","workspace":"/repo/gait","risk_class":"high"}
+}`)
+	if err := os.WriteFile(intentPath, intentContent, 0o600); err != nil {
+		t.Fatalf("write intent fixture: %v", err)
+	}
+
+	allowPolicyPath := filepath.Join(workDir, "allow.yaml")
+	if err := os.WriteFile(allowPolicyPath, []byte(`default_verdict: allow`), 0o600); err != nil {
+		t.Fatalf("write allow policy: %v", err)
+	}
+	blockPolicyPath := filepath.Join(workDir, "block.yaml")
+	if err := os.WriteFile(blockPolicyPath, []byte(`default_verdict: block`), 0o600); err != nil {
+		t.Fatalf("write block policy: %v", err)
+	}
+	approvalPolicyPath := filepath.Join(workDir, "approval.yaml")
+	if err := os.WriteFile(approvalPolicyPath, []byte(`default_verdict: require_approval`), 0o600); err != nil {
+		t.Fatalf("write approval policy: %v", err)
+	}
+
+	allowA := exec.Command(binPath, "policy", "test", allowPolicyPath, intentPath, "--json")
+	allowA.Dir = workDir
+	allowAOut, err := allowA.CombinedOutput()
+	if err != nil {
+		t.Fatalf("policy test allow run A failed: %v\n%s", err, string(allowAOut))
+	}
+	allowB := exec.Command(binPath, "policy", "test", allowPolicyPath, intentPath, "--json")
+	allowB.Dir = workDir
+	allowBOut, err := allowB.CombinedOutput()
+	if err != nil {
+		t.Fatalf("policy test allow run B failed: %v\n%s", err, string(allowBOut))
+	}
+	if string(allowAOut) != string(allowBOut) {
+		t.Fatalf("expected deterministic policy test JSON output for same inputs")
+	}
+	var allowResult struct {
+		OK      bool   `json:"ok"`
+		Verdict string `json:"verdict"`
+		Summary string `json:"summary"`
+	}
+	if err := json.Unmarshal(allowAOut, &allowResult); err != nil {
+		t.Fatalf("parse allow output: %v\n%s", err, string(allowAOut))
+	}
+	if !allowResult.OK || allowResult.Verdict != "allow" {
+		t.Fatalf("unexpected allow output: %s", string(allowAOut))
+	}
+	if allowResult.Summary == "" || len(allowResult.Summary) > 240 {
+		t.Fatalf("unexpected allow summary length: %d", len(allowResult.Summary))
+	}
+
+	blockCmd := exec.Command(binPath, "policy", "test", blockPolicyPath, intentPath, "--json")
+	blockCmd.Dir = workDir
+	blockOut, err := blockCmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected block policy test to return exit code 3")
+	}
+	if code := commandExitCode(t, err); code != 3 {
+		t.Fatalf("unexpected block exit code: got=%d want=3 output=%s", code, string(blockOut))
+	}
+	var blockResult struct {
+		OK      bool   `json:"ok"`
+		Verdict string `json:"verdict"`
+	}
+	if err := json.Unmarshal(blockOut, &blockResult); err != nil {
+		t.Fatalf("parse block output: %v\n%s", err, string(blockOut))
+	}
+	if !blockResult.OK || blockResult.Verdict != "block" {
+		t.Fatalf("unexpected block output: %s", string(blockOut))
+	}
+
+	approvalCmd := exec.Command(binPath, "policy", "test", approvalPolicyPath, intentPath, "--json")
+	approvalCmd.Dir = workDir
+	approvalOut, err := approvalCmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected approval policy test to return exit code 4")
+	}
+	if code := commandExitCode(t, err); code != 4 {
+		t.Fatalf("unexpected approval exit code: got=%d want=4 output=%s", code, string(approvalOut))
+	}
+	var approvalResult struct {
+		OK      bool   `json:"ok"`
+		Verdict string `json:"verdict"`
+	}
+	if err := json.Unmarshal(approvalOut, &approvalResult); err != nil {
+		t.Fatalf("parse approval output: %v\n%s", err, string(approvalOut))
+	}
+	if !approvalResult.OK || approvalResult.Verdict != "require_approval" {
+		t.Fatalf("unexpected approval output: %s", string(approvalOut))
+	}
+
+	invalid := exec.Command(binPath, "policy", "test", allowPolicyPath, "--json")
+	invalid.Dir = workDir
+	invalidOut, err := invalid.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected invalid policy test invocation to fail with exit code 6")
+	}
+	if code := commandExitCode(t, err); code != 6 {
+		t.Fatalf("unexpected invalid-input exit code: got=%d want=6 output=%s", code, string(invalidOut))
+	}
+}
+
 func buildGaitBinary(t *testing.T, root string) string {
 	t.Helper()
 	binDir := t.TempDir()

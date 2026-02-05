@@ -24,6 +24,8 @@ func run(arguments []string) int {
 		return runDemo(arguments[2:])
 	case "gate":
 		return runGate(arguments[2:])
+	case "policy":
+		return runPolicy(arguments[2:])
 	case "trace":
 		return runTrace(arguments[2:])
 	case "regress":
