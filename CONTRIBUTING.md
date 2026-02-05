@@ -40,6 +40,40 @@ This runs `make lint` and `make test` on every push.
 - Python: `ruff`, `mypy`, `pytest`
 - Coverage must be **>= 85%** for Go core and Python SDK.
 
+## Troubleshooting lint/test environment
+
+### `govulncheck` cannot reach `vuln.go.dev`
+
+`govulncheck` requires network access to the Go vulnerability database.
+
+- Verify outbound HTTPS and DNS resolution are allowed.
+- In restricted corporate environments, configure a mirror with `GOVULNDB`.
+- If module fetches are also blocked, verify `GOPROXY` and `GONOSUMDB` policy settings.
+
+Example:
+
+```
+GOVULNDB=https://vuln.go.dev \
+go run golang.org/x/vuln/cmd/govulncheck@latest -mode=binary ./gait
+```
+
+### `uv run pytest` or `uv run ...` fails due cache/runtime constraints
+
+If `uv` fails in restricted or sandboxed environments, point caches to the repo workspace and retry:
+
+```
+mkdir -p .cache/uv .cache/go-build
+UV_CACHE_DIR=$PWD/.cache/uv \
+GOCACHE=$PWD/.cache/go-build \
+make test
+```
+
+If `uv` crashes, upgrade to a current version and retry:
+
+```
+uv self update
+```
+
 ## Issues and PRs
 
 - Use the provided issue templates.

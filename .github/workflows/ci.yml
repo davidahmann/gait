@@ -43,6 +43,7 @@ jobs:
           cd sdk/python
           uv run --extra dev ruff check
           uv run --extra dev mypy
+          uv run --extra dev bandit -q -r gait
 
   test:
     runs-on: ${{ matrix.os }}

@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"encoding/json"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -42,6 +44,37 @@ func TestCLIDemoVerify(t *testing.T) {
 	}
 	if !strings.Contains(string(verifyOut), "verify ok") {
 		t.Fatalf("unexpected verify output: %s", string(verifyOut))
+	}
+
+	regressInit := exec.Command(binPath, "regress", "init", "--from", "run_demo", "--json")
+	regressInit.Dir = workDir
+	regressOut, err := regressInit.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gait regress init failed: %v\n%s", err, string(regressOut))
+	}
+	var regressResult struct {
+		OK          bool   `json:"ok"`
+		RunID       string `json:"run_id"`
+		ConfigPath  string `json:"config_path"`
+		RunpackPath string `json:"runpack_path"`
+	}
+	if err := json.Unmarshal(regressOut, &regressResult); err != nil {
+		t.Fatalf("parse regress init json output: %v\n%s", err, string(regressOut))
+	}
+	if !regressResult.OK || regressResult.RunID != "run_demo" {
+		t.Fatalf("unexpected regress result: %s", string(regressOut))
+	}
+	if regressResult.ConfigPath != "gait.yaml" {
+		t.Fatalf("unexpected config path: %s", regressResult.ConfigPath)
+	}
+	if regressResult.RunpackPath != "fixtures/run_demo/runpack.zip" {
+		t.Fatalf("unexpected runpack path: %s", regressResult.RunpackPath)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "gait.yaml")); err != nil {
+		t.Fatalf("expected gait.yaml to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "fixtures", "run_demo", "runpack.zip")); err != nil {
+		t.Fatalf("expected fixture runpack to exist: %v", err)
 	}
 }
 

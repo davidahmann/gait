@@ -21,6 +21,7 @@ lint:
 	$(GO) run golang.org/x/vuln/cmd/govulncheck@latest -mode=binary ./gait
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev ruff check)
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev mypy)
+	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev bandit -q -r gait)
 
 test:
 	$(GO) test ./...

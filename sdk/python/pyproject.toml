@@ -11,6 +11,7 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.8",
   "mypy>=1.8",
+  "bandit>=1.7",
 ]
 
 [tool.pytest.ini_options]

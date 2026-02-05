@@ -246,6 +246,7 @@ func writeReplayOutput(jsonOutput bool, output replayOutput, exitCode int) int {
 
 func printRunUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json]")
 	fmt.Println("  gait run replay <run_id|path> [--json]")
 }
 
