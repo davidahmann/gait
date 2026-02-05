@@ -16,3 +16,5 @@ sdk/python/.mypy_cache/
 sdk/python/.ruff_cache/
 sdk/python/.coverage
 sdk/python/htmlcov/
+perf/bench_output.txt
+perf/bench_report.json

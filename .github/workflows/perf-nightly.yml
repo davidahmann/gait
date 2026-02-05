@@ -1,0 +1,35 @@
+name: perf-nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run benchmarks
+        env:
+          GOMAXPROCS: "1"
+        run: |
+          mkdir -p perf
+          go test ./core/gate ./core/runpack -run '^$' -bench 'Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical)$' -benchmem -count=5 | tee perf/bench_output.txt
+      - name: Check benchmark regressions
+        run: |
+          python scripts/check_bench_regression.py perf/bench_output.txt perf/bench_baseline.json perf/bench_report.json
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-nightly-${{ github.run_id }}
+          path: |
+            perf/bench_output.txt
+            perf/bench_report.json

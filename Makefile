@@ -8,8 +8,12 @@ PYTHON_COVERAGE_THRESHOLD ?= 85
 SDK_DIR := sdk/python
 UV_PY := 3.13
 GO_COVERAGE_PACKAGES := ./core/... ./cmd/gait
+BENCH_PACKAGES := ./core/gate ./core/runpack
+BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical)$$
+BENCH_OUTPUT ?= perf/bench_output.txt
+BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-e2e build
+.PHONY: fmt lint test test-e2e build bench bench-check
 .PHONY: hooks
 
 fmt:
@@ -41,6 +45,13 @@ test-e2e:
 
 build:
 	$(GO) build ./cmd/gait
+
+bench:
+	mkdir -p perf
+	GOMAXPROCS=1 $(GO) test $(BENCH_PACKAGES) -run '^$$' -bench '$(BENCH_REGEX)' -benchmem -count=5 | tee $(BENCH_OUTPUT)
+
+bench-check: bench
+	$(PYTHON) scripts/check_bench_regression.py $(BENCH_OUTPUT) $(BENCH_BASELINE) perf/bench_report.json
 
 hooks:
 	git config core.hooksPath .githooks

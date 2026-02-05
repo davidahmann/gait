@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "benchmarks": {
+    "BenchmarkEvaluatePolicyTypical": {
+      "baseline_ns_op": 5856,
+      "max_regression_factor": 4.0
+    },
+    "BenchmarkVerifyZipTypical": {
+      "baseline_ns_op": 91011,
+      "max_regression_factor": 4.0
+    },
+    "BenchmarkDiffRunpacksTypical": {
+      "baseline_ns_op": 296633,
+      "max_regression_factor": 4.0
+    }
+  }
+}
