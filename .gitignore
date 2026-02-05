@@ -4,6 +4,7 @@ dist/
 product/
 coverage-go.out
 coverage-go.txt
+coverage-*.out
 .venv/
 .python-version
 __pycache__/
