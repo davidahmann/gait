@@ -20,9 +20,10 @@ type ManifestFile struct {
 }
 
 type Signature struct {
-	Alg   string `json:"alg"`
-	KeyID string `json:"key_id"`
-	Sig   string `json:"sig"`
+	Alg          string `json:"alg"`
+	KeyID        string `json:"key_id"`
+	Sig          string `json:"sig"`
+	SignedDigest string `json:"signed_digest,omitempty"`
 }
 
 type Run struct {

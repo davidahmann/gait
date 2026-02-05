@@ -41,7 +41,8 @@
         "properties": {
           "alg": { "type": "string" },
           "key_id": { "type": "string" },
-          "sig": { "type": "string" }
+          "sig": { "type": "string" },
+          "signed_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
         },
         "additionalProperties": false
       },
