@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runpack/intent.schema.json",
+  "title": "Runpack Intent (JSONL record)",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "intent_id",
+    "tool_name",
+    "args_digest"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.runpack.intent" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "intent_id": { "type": "string" },
+    "tool_name": { "type": "string" },
+    "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "args": { "type": "object" }
+  },
+  "additionalProperties": false
+}

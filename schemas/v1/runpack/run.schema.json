@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runpack/run.schema.json",
+  "title": "Runpack Run",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "env",
+    "timeline"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.runpack.run" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "env": {
+      "type": "object",
+      "required": ["os", "arch", "runtime"],
+      "properties": {
+        "os": { "type": "string" },
+        "arch": { "type": "string" },
+        "runtime": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event", "ts"],
+        "properties": {
+          "event": { "type": "string" },
+          "ts": { "type": "string", "format": "date-time" },
+          "ref": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": false
+}

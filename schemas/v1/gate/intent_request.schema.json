@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/intent_request.schema.json",
+  "title": "Gate Intent Request",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "tool_name",
+    "args",
+    "args_digest",
+    "context"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.intent_request" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "tool_name": { "type": "string" },
+    "args": { "type": "object" },
+    "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "context": {
+      "type": "object",
+      "required": ["identity", "risk_class"],
+      "properties": {
+        "identity": { "type": "string" },
+        "risk_class": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

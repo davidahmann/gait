@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runpack/manifest.schema.json",
+  "title": "Runpack Manifest",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "capture_mode",
+    "files",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.runpack.manifest" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "capture_mode": { "type": "string", "enum": ["reference", "raw"] },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "manifest_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["alg", "key_id", "sig"],
+        "properties": {
+          "alg": { "type": "string" },
+          "key_id": { "type": "string" },
+          "sig": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "default": []
+    }
+  },
+  "additionalProperties": false
+}

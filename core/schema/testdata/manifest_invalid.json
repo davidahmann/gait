@@ -1,0 +1,10 @@
+{
+  "schema_id": "gait.runpack.manifest",
+  "schema_version": "1.0.0",
+  "created_at": "not-a-time",
+  "producer_version": "0.0.0-dev",
+  "run_id": "bad",
+  "capture_mode": "reference",
+  "files": [],
+  "manifest_digest": "xyz"
+}

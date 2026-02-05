@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runpack/refs.schema.json",
+  "title": "Runpack Reference Receipts",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "receipts"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.runpack.refs" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "ref_id",
+          "source_type",
+          "source_locator",
+          "query_digest",
+          "content_digest",
+          "retrieved_at",
+          "redaction_mode"
+        ],
+        "properties": {
+          "ref_id": { "type": "string" },
+          "source_type": { "type": "string" },
+          "source_locator": { "type": "string" },
+          "query_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "content_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "retrieved_at": { "type": "string", "format": "date-time" },
+          "redaction_mode": { "type": "string" },
+          "sensitivity_label": { "type": "string" },
+          "retrieval_params": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

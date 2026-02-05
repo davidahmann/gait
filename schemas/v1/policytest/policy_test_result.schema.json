@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/policytest/policy_test_result.schema.json",
+  "title": "Policy Test Result",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "policy_digest",
+    "intent_digest",
+    "verdict",
+    "reason_codes",
+    "violations"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.policytest.result" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
+    "reason_codes": { "type": "array", "items": { "type": "string" } },
+    "violations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

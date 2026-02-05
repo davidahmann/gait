@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/runpack/result.schema.json",
+  "title": "Runpack Result (JSONL record)",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "intent_id",
+    "status",
+    "result_digest"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.runpack.result" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "intent_id": { "type": "string" },
+    "status": { "type": "string", "enum": ["ok", "error"] },
+    "result_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "result": { "type": "object" }
+  },
+  "additionalProperties": false
+}
