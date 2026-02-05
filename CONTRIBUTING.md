@@ -24,6 +24,16 @@ Then verify:
 pre-commit run --all-files
 ```
 
+## Pre-push (required)
+
+Enable the repo pre-push hook:
+
+```
+make hooks
+```
+
+This runs `make lint` and `make test` on every push.
+
 ## Code quality
 
 - Go: `gofmt`, `golangci-lint`, `go vet`, `gosec`, `govulncheck`
@@ -35,4 +45,3 @@ pre-commit run --all-files
 - Use the provided issue templates.
 - Keep PRs focused and include tests.
 - Avoid adding network dependencies to core flows.
-

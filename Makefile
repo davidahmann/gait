@@ -7,6 +7,7 @@ SDK_DIR := sdk/python
 UV_PY := 3.13
 
 .PHONY: fmt lint test test-e2e build
+.PHONY: hooks
 
 fmt:
 	gofmt -w .
@@ -32,3 +33,6 @@ test-e2e:
 
 build:
 	$(GO) build ./cmd/gait
+
+hooks:
+	git config core.hooksPath .githooks

@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+echo "[gait] running pre-push checks: make lint"
+make lint
+
+echo "[gait] running pre-push checks: make test"
+make test
