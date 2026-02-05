@@ -1,0 +1,12 @@
+{
+  "intent_digest": "6660565b20fa03709e635691a7673921ff7ba20a2b731a162f6f7e63c6b5bb3b",
+  "policy_digest": "f4581f55c41a3ee69b316c95f66fbfc293ae7f06e6458491e3ca232dfb26608c",
+  "reason_codes": [
+    "blocked_external"
+  ],
+  "trace_id": "1b16531a60fcae7245255cda",
+  "verdict": "block",
+  "violations": [
+    "external_target"
+  ]
+}
