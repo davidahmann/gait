@@ -1,21 +1,23 @@
 # Gait
 
-Gait is an offline-first CLI that makes production AI agent runs controllable and debuggable by default:
+Gait is an offline-first CLI that makes production AI agent runs **controllable and debuggable by default**.
 
-- **Runpack**: record, verify, diff, replay (stub by default)
-- **Regress**: turn runpacks into deterministic CI regressions
-- **Gate**: evaluate tool-call intent against policy with signed traces
-- **Doctor**: first-5-minutes diagnostics with stable JSON output
+When an agent touches real tools, credentials, production data, or money, "logs" are not enough. Gait turns each run into a **verifiable artifact** you can paste into an incident ticket, diff deterministically, and convert into a CI regression.
 
-The product contract is artifacts + schemas, not a hosted UI.
+- **Runpack**: produce and verify an integrity-checked `runpack_<run_id>.zip` (demo today; adapters capture real runs)
+- **Regress**: turn runpacks into deterministic CI tests (with stable exit codes and optional JUnit)
+- **Gate**: enforce policy on *structured tool-call intent* (not prompts) and emit signed trace records
+- **Doctor**: first-5-minutes diagnostics with stable `--json`
 
-## Start Here
+The durable product contract is **artifacts, schemas, and exit codes**, not a hosted UI.
 
-Use one install path: download a release binary from GitHub Releases:
+## Start Here (5 minutes, offline)
 
-- <https://github.com/davidahmann/gait/releases>
+Install by downloading a release binary:
 
-Then run:
+- https://github.com/davidahmann/gait/releases
+
+Run the offline demo and verify the artifact:
 
 ```bash
 gait demo
@@ -31,19 +33,64 @@ ticket_footer=GAIT run_id=run_demo manifest=sha256:<digest> verify="gait verify 
 verify=ok
 ```
 
-## Ticket Footer Semantics
+Replay deterministically (stubs by default):
 
-`ticket_footer` is a copy/paste-ready receipt for incident tickets:
+```bash
+gait run replay --json run_demo
+```
 
-- `run_id`: stable handle for this execution artifact set
-- `manifest=sha256:<digest>`: immutable manifest digest
+## The Receipt You Paste Into Tickets
+
+The `ticket_footer` line is a copy/paste receipt designed for incident threads, PRs, and CI logs:
+
+- `run_id`: the stable handle for this artifact set
+- `manifest=sha256:<digest>`: immutable digest of the runpack manifest
 - `verify="gait verify <run_id>"`: one-command integrity check
 
-Use it to move from vague incident reports to reproducible artifacts.
+This is the core workflow: convert "the agent did something" into **a reproducible artifact**.
 
-## Incident To Regress
+## Why Gait Exists
 
-When an incident happens, convert it into a deterministic regression:
+Teams shipping agents to production eventually hit the same hair-on-fire questions:
+
+- What did the agent reference or retrieve?
+- What tool calls did it actually make?
+- What changed between two runs?
+- Was that action allowed under policy?
+- Can we prove it to security, audit, or incident review?
+
+As agents scale, humans stop reading every generated plan, prompt, or code path. Trust has to scale through **deterministic artifacts** and **enforced boundaries**.
+
+## How It Works (v1)
+
+Gait is built around a small number of strict contracts:
+
+1. **Offline-first**: core workflows do not require network access.
+2. **Determinism**: `verify`, `diff`, and stub replay are deterministic for the same artifacts.
+3. **Default privacy**: record reference receipts by default, not raw sensitive payloads.
+4. **Fail-closed safety**: in high-risk modes, inability to evaluate policy blocks execution.
+5. **Schema stability**: artifacts and `--json` outputs are versioned and backward-compatible within a major.
+
+### What You Get (Artifacts)
+
+Gait emits and consumes a few canonical artifacts:
+
+- **Runpack**: `runpack_<run_id>.zip`
+  - `manifest.json` (hashes, schema ids/versions, capture mode, optional signatures)
+  - `run.json` (run metadata)
+  - `intents.jsonl` (normalized tool-call intents)
+  - `results.jsonl` (normalized tool-call results, with redaction rules applied)
+  - `refs.json` (reference receipts by default)
+- **Regress**: `regress_result.json` (optional `junit.xml`)
+- **Gate trace**: `trace_<trace_id>.json` (signed trace record per decision)
+
+Schemas live under `schemas/v1/`. Go types are authoritative under `core/schema/v1/`.
+
+## Core Workflows
+
+### 1) Incident To CI Regression
+
+Convert a run artifact into a deterministic regression test:
 
 ```bash
 gait demo
@@ -51,16 +98,27 @@ gait regress init --from run_demo --json
 gait regress run --json
 ```
 
-Expected outcomes:
+What happens:
 
-- `gait regress init` creates `gait.yaml` and `fixtures/<name>/runpack.zip`
-- `gait regress run` returns `status=pass` or `status=fail` with stable exit codes
+- `gait regress init` writes `gait.yaml` and a fixture under `fixtures/`
+- `gait regress run` runs deterministic graders and emits `regress_result.json`
+- Use `--junit=./junit.xml` to produce CI-friendly test reports
 
-## Gate High-Risk Tools
+### 2) Deterministic Diff (With Privacy Modes)
 
-Use Gate to enforce policy at the tool boundary before side effects.
+Diff two runpacks deterministically:
 
-Allow/block/approval flow (offline):
+```bash
+gait run diff --privacy=metadata --json <left_run_id_or_path> <right_run_id_or_path>
+```
+
+`--privacy=metadata` avoids payload diffs and focuses on stable structural drift.
+
+### 3) Gate High-Risk Tools (Policy At The Tool Boundary)
+
+Gate evaluates **structured tool-call intent** (tool name, args, declared targets/destinations, context). Prompts and retrieved content are not policy inputs.
+
+Policy test flow (offline):
 
 ```bash
 gait policy test examples/policy-test/allow.yaml examples/policy-test/intent.json --json
@@ -68,20 +126,20 @@ gait policy test examples/policy-test/block.yaml examples/policy-test/intent.jso
 gait policy test examples/policy-test/require_approval.yaml examples/policy-test/intent.json --json
 ```
 
-Expected exit codes:
+Exit codes:
 
 - `0`: allow
 - `3`: block
 - `4`: require approval
 
-## Why Gate Exists (Enterprise Context)
+#### Why Gate Exists (Enterprise Context)
 
-In agent systems, **instructions** and **data** often collide:
+In agent systems, **instructions** and **data** collide:
 
-- User or external content can smuggle tool-like instructions into prompts.
-- If policy is not enforced at the execution boundary, privileged tools can run from untrusted context.
+- External content can smuggle tool-like instructions into the agent context.
+- If enforcement is not at the execution boundary, privileged tools can run from untrusted input.
 
-Gate addresses this by making tool execution depend on deterministic policy evaluation over typed intent.
+Gate blocks this by making tool execution depend on deterministic evaluation over typed intent.
 
 Concrete blocked example:
 
@@ -91,16 +149,81 @@ gait policy test examples/prompt-injection/policy.yaml examples/prompt-injection
 
 Expected result: verdict `block` with reason code `blocked_prompt_injection`.
 
-## Offline Examples
+### 4) Approvals And Signed Traces
 
-See `/examples` for offline-safe, no-secrets examples:
+When policy requires approval, mint a scoped approval token:
 
-- `/examples/stub-replay`
-- `/examples/policy-test`
-- `/examples/regress-run`
-- `/examples/prompt-injection`
-- `/examples/python` (thin adapter SDK path)
+```bash
+gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl 1h --scope tool.write --approver you@company --reason-code change_ticket_123 --json
+```
 
-## Scope (v1)
+Every gate decision can produce a trace record. Verify trace integrity offline:
 
-Runpack, Regress, Gate, Doctor, and minimal adapter surfaces only.
+```bash
+gait trace verify ./trace_<trace_id>.json --json --public-key ./public.key
+```
+
+## Security, Privacy, And Integrity
+
+- **Default-safe recording**: runpacks store reference receipts by default (no raw sensitive content unless explicitly enabled).
+- **Integrity checks**: `gait verify` checks file hashes deterministically.
+- **Signatures**: runpacks may include signatures; gate trace records are signed. Verification requires a configured public key.
+- **Release integrity**: release signing/SBOM/provenance is separate from runpack and trace signing.
+
+## Stable Exit Codes (API Surface)
+
+Exit codes are part of the contract:
+
+- `0`: success
+- `1`: generic failure
+- `2`: verification failed
+- `3`: policy block
+- `4`: approval required
+- `5`: regress failed
+- `6`: invalid input/schema
+- `7`: doctor indicates non-fixable missing dependency
+- `8`: unsafe operation attempted without explicit flag
+
+## Examples (Offline-Safe)
+
+See `examples/` for exact commands and expected outcomes:
+
+- `examples/stub-replay/`
+- `examples/policy-test/`
+- `examples/regress-run/`
+- `examples/prompt-injection/`
+- `examples/python/` (thin adapter demo calling local `gait`)
+
+## Python SDK (Thin Adoption Layer)
+
+Python is an adoption layer only: serialization and subprocess boundary, no policy logic.
+
+- Package: `sdk/python/gait/`
+- Tests: `sdk/python/tests/`
+
+## Development
+
+Local commands:
+
+```bash
+make fmt
+make lint
+make test
+make test-e2e
+make test-acceptance
+```
+
+Enable hooks:
+
+```bash
+pre-commit install --hook-type pre-commit --hook-type pre-push
+```
+
+## Project Links
+
+- Security policy: `SECURITY.md`
+- Contributing: `CONTRIBUTING.md`
+- Code of conduct: `CODE_OF_CONDUCT.md`
+- Product plan: `product/PLAN_v1.md`
+- Product requirements: `product/PRD.md`
+- Roadmap: `product/ROADMAP.md`
