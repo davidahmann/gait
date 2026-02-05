@@ -85,13 +85,20 @@ Gait emits and consumes a few canonical artifacts:
   - `refs.json` (reference receipts by default)
 - **Regress**: `regress_result.json` (optional `junit.xml`)
 - **Gate trace**: `trace_<trace_id>.json` (signed trace record per decision)
+- **Scout snapshot**: `inventory_snapshot_<snapshot_id>.json` and optional `inventory_coverage_<snapshot_id>.json`
+- **Guard evidence pack**: `evidence_pack_<pack_id>.zip` with `pack_manifest.json`
+- **Run reducer report**: `<reduced_runpack>.reduce_report.json`
+- **Registry metadata cache**: `registry_pack.json` plus local pin files under `~/.gait/registry/pins/`
 
 Schemas live under `schemas/v1/`. Go types are authoritative under `core/schema/v1/`.
 
-Reserved v1.1+ foundations already shipped in v1:
+Coverage and pack foundations:
 
-- Interfaces: `core/scout/`, `core/guard/`, `core/mcp/`
-- Schemas: `schemas/v1/scout/inventory_snapshot.schema.json`, `schemas/v1/guard/pack_manifest.schema.json`, `schemas/v1/registry/registry_pack.schema.json`
+- `gait scout snapshot` discovers inventory from workspace files and computes policy coverage.
+- `gait scout diff` reports deterministic inventory drift.
+- `gait guard pack` builds evidence packs; `gait guard verify` verifies pack integrity offline.
+- `gait registry install` installs signed manifests with allowlisted remote hosts and pinning.
+- `gait run reduce` emits minimized runpacks that still trigger selected failure predicates.
 
 ## Core Workflows
 
@@ -134,6 +141,14 @@ gait run diff <left_run_id_or_path> <right_run_id_or_path> --privacy=metadata --
 ```
 
 `--privacy=metadata` avoids payload diffs and focuses on stable structural drift.
+
+### 2.5) Minimize A Failing Runpack
+
+Reduce to the smallest artifact that still triggers a chosen failure predicate:
+
+```bash
+gait run reduce --from <run_id_or_path> --predicate missing_result --json
+```
 
 ### 3) Gate High-Risk Tools (Policy At The Tool Boundary)
 
@@ -190,6 +205,9 @@ Every major command supports `--explain` for short, stable intent text:
 
 ```bash
 gait run record --explain
+gait scout snapshot --explain
+gait guard pack --explain
+gait registry install --explain
 gait migrate --explain
 gait gate eval --explain
 ```

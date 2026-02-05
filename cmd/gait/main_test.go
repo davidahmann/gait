@@ -12,8 +12,10 @@ import (
 	"time"
 
 	"github.com/davidahmann/gait/core/doctor"
+	"github.com/davidahmann/gait/core/jcs"
 	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	"github.com/davidahmann/gait/core/sign"
 )
 
@@ -56,6 +58,24 @@ func TestRunDispatch(t *testing.T) {
 	}
 	if code := run([]string{"gait", "run", "record", "--help"}); code != exitOK {
 		t.Fatalf("run record help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "run", "reduce", "--help"}); code != exitOK {
+		t.Fatalf("run reduce help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "scout", "snapshot", "--help"}); code != exitOK {
+		t.Fatalf("run scout snapshot help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "scout", "diff", "--help"}); code != exitOK {
+		t.Fatalf("run scout diff help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "guard", "pack", "--help"}); code != exitOK {
+		t.Fatalf("run guard pack help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "guard", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run guard verify help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "registry", "install", "--help"}); code != exitOK {
+		t.Fatalf("run registry install help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "migrate", "--help"}); code != exitOK {
 		t.Fatalf("run migrate help: expected %d got %d", exitOK, code)
@@ -347,6 +367,149 @@ func TestRunRecordAndMigrateFlow(t *testing.T) {
 	}
 }
 
+func TestScoutGuardRegistryAndReduceFlow(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	pythonPath := filepath.Join(workDir, "agent.py")
+	mustWriteFile(t, pythonPath, strings.Join([]string{
+		"from langchain.tools import tool",
+		"@tool",
+		"def delete_user():",
+		"    return \"ok\"",
+	}, "\n")+"\n")
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-delete",
+		"    priority: 1",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [delete_user]",
+	}, "\n")+"\n")
+	snapshotPath := filepath.Join(workDir, "inventory_snapshot.json")
+	coveragePath := filepath.Join(workDir, "inventory_coverage.json")
+	if code := runScoutSnapshot([]string{
+		"--roots", workDir,
+		"--policy", policyPath,
+		"--out", snapshotPath,
+		"--coverage-out", coveragePath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runScoutSnapshot: expected %d got %d", exitOK, code)
+	}
+	if _, err := os.Stat(snapshotPath); err != nil {
+		t.Fatalf("snapshot output missing: %v", err)
+	}
+	if _, err := os.Stat(coveragePath); err != nil {
+		t.Fatalf("coverage output missing: %v", err)
+	}
+
+	runpackPath := filepath.Join(workDir, "runpack_run_reduce_flow.zip")
+	_, err := runpack.WriteRunpack(runpackPath, runpack.RecordOptions{
+		Run: schemarunpack.Run{
+			RunID:           "run_reduce_flow",
+			CreatedAt:       time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+			ProducerVersion: "0.0.0-dev",
+		},
+		Intents: []schemarunpack.IntentRecord{{
+			IntentID:   "intent_missing",
+			RunID:      "run_reduce_flow",
+			ToolName:   "tool.delete",
+			ArgsDigest: strings.Repeat("a", 64),
+		}},
+		Results: nil,
+		Refs:    schemarunpack.Refs{RunID: "run_reduce_flow"},
+	})
+	if err != nil {
+		t.Fatalf("write runpack: %v", err)
+	}
+	reducedPath := filepath.Join(workDir, "reduced.zip")
+	reportPath := filepath.Join(workDir, "reduce_report.json")
+	if code := runReduce([]string{
+		"--from", runpackPath,
+		"--predicate", "missing_result",
+		"--out", reducedPath,
+		"--report-out", reportPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runReduce: expected %d got %d", exitOK, code)
+	}
+	if _, err := os.Stat(reducedPath); err != nil {
+		t.Fatalf("reduced runpack missing: %v", err)
+	}
+	if _, err := os.Stat(reportPath); err != nil {
+		t.Fatalf("reduce report missing: %v", err)
+	}
+
+	packPath := filepath.Join(workDir, "evidence_pack.zip")
+	if code := runGuardPack([]string{
+		"--run", runpackPath,
+		"--inventory", snapshotPath,
+		"--out", packPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGuardPack: expected %d got %d", exitOK, code)
+	}
+	if code := runGuardVerify([]string{packPath, "--json"}); code != exitOK {
+		t.Fatalf("runGuardVerify: expected %d got %d", exitOK, code)
+	}
+
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	registryManifestPath := filepath.Join(workDir, "registry_pack.json")
+	manifest := map[string]any{
+		"schema_id":        "gait.registry.pack",
+		"schema_version":   "1.0.0",
+		"created_at":       "2026-01-01T00:00:00Z",
+		"producer_version": "0.0.0-dev",
+		"pack_name":        "baseline-highrisk",
+		"pack_version":     "1.1.0",
+		"artifacts": []map[string]string{
+			{"path": "policy.yaml", "sha256": strings.Repeat("a", 64)},
+		},
+	}
+	signableRaw, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal signable manifest: %v", err)
+	}
+	digest, err := jcs.DigestJCS(signableRaw)
+	if err != nil {
+		t.Fatalf("digest signable manifest: %v", err)
+	}
+	signature, err := sign.SignDigestHex(keyPair.Private, digest)
+	if err != nil {
+		t.Fatalf("sign digest: %v", err)
+	}
+	manifest["signatures"] = []map[string]string{{
+		"alg":           signature.Alg,
+		"key_id":        signature.KeyID,
+		"sig":           signature.Sig,
+		"signed_digest": signature.SignedDigest,
+	}}
+	manifestRaw, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal signed manifest: %v", err)
+	}
+	if err := os.WriteFile(registryManifestPath, manifestRaw, 0o600); err != nil {
+		t.Fatalf("write registry manifest: %v", err)
+	}
+	publicKeyPath := filepath.Join(workDir, "public.key")
+	if err := os.WriteFile(publicKeyPath, []byte(base64.StdEncoding.EncodeToString(keyPair.Public)), 0o600); err != nil {
+		t.Fatalf("write public key: %v", err)
+	}
+	if code := runRegistryInstall([]string{
+		"--source", registryManifestPath,
+		"--public-key", publicKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runRegistryInstall: expected %d got %d", exitOK, code)
+	}
+}
+
 func TestRunRecordAndMigrateBranches(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
@@ -427,7 +590,7 @@ func TestRunRecordAndMigrateBranches(t *testing.T) {
 	if got := displayOutputPath("./gait-out/runpack.zip"); got != "./gait-out/runpack.zip" {
 		t.Fatalf("displayOutputPath dot-prefixed: got %s", got)
 	}
-	if got := defaultMigratedRunpackPath("/tmp/input.zip", ""); got != "/tmp/input_migrated.zip" {
+	if got := defaultMigratedRunpackPath(filepath.FromSlash("/tmp/input.zip"), ""); got != filepath.FromSlash("/tmp/input_migrated.zip") {
 		t.Fatalf("defaultMigratedRunpackPath fallback: got %s", got)
 	}
 }
@@ -462,6 +625,24 @@ func TestCommandRoutersAndHelpers(t *testing.T) {
 	}
 	if code := runCommand([]string{"unknown"}); code != exitInvalidInput {
 		t.Fatalf("runCommand unknown: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runScout(nil); code != exitInvalidInput {
+		t.Fatalf("runScout no args: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runScout([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runScout unknown: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuard(nil); code != exitInvalidInput {
+		t.Fatalf("runGuard no args: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuard([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runGuard unknown: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRegistry(nil); code != exitInvalidInput {
+		t.Fatalf("runRegistry no args: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRegistry([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runRegistry unknown: expected %d got %d", exitInvalidInput, code)
 	}
 	if code := runMigrate(nil); code != exitInvalidInput {
 		t.Fatalf("runMigrate no args: expected %d got %d", exitInvalidInput, code)
@@ -527,6 +708,21 @@ func TestValidationBranches(t *testing.T) {
 	}
 	if code := runMigrate([]string{"--target", "v2", "--json"}); code != exitInvalidInput {
 		t.Fatalf("runMigrate invalid target: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runReduce([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runReduce missing from: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runScoutSnapshot([]string{"--roots", filepath.Join(workDir, "missing"), "--json"}); code != exitInvalidInput {
+		t.Fatalf("runScoutSnapshot missing root: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuardPack([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runGuardPack missing run: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuardVerify([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runGuardVerify missing path: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRegistryInstall([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runRegistryInstall missing source: expected %d got %d", exitInvalidInput, code)
 	}
 	if code := runDiff([]string{"--json", "left-only"}); code != exitInvalidInput {
 		t.Fatalf("runDiff positional args: expected %d got %d", exitInvalidInput, code)

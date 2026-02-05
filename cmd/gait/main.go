@@ -37,6 +37,12 @@ func run(arguments []string) int {
 		return runRegress(arguments[2:])
 	case "run":
 		return runCommand(arguments[2:])
+	case "scout":
+		return runScout(arguments[2:])
+	case "guard":
+		return runGuard(arguments[2:])
+	case "registry":
+		return runRegistry(arguments[2:])
 	case "migrate":
 		return runMigrate(arguments[2:])
 	case "verify":

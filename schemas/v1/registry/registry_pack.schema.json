@@ -19,6 +19,16 @@
     "producer_version": { "type": "string" },
     "pack_name": { "type": "string" },
     "pack_version": { "type": "string" },
+    "risk_class": { "type": "string" },
+    "use_case": { "type": "string" },
+    "compatibility": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true
+    },
     "artifacts": {
       "type": "array",
       "items": {

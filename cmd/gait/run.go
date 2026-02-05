@@ -30,6 +30,18 @@ type diffOutput struct {
 	Error   string              `json:"error,omitempty"`
 }
 
+type reduceOutput struct {
+	OK           bool                  `json:"ok"`
+	Input        string                `json:"input,omitempty"`
+	Output       string                `json:"output,omitempty"`
+	ReportPath   string                `json:"report_path,omitempty"`
+	RunID        string                `json:"run_id,omitempty"`
+	ReducedRunID string                `json:"reduced_run_id,omitempty"`
+	Predicate    string                `json:"predicate,omitempty"`
+	Report       *runpack.ReduceReport `json:"report,omitempty"`
+	Error        string                `json:"error,omitempty"`
+}
+
 func runCommand(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Work with runpacks: record an artifact from normalized run data, replay deterministically in stub mode, and diff runs with stable output.")
@@ -45,6 +57,8 @@ func runCommand(arguments []string) int {
 		return runDiff(arguments[1:])
 	case "replay":
 		return runReplay(arguments[1:])
+	case "reduce":
+		return runReduce(arguments[1:])
 	default:
 		printRunUsage()
 		return exitInvalidInput
@@ -265,9 +279,117 @@ func printRunUsage() {
 	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--json] [--explain]")
 	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--explain]")
+	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")
 }
 
 func printReplayUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools] [--explain]")
+}
+
+func runReduce(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Reduce a runpack to the smallest deterministic artifact that still triggers a selected failure predicate.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"from":       true,
+		"predicate":  true,
+		"out":        true,
+		"report-out": true,
+	})
+	flagSet := flag.NewFlagSet("reduce", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var from string
+	var predicateRaw string
+	var outPath string
+	var reportOut string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&from, "from", "", "runpack path or run_id")
+	flagSet.StringVar(&predicateRaw, "predicate", string(runpack.PredicateMissingResult), "failure predicate: missing_result|non_ok_status")
+	flagSet.StringVar(&outPath, "out", "", "output path for minimized runpack")
+	flagSet.StringVar(&reportOut, "report-out", "", "output path for reducer report JSON")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if helpFlag {
+		printReduceUsage()
+		return exitOK
+	}
+	remaining := flagSet.Args()
+	if from == "" && len(remaining) > 0 {
+		from = remaining[0]
+		remaining = remaining[1:]
+	}
+	if from == "" || len(remaining) > 0 {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: "expected --from <run_id|path>"}, exitInvalidInput)
+	}
+
+	predicate, err := runpack.ParseReducePredicate(predicateRaw)
+	if err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	resolvedPath, err := resolveRunpackPath(from)
+	if err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+
+	result, err := runpack.ReduceToMinimal(runpack.ReduceOptions{
+		InputPath:  resolvedPath,
+		OutputPath: outPath,
+		Predicate:  predicate,
+	})
+	if err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if reportOut == "" {
+		reportOut = result.OutputPath + ".reduce_report.json"
+	}
+	encodedReport, err := runpack.EncodeReduceReport(result.Report)
+	if err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if err := os.WriteFile(reportOut, encodedReport, 0o600); err != nil {
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+
+	return writeReduceOutput(jsonOutput, reduceOutput{
+		OK:           true,
+		Input:        resolvedPath,
+		Output:       result.OutputPath,
+		ReportPath:   reportOut,
+		RunID:        result.RunID,
+		ReducedRunID: result.ReducedRunID,
+		Predicate:    string(result.Report.Predicate),
+		Report:       &result.Report,
+	}, exitOK)
+}
+
+func writeReduceOutput(jsonOutput bool, output reduceOutput, exitCode int) int {
+	if jsonOutput {
+		encoded, err := json.Marshal(output)
+		if err != nil {
+			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
+			return exitInvalidInput
+		}
+		fmt.Println(string(encoded))
+		return exitCode
+	}
+	if output.OK {
+		fmt.Printf("run reduce ok: %s -> %s\n", output.Input, output.Output)
+		fmt.Printf("report: %s\n", output.ReportPath)
+		return exitCode
+	}
+	fmt.Printf("run reduce error: %s\n", output.Error)
+	return exitCode
+}
+
+func printReduceUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait run reduce --from <run_id|path> [--predicate missing_result|non_ok_status] [--out reduced.zip] [--report-out reduce_report.json] [--json] [--explain]")
 }

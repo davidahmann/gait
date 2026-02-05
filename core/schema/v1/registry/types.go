@@ -9,6 +9,10 @@ type RegistryPack struct {
 	ProducerVersion string         `json:"producer_version"`
 	PackName        string         `json:"pack_name"`
 	PackVersion     string         `json:"pack_version"`
+	RiskClass       string         `json:"risk_class,omitempty"`
+	UseCase         string         `json:"use_case,omitempty"`
+	Compatibility   []string       `json:"compatibility,omitempty"`
+	Provenance      map[string]any `json:"provenance,omitempty"`
 	Artifacts       []PackArtifact `json:"artifacts"`
 	Signatures      []SignatureRef `json:"signatures,omitempty"`
 }
