@@ -2,9 +2,12 @@ SHELL := /bin/sh
 
 GO ?= go
 PYTHON ?= python3
+GO_COVERAGE_THRESHOLD ?= 85
+PYTHON_COVERAGE_THRESHOLD ?= 85
 
 SDK_DIR := sdk/python
 UV_PY := 3.13
+GO_COVERAGE_PACKAGES := ./core/... ./cmd/gait
 
 .PHONY: fmt lint test test-e2e build
 .PHONY: hooks
@@ -25,11 +28,12 @@ lint:
 
 test:
 	$(GO) test ./...
-	$(GO) test ./core/... -coverprofile=coverage-go.out
-	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing)
+	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
+	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)
+	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=$(PYTHON_COVERAGE_THRESHOLD))
 
 coverage:
-	$(GO) test ./core/... -coverprofile=coverage-go.out
+	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(GO) tool cover -func=coverage-go.out | tail -n 1
 
 test-e2e:

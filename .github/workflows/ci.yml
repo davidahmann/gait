@@ -63,23 +63,8 @@ jobs:
         shell: bash
         run: |
           go test ./...
-          go test ./core/... -coverprofile=coverage-go.out
-          python - <<'PY'
-          import subprocess, sys
-          out = subprocess.check_output(["go", "tool", "cover", "-func=coverage-go.out"], text=True)
-          total_line = ""
-          for line in out.splitlines():
-              if line.strip().startswith("total:"):
-                  total_line = line
-          if not total_line:
-              print("Go coverage total line not found")
-              sys.exit(1)
-          pct = total_line.split()[-1].rstrip("%")
-          cov = float(pct)
-          if cov < 85.0:
-            print(f"Go coverage too low: {cov}%")
-            sys.exit(1)
-          PY
+          go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
+          python scripts/check_go_coverage.py coverage-go.out 85
       - name: Python tests with coverage
         env:
           PYTHONPATH: .

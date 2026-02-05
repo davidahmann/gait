@@ -4,6 +4,7 @@ import json
 import sys
 from pathlib import Path
 
+from gait import client as client_module
 from gait import (
     IntentContext,
     IntentRequest,
@@ -104,3 +105,39 @@ def test_capture_demo_and_create_regress_fixture(tmp_path: Path) -> None:
     assert fixture.run_id == "run_demo"
     assert fixture.fixture_name == "run_demo"
     assert fixture.runpack_path == "fixtures/run_demo/runpack.zip"
+
+
+def test_evaluate_gate_with_all_optional_key_flags(tmp_path: Path) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+    result = evaluate_gate(
+        policy_path=tmp_path / "policy.yaml",
+        intent=intent,
+        gait_bin=[sys.executable, str(fake_gait)],
+        cwd=tmp_path,
+        trace_out=tmp_path / "trace.json",
+        approval_token=tmp_path / "approval.json",
+        private_key=tmp_path / "private.key",
+        private_key_env="GAIT_PRIVATE_KEY",
+        approval_public_key=tmp_path / "approval.pub",
+        approval_public_key_env="GAIT_APPROVAL_PUBLIC_KEY",
+        approval_private_key=tmp_path / "approval.key",
+        approval_private_key_env="GAIT_APPROVAL_PRIVATE_KEY",
+    )
+
+    assert result.ok
+    assert result.exit_code == 0
+
+
+def test_internal_helpers_parse_json_and_prefix() -> None:
+    assert client_module._parse_json_stdout("") is None
+    assert client_module._parse_json_stdout("[]") is None
+    assert client_module._parse_json_stdout('{"ok": true}') == {"ok": True}
+    assert client_module._command_prefix("gait") == ["gait"]
+    assert client_module._command_prefix(["python", "script.py"]) == ["python", "script.py"]
