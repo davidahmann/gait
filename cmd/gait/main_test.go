@@ -21,6 +21,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait"}); code != exitOK {
 		t.Fatalf("run without args: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "--explain"}); code != exitOK {
+		t.Fatalf("run explain: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "version"}); code != exitOK {
 		t.Fatalf("run version: expected %d got %d", exitOK, code)
 	}
@@ -50,6 +53,12 @@ func TestRunDispatch(t *testing.T) {
 	}
 	if code := run([]string{"gait", "run", "diff", "--help"}); code != exitOK {
 		t.Fatalf("run diff help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "run", "record", "--help"}); code != exitOK {
+		t.Fatalf("run record help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "migrate", "--help"}); code != exitOK {
+		t.Fatalf("run migrate help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run verify help: expected %d got %d", exitOK, code)
@@ -283,6 +292,146 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 	}
 }
 
+func TestRunRecordAndMigrateFlow(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	run, intents, results, refs, err := buildDemoRunpack()
+	if err != nil {
+		t.Fatalf("build demo runpack: %v", err)
+	}
+
+	inputPath := filepath.Join(workDir, "record_input.json")
+	payload := runRecordInput{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		Refs:        refs,
+		CaptureMode: "reference",
+	}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal record input: %v", err)
+	}
+	if err := os.WriteFile(inputPath, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write record input: %v", err)
+	}
+
+	if code := runRecord([]string{
+		"--input", inputPath,
+		"--out-dir", "./gait-out",
+		"--run-id", "run_recorded",
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("run record: expected %d got %d", exitOK, code)
+	}
+
+	recordedPath := filepath.Join(workDir, "gait-out", "runpack_run_recorded.zip")
+	if _, err := os.Stat(recordedPath); err != nil {
+		t.Fatalf("recorded runpack missing: %v", err)
+	}
+	if code := runVerify([]string{"--json", recordedPath}); code != exitOK {
+		t.Fatalf("verify recorded path: expected %d got %d", exitOK, code)
+	}
+
+	if code := runMigrate([]string{"--input", recordedPath, "--json"}); code != exitOK {
+		t.Fatalf("migrate runpack: expected %d got %d", exitOK, code)
+	}
+
+	migratedPath := filepath.Join(workDir, "gait-out", "runpack_run_recorded_migrated.zip")
+	if _, err := os.Stat(migratedPath); err != nil {
+		t.Fatalf("migrated runpack missing: %v", err)
+	}
+	if code := runVerify([]string{"--json", migratedPath}); code != exitOK {
+		t.Fatalf("verify migrated path: expected %d got %d", exitOK, code)
+	}
+}
+
+func TestRunRecordAndMigrateBranches(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runRecord([]string{"--explain"}); code != exitOK {
+		t.Fatalf("runRecord explain: expected %d got %d", exitOK, code)
+	}
+	if code := runMigrate([]string{"--explain"}); code != exitOK {
+		t.Fatalf("runMigrate explain: expected %d got %d", exitOK, code)
+	}
+
+	run, intents, results, refs, err := buildDemoRunpack()
+	if err != nil {
+		t.Fatalf("build demo runpack: %v", err)
+	}
+	inputPath := filepath.Join(workDir, "record_input.json")
+	payload := runRecordInput{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		Refs:        refs,
+		CaptureMode: "reference",
+	}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal record input: %v", err)
+	}
+	if err := os.WriteFile(inputPath, append(encoded, '\n'), 0o600); err != nil {
+		t.Fatalf("write record input: %v", err)
+	}
+
+	if code := runRecord([]string{"--input", inputPath, "--capture-mode", "invalid"}); code != exitInvalidInput {
+		t.Fatalf("runRecord invalid capture mode: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRecord([]string{"--json", inputPath, "--run-id", "run_shifted"}); code != exitOK {
+		t.Fatalf("runRecord interspersed flags: expected %d got %d", exitOK, code)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, "gait-out", "runpack_run_shifted.zip")); err != nil {
+		t.Fatalf("runRecord interspersed output missing: %v", err)
+	}
+
+	if code := runRecord([]string{"--input", filepath.Join(workDir, "missing.json")}); code != exitInvalidInput {
+		t.Fatalf("runRecord missing input file: expected %d got %d", exitInvalidInput, code)
+	}
+
+	invalidJSONPath := filepath.Join(workDir, "invalid.json")
+	mustWriteFile(t, invalidJSONPath, "{\n")
+	if _, err := readRunRecordInput(invalidJSONPath); err == nil {
+		t.Fatalf("readRunRecordInput invalid json: expected error")
+	}
+
+	emptyRunPath := filepath.Join(workDir, "empty_run.json")
+	mustWriteFile(t, emptyRunPath, `{"run":{"schema_id":"gait.runpack.run"},"intents":[],"results":[],"refs":{"schema_id":"gait.runpack.refs","schema_version":"1.0.0","created_at":"2026-02-05T00:00:00Z","producer_version":"test","run_id":"","receipts":[]}}`+"\n")
+	if code := runRecord([]string{"--input", emptyRunPath}); code != exitInvalidInput {
+		t.Fatalf("runRecord missing run_id: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup for migrate branches: expected %d got %d", exitOK, code)
+	}
+	if code := runMigrate([]string{"--json", "run_demo", "--target", "v1"}); code != exitOK {
+		t.Fatalf("runMigrate interspersed flags: expected %d got %d", exitOK, code)
+	}
+	runpackPath := filepath.Join(workDir, "gait-out", "runpack_run_demo.zip")
+	if code := runMigrate([]string{"--input", runpackPath, "--out", runpackPath}); code != exitInvalidInput {
+		t.Fatalf("runMigrate out==input: expected %d got %d", exitInvalidInput, code)
+	}
+
+	unsupportedArtifact := filepath.Join(workDir, "artifact.txt")
+	mustWriteFile(t, unsupportedArtifact, "artifact\n")
+	if code := runMigrate([]string{"--input", unsupportedArtifact}); code != exitInvalidInput {
+		t.Fatalf("runMigrate unsupported artifact: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if got := displayOutputPath("gait-out/runpack.zip"); got != "./gait-out/runpack.zip" {
+		t.Fatalf("displayOutputPath relative: got %s", got)
+	}
+	if got := displayOutputPath("./gait-out/runpack.zip"); got != "./gait-out/runpack.zip" {
+		t.Fatalf("displayOutputPath dot-prefixed: got %s", got)
+	}
+	if got := defaultMigratedRunpackPath("/tmp/input.zip", ""); got != "/tmp/input_migrated.zip" {
+		t.Fatalf("defaultMigratedRunpackPath fallback: got %s", got)
+	}
+}
+
 func TestCommandRoutersAndHelpers(t *testing.T) {
 	if code := runGate(nil); code != exitInvalidInput {
 		t.Fatalf("runGate no args: expected %d got %d", exitInvalidInput, code)
@@ -314,6 +463,9 @@ func TestCommandRoutersAndHelpers(t *testing.T) {
 	if code := runCommand([]string{"unknown"}); code != exitInvalidInput {
 		t.Fatalf("runCommand unknown: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runMigrate(nil); code != exitInvalidInput {
+		t.Fatalf("runMigrate no args: expected %d got %d", exitInvalidInput, code)
+	}
 
 	if joined := joinCSV([]string{"a", "b", "c"}); joined != "a,b,c" {
 		t.Fatalf("joinCSV mismatch: %s", joined)
@@ -331,6 +483,17 @@ func TestCommandRoutersAndHelpers(t *testing.T) {
 	}
 	if hasAnyKeySource(sign.KeyConfig{}) {
 		t.Fatalf("unexpected key source detection")
+	}
+
+	normalized := reorderInterspersedFlags([]string{
+		"run_demo",
+		"--json",
+		"--output", "diff.json",
+		"run_other",
+	}, map[string]bool{"output": true})
+	joined := strings.Join(normalized, " ")
+	if joined != "--json --output diff.json run_demo run_other" {
+		t.Fatalf("reorderInterspersedFlags mismatch: %s", joined)
 	}
 }
 
@@ -359,11 +522,26 @@ func TestValidationBranches(t *testing.T) {
 	if code := runRegressRun([]string{"--json", "extra"}); code != exitInvalidInput {
 		t.Fatalf("runRegressRun positional args: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runRecord([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runRecord missing input: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runMigrate([]string{"--target", "v2", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runMigrate invalid target: expected %d got %d", exitInvalidInput, code)
+	}
 	if code := runDiff([]string{"--json", "left-only"}); code != exitInvalidInput {
 		t.Fatalf("runDiff positional args: expected %d got %d", exitInvalidInput, code)
 	}
 	if code := runDemo(nil); code != exitOK {
 		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+	if code := runVerify([]string{"run_demo", "--json"}); code != exitOK {
+		t.Fatalf("runVerify trailing json flag: expected %d got %d", exitOK, code)
+	}
+	if code := runDiff([]string{"run_demo", "run_demo", "--json"}); code != exitOK {
+		t.Fatalf("runDiff trailing json flag: expected %d got %d", exitOK, code)
+	}
+	if code := runReplay([]string{"run_demo", "--json"}); code != exitOK {
+		t.Fatalf("runReplay trailing json flag: expected %d got %d", exitOK, code)
 	}
 	if code := runVerify([]string{"--json", "--require-signature", "run_demo"}); code != exitVerifyFailed {
 		t.Fatalf("runVerify require signature: expected %d got %d", exitVerifyFailed, code)
@@ -511,6 +689,26 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 		t.Fatalf("writeReplayOutput text fail: expected %d got %d", exitVerifyFailed, code)
 	}
 
+	if code := writeRunRecordOutput(true, runRecordOutput{OK: true, RunID: "run_demo"}, exitOK); code != exitOK {
+		t.Fatalf("writeRunRecordOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeRunRecordOutput(false, runRecordOutput{OK: true, RunID: "run_demo", Bundle: "b", TicketFooter: "t"}, exitOK); code != exitOK {
+		t.Fatalf("writeRunRecordOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeRunRecordOutput(false, runRecordOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRunRecordOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := writeMigrateOutput(true, migrateOutput{OK: true, Input: "a", Output: "b"}, exitOK); code != exitOK {
+		t.Fatalf("writeMigrateOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeMigrateOutput(false, migrateOutput{OK: true, Input: "a", Output: "b", Status: "migrated"}, exitOK); code != exitOK {
+		t.Fatalf("writeMigrateOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeMigrateOutput(false, migrateOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeMigrateOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+
 	if code := writeTraceVerifyOutput(true, traceVerifyOutput{OK: true, Path: "trace.json"}, exitOK); code != exitOK {
 		t.Fatalf("writeTraceVerifyOutput json: expected %d got %d", exitOK, code)
 	}
@@ -568,8 +766,10 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printRegressInitUsage()
 	printRegressRunUsage()
 	printRunUsage()
+	printRecordUsage()
 	printReplayUsage()
 	printDiffUsage()
+	printMigrateUsage()
 	printVerifyUsage()
 }
 

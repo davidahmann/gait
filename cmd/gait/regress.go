@@ -35,6 +35,9 @@ type regressRunOutput struct {
 }
 
 func runRegress(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Turn runpacks into deterministic regression fixtures and execute graders for CI-safe drift detection.")
+	}
 	if len(arguments) == 0 {
 		printRegressUsage()
 		return exitInvalidInput
@@ -51,6 +54,9 @@ func runRegress(arguments []string) int {
 }
 
 func runRegressInit(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Initialize a regression fixture from a recorded runpack artifact.")
+	}
 	flagSet := flag.NewFlagSet("regress-init", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -134,6 +140,9 @@ func writeRegressInitOutput(jsonOutput bool, output regressInitOutput, exitCode 
 }
 
 func runRegressRun(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Execute configured regress fixtures and graders with stable JSON output and exit codes.")
+	}
 	flagSet := flag.NewFlagSet("regress-run", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -227,16 +236,16 @@ func writeRegressRunOutput(jsonOutput bool, output regressRunOutput, exitCode in
 
 func printRegressUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json]")
-	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json]")
+	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json] [--explain]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
 }
 
 func printRegressInitUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json]")
+	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json] [--explain]")
 }
 
 func printRegressRunUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
 }

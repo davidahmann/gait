@@ -36,8 +36,10 @@ verify=ok
 Replay deterministically (stubs by default):
 
 ```bash
-gait run replay --json run_demo
+gait run replay run_demo --json
 ```
+
+CLI note: flags can be placed before or after positional arguments (for example `gait verify run_demo --json` and `gait verify --json run_demo` are both supported).
 
 ## The Receipt You Paste Into Tickets
 
@@ -86,7 +88,26 @@ Gait emits and consumes a few canonical artifacts:
 
 Schemas live under `schemas/v1/`. Go types are authoritative under `core/schema/v1/`.
 
+Reserved v1.1+ foundations already shipped in v1:
+
+- Interfaces: `core/scout/`, `core/guard/`, `core/mcp/`
+- Schemas: `schemas/v1/scout/inventory_snapshot.schema.json`, `schemas/v1/guard/pack_manifest.schema.json`, `schemas/v1/registry/registry_pack.schema.json`
+
 ## Core Workflows
+
+### 0) Record A Runpack From Normalized Input
+
+Capture a run artifact from structured run data:
+
+```bash
+gait run record <run_record.json> --json
+```
+
+Migrate runpack artifacts to the current schema generation:
+
+```bash
+gait migrate <run_id_or_runpack_path> --json
+```
 
 ### 1) Incident To CI Regression
 
@@ -109,7 +130,7 @@ What happens:
 Diff two runpacks deterministically:
 
 ```bash
-gait run diff --privacy=metadata --json <left_run_id_or_path> <right_run_id_or_path>
+gait run diff <left_run_id_or_path> <right_run_id_or_path> --privacy=metadata --json
 ```
 
 `--privacy=metadata` avoids payload diffs and focuses on stable structural drift.
@@ -161,6 +182,16 @@ Every gate decision can produce a trace record. Verify trace integrity offline:
 
 ```bash
 gait trace verify ./trace_<trace_id>.json --json --public-key ./public.key
+```
+
+### 5) Explain Command Intent
+
+Every major command supports `--explain` for short, stable intent text:
+
+```bash
+gait run record --explain
+gait migrate --explain
+gait gate eval --explain
 ```
 
 ## Security, Privacy, And Integrity

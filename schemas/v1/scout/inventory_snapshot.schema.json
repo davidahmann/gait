@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/scout/inventory_snapshot.schema.json",
+  "title": "Scout Inventory Snapshot",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "snapshot_id",
+    "items"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.scout.inventory_snapshot" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "snapshot_id": { "type": "string" },
+    "workspace": { "type": "string" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "name", "locator"],
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string" },
+          "name": { "type": "string" },
+          "locator": { "type": "string" },
+          "risk_level": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "last_seen_run": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

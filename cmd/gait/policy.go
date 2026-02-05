@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/davidahmann/gait/core/gate"
@@ -27,6 +26,9 @@ type policyTestOutput struct {
 }
 
 func runPolicy(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Run deterministic policy validation workflows against intent fixtures.")
+	}
 	if len(arguments) == 0 {
 		printPolicyUsage()
 		return exitInvalidInput
@@ -41,18 +43,10 @@ func runPolicy(arguments []string) int {
 }
 
 func runPolicyTest(arguments []string) int {
-	if len(arguments) > 0 {
-		flagArgs := make([]string, 0, len(arguments))
-		positionalArgs := make([]string, 0, len(arguments))
-		for _, argument := range arguments {
-			if strings.HasPrefix(argument, "-") {
-				flagArgs = append(flagArgs, argument)
-			} else {
-				positionalArgs = append(positionalArgs, argument)
-			}
-		}
-		arguments = append(flagArgs, positionalArgs...)
+	if hasExplainFlag(arguments) {
+		return writeExplain("Evaluate one intent fixture against one policy and return a deterministic verdict with reason codes.")
 	}
+	arguments = reorderInterspersedFlags(arguments, nil)
 
 	flagSet := flag.NewFlagSet("policy-test", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -141,10 +135,10 @@ func writePolicyTestOutput(jsonOutput bool, output policyTestOutput, exitCode in
 
 func printPolicyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json]")
+	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 }
 
 func printPolicyTestUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json]")
+	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 }

@@ -57,6 +57,9 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/gate/approval_token.schema.json",
 	"schemas/v1/policytest/policy_test_result.schema.json",
 	"schemas/v1/regress/regress_result.schema.json",
+	"schemas/v1/scout/inventory_snapshot.schema.json",
+	"schemas/v1/guard/pack_manifest.schema.json",
+	"schemas/v1/registry/registry_pack.schema.json",
 }
 
 func Run(opts Options) Result {

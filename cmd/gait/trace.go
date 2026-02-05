@@ -22,6 +22,9 @@ type traceVerifyOutput struct {
 }
 
 func runTrace(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Verify signed gate trace records for offline auditability.")
+	}
 	if len(arguments) == 0 {
 		printTraceUsage()
 		return exitInvalidInput
@@ -36,6 +39,16 @@ func runTrace(arguments []string) int {
 }
 
 func runTraceVerify(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Validate a gate trace signature and report deterministic verification status.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"path":            true,
+		"public-key":      true,
+		"public-key-env":  true,
+		"private-key":     true,
+		"private-key-env": true,
+	})
 	if len(arguments) > 0 && !strings.HasPrefix(arguments[0], "-") {
 		arguments = append([]string{"--path", arguments[0]}, arguments[1:]...)
 	}
@@ -149,10 +162,10 @@ func writeTraceVerifyOutput(jsonOutput bool, output traceVerifyOutput, exitCode 
 
 func printTraceUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--private-key <path>] [--private-key-env <VAR>]")
+	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }
 
 func printTraceVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--private-key <path>] [--private-key-env <VAR>]")
+	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }

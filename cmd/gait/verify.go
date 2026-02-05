@@ -39,6 +39,15 @@ type verifyOutput struct {
 }
 
 func runVerify(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Verify runpack integrity offline: file hashes, manifest digest, and optional signatures.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"public-key":      true,
+		"public-key-env":  true,
+		"private-key":     true,
+		"private-key-env": true,
+	})
 	flagSet := flag.NewFlagSet("verify", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -169,21 +178,24 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json]")
-	fmt.Println("  gait demo")
-	fmt.Println("  gait doctor [--json]")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json]")
-	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json]")
-	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
-	fmt.Println("  gait regress init --from <run_id|path> [--json]")
-	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json]")
-	fmt.Println("  gait run replay <run_id|path>")
-	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>]")
+	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json] [--explain]")
+	fmt.Println("  gait demo [--explain]")
+	fmt.Println("  gait doctor [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--json] [--explain]")
+	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
+	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")
+	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
+	fmt.Println("  gait run record --input <run_record.json> [--json] [--explain]")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--explain]")
+	fmt.Println("  gait run diff <left> <right> [--json] [--explain]")
+	fmt.Println("  gait migrate <artifact_path|run_id> [--out <path>] [--json] [--explain]")
+	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait version")
 }
 
 func printVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--public-key <path>] [--public-key-env <VAR>]")
-	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--private-key <path>] [--private-key-env <VAR>]")
+	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }

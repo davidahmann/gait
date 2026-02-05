@@ -31,6 +31,9 @@ type gateEvalOutput struct {
 }
 
 func runGate(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Evaluate structured tool intents against policy, enforce approval flows, and emit signed trace records.")
+	}
 	if len(arguments) == 0 {
 		printGateUsage()
 		return exitInvalidInput
@@ -46,6 +49,9 @@ func runGate(arguments []string) int {
 }
 
 func runGateEval(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Run policy evaluation for a single intent request and write a signed gate trace artifact.")
+	}
 	flagSet := flag.NewFlagSet("gate-eval", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -243,12 +249,12 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--approval-token <token.json>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func joinCSV(values []string) string {

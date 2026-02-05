@@ -1,0 +1,13 @@
+{
+  "schema_id": "gait.registry.pack",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "pack_name": "baseline-highrisk",
+  "artifacts": [
+    {
+      "path": "policy.yaml",
+      "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ]
+}

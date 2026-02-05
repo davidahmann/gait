@@ -26,6 +26,9 @@ type approveOutput struct {
 }
 
 func runApprove(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Mint a signed approval token with scope and TTL for gate decisions that require explicit approval.")
+	}
 	flagSet := flag.NewFlagSet("approve", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -150,5 +153,5 @@ func writeApproveOutput(jsonOutput bool, output approveOutput, exitCode int) int
 
 func printApproveUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json]")
+	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

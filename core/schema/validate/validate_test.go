@@ -98,6 +98,24 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "regress_result_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "regress_result_invalid.json"),
 		},
+		{
+			name:       "scout_inventory_snapshot",
+			schemaPath: filepath.Join(root, "schemas", "v1", "scout", "inventory_snapshot.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "scout_inventory_snapshot_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "scout_inventory_snapshot_invalid.json"),
+		},
+		{
+			name:       "guard_pack_manifest",
+			schemaPath: filepath.Join(root, "schemas", "v1", "guard", "pack_manifest.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "guard_pack_manifest_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "guard_pack_manifest_invalid.json"),
+		},
+		{
+			name:       "registry_pack",
+			schemaPath: filepath.Join(root, "schemas", "v1", "registry", "registry_pack.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "registry_pack_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "registry_pack_invalid.json"),
+		},
 	}
 
 	for _, c := range cases {

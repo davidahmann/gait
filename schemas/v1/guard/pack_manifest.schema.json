@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/guard/pack_manifest.schema.json",
+  "title": "Guard Evidence Pack Manifest",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "pack_id",
+    "run_id",
+    "generated_at",
+    "contents"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.guard.pack_manifest" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "pack_id": { "type": "string" },
+    "run_id": { "type": "string", "pattern": "^run_[A-Za-z0-9_-]+$" },
+    "case_id": { "type": "string" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "contents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "sha256", "type"],
+        "properties": {
+          "path": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "type": { "type": "string", "enum": ["runpack", "trace", "report", "evidence"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

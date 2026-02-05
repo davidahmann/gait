@@ -16,6 +16,9 @@ func run(arguments []string) int {
 		fmt.Println("gait", version)
 		return exitOK
 	}
+	if arguments[1] == "--explain" {
+		return writeExplain("Gait is an offline-first CLI for deterministic run artifacts, policy-gated tool execution, and reproducible debugging workflows.")
+	}
 
 	switch arguments[1] {
 	case "approve":
@@ -34,9 +37,14 @@ func run(arguments []string) int {
 		return runRegress(arguments[2:])
 	case "run":
 		return runCommand(arguments[2:])
+	case "migrate":
+		return runMigrate(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
 	case "version", "--version", "-v":
+		if hasExplainFlag(arguments[2:]) {
+			return writeExplain("Print the CLI version.")
+		}
 		fmt.Println("gait", version)
 		return exitOK
 	default:

@@ -18,6 +18,9 @@ const demoRunID = "run_demo"
 const demoOutDir = "gait-out"
 
 func runDemo(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Run a fully offline deterministic demo and emit a shareable runpack receipt for verification.")
+	}
 	if len(arguments) > 0 && (arguments[0] == "-h" || arguments[0] == "--help") {
 		printDemoUsage()
 		return exitOK
@@ -70,7 +73,7 @@ func runDemo(arguments []string) int {
 
 func printDemoUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait demo")
+	fmt.Println("  gait demo [--explain]")
 }
 
 func buildDemoRunpack() (schemarunpack.Run, []schemarunpack.IntentRecord, []schemarunpack.ResultRecord, schemarunpack.Refs, error) {

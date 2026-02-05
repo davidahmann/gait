@@ -31,11 +31,16 @@ type diffOutput struct {
 }
 
 func runCommand(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Work with runpacks: record an artifact from normalized run data, replay deterministically in stub mode, and diff runs with stable output.")
+	}
 	if len(arguments) == 0 {
 		printRunUsage()
 		return exitInvalidInput
 	}
 	switch arguments[0] {
+	case "record":
+		return runRecord(arguments[1:])
 	case "diff":
 		return runDiff(arguments[1:])
 	case "replay":
@@ -47,6 +52,13 @@ func runCommand(arguments []string) int {
 }
 
 func runDiff(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Compare two runpacks deterministically and optionally write canonical diff JSON.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"privacy": true,
+		"output":  true,
+	})
 	flagSet := flag.NewFlagSet("diff", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -143,10 +155,14 @@ func writeDiffOutput(jsonOutput bool, output diffOutput, exitCode int) int {
 
 func printDiffUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json]")
+	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
 }
 
 func runReplay(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Replay a runpack deterministically using recorded tool results; real tool execution requires explicit unsafe flags.")
+	}
+	arguments = reorderInterspersedFlags(arguments, nil)
 	flagSet := flag.NewFlagSet("replay", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -246,11 +262,12 @@ func writeReplayOutput(jsonOutput bool, output replayOutput, exitCode int) int {
 
 func printRunUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json]")
-	fmt.Println("  gait run replay <run_id|path> [--json]")
+	fmt.Println("  gait run record --input <run_record.json> [--out-dir gait-out] [--run-id <run_id>] [--capture-mode reference|raw] [--json] [--explain]")
+	fmt.Println("  gait run diff <left> <right> [--privacy=full|metadata] [--output diff.json] [--json] [--explain]")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--explain]")
 }
 
 func printReplayUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools]")
+	fmt.Println("  gait run replay <run_id|path> [--json] [--real-tools --unsafe-real-tools] [--explain]")
 }

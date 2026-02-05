@@ -26,6 +26,9 @@ type doctorOutput struct {
 }
 
 func runDoctor(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Diagnose local environment issues for Gait workflows and return stable fix suggestions.")
+	}
 	flagSet := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
@@ -118,5 +121,5 @@ func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 
 func printDoctorUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--json]")
+	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 }

@@ -1,0 +1,17 @@
+{
+  "schema_id": "gait.guard.pack_manifest",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "pack_id": "pack_001",
+  "run_id": "run_demo",
+  "case_id": "INC-123",
+  "generated_at": "2026-02-05T00:00:30Z",
+  "contents": [
+    {
+      "path": "runpack_run_demo.zip",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "type": "runpack"
+    }
+  ]
+}
