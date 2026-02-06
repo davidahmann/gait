@@ -26,3 +26,22 @@ All examples in this folder run without network, secrets, or cloud accounts.
 7. `integrations/openai_agents`
 8. `integrations/langchain`
 9. `integrations/autogen`
+
+## Contribution Checklist
+
+Before opening a PR that changes `examples/`:
+
+1. Keep every example offline-safe (no cloud dependencies, no secrets).
+2. Include copy/paste commands and expected outputs in the example `README.md`.
+3. Ensure every policy path documents expected verdict and reason codes.
+4. Verify deterministic behavior by running:
+
+```bash
+go build -o ./gait ./cmd/gait
+bash scripts/policy_compliance_ci.sh
+bash examples/scenarios/incident_reproduction.sh
+bash examples/scenarios/prompt_injection_block.sh
+bash examples/scenarios/approval_flow.sh
+```
+
+For full adapter/policy/fixture contribution standards, see `CONTRIBUTING.md`.

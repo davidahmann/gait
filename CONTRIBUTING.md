@@ -40,6 +40,64 @@ This runs `make lint` and `make test` on every push.
 - Python: `ruff`, `mypy`, `pytest`
 - Coverage must be **>= 85%** for Go core and Python SDK.
 
+## Adoption asset contribution paths
+
+Use these paths to keep adapter, policy, and fixture contributions reviewable and deterministic.
+
+### Adapter examples (`examples/integrations/<adapter>/`)
+
+Required in each adapter folder:
+
+- `README.md` with copy/paste commands and expected outputs.
+- A runnable entrypoint (for example `quickstart.py`) that routes tool calls through `gait gate eval`.
+- At least one allow and one block/approval example policy file.
+
+Required behavior:
+
+- Expose only wrapped tools to the agent runtime.
+- Fail closed if gate evaluation cannot complete.
+- Write traces/run artifacts to a deterministic local path.
+
+Validation before opening PR:
+
+```
+go build -o ./gait ./cmd/gait
+make lint
+make test
+```
+
+### Policy packs (`examples/policy/`)
+
+When adding or changing policy packs:
+
+- Keep templates in `examples/policy/` and fixture intents in `examples/policy/intents/`.
+- Document rationale and expected verdicts in `examples/policy/README.md`.
+- Include explicit reason-code expectations for block/approval paths.
+
+Validation before opening PR:
+
+```
+go build -o ./gait ./cmd/gait
+bash scripts/policy_compliance_ci.sh
+```
+
+### Deterministic fixtures and scenarios (`examples/scenarios/`, `examples/*`)
+
+When adding fixtures or scenario scripts:
+
+- Keep artifacts offline-safe (no network, no secrets).
+- Pin output paths and compare deterministic fields (exit code, verdict, reason codes, hashes).
+- Include expected command outputs in the scenario `README.md`.
+
+Validation before opening PR:
+
+```
+go build -o ./gait ./cmd/gait
+bash examples/scenarios/incident_reproduction.sh
+bash examples/scenarios/prompt_injection_block.sh
+bash examples/scenarios/approval_flow.sh
+```
+
 ## Troubleshooting lint/test environment
 
 ### `govulncheck` cannot reach `vuln.go.dev`
