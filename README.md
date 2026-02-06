@@ -579,6 +579,9 @@ CI cadence guidance:
 - CI regress kit: `docs/ci_regress_kit.md`
 - Test cadence guide: `docs/test_cadence.md`
 - Evidence templates: `docs/evidence_templates.md`
+- Hardening contracts: `docs/hardening/contracts.md`
+- Hardening risk register: `docs/hardening/risk_register.md`
+- Hardening ADRs: `docs/adr/`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`

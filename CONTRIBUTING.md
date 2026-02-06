@@ -138,6 +138,8 @@ uv self update
 - Use the provided issue templates.
 - Keep PRs focused and include tests.
 - Avoid adding network dependencies to core flows.
+- Review hardening contracts for reliability-impacting changes: `docs/hardening/contracts.md`.
+- Record architecture-impacting decisions in `docs/adr/`.
 
 ## Triage and labels
 
