@@ -239,7 +239,11 @@ func TestOnboardingChecks(t *testing.T) {
 	}
 
 	check = checkOnboardingAssets(workDir)
-	if check.Status != statusWarn || !strings.Contains(check.FixCommand, "chmod +x scripts/quickstart.sh") {
+	if runtime.GOOS == "windows" {
+		if check.Status != statusPass {
+			t.Fatalf("expected onboarding assets pass on windows, got %#v", check)
+		}
+	} else if check.Status != statusWarn || !strings.Contains(check.FixCommand, "chmod +x scripts/quickstart.sh") {
 		t.Fatalf("expected onboarding quickstart chmod warning, got %#v", check)
 	}
 

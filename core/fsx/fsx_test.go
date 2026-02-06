@@ -3,6 +3,7 @@ package fsx
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -41,6 +42,12 @@ func TestWriteFileAtomicMode(t *testing.T) {
 	info, err := os.Stat(target)
 	if err != nil {
 		t.Fatalf("stat file: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		if info.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected owner read/write bits set on windows, got %#o", info.Mode().Perm())
+		}
+		return
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("expected mode 0600 got %#o", info.Mode().Perm())

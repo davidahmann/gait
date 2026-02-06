@@ -6,6 +6,7 @@ import (
 	"encoding/xml"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -63,7 +64,11 @@ func TestRunPassesWithDefaultFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat regress output: %v", err)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS == "windows" {
+		if info.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected owner read/write bits set on windows, got %#o", info.Mode().Perm())
+		}
+	} else if info.Mode().Perm() != 0o600 {
 		t.Fatalf("expected regress output mode 0600 got %#o", info.Mode().Perm())
 	}
 }
@@ -713,7 +718,11 @@ func TestWriteJUnitReportPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat junit report mode: %v", err)
 	}
-	if reportInfo.Mode().Perm() != 0o600 {
+	if runtime.GOOS == "windows" {
+		if reportInfo.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected junit owner read/write bits set on windows, got %#o", reportInfo.Mode().Perm())
+		}
+	} else if reportInfo.Mode().Perm() != 0o600 {
 		t.Fatalf("expected junit mode 0600 got %#o", reportInfo.Mode().Perm())
 	}
 

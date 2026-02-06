@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/ed25519"
 	"flag"
 	"fmt"
 	"io"
@@ -8,29 +9,35 @@ import (
 	"time"
 
 	"github.com/davidahmann/gait/core/guard"
+	"github.com/davidahmann/gait/core/sign"
 )
 
 type guardPackOutput struct {
-	OK           bool   `json:"ok"`
-	PackPath     string `json:"pack_path,omitempty"`
-	PackID       string `json:"pack_id,omitempty"`
-	RunID        string `json:"run_id,omitempty"`
-	TemplateID   string `json:"template_id,omitempty"`
-	Controls     int    `json:"controls,omitempty"`
-	Rendered     int    `json:"rendered_artifacts,omitempty"`
-	ManifestPath string `json:"manifest_path,omitempty"`
-	Error        string `json:"error,omitempty"`
+	OK           bool     `json:"ok"`
+	PackPath     string   `json:"pack_path,omitempty"`
+	PackID       string   `json:"pack_id,omitempty"`
+	RunID        string   `json:"run_id,omitempty"`
+	TemplateID   string   `json:"template_id,omitempty"`
+	Controls     int      `json:"controls,omitempty"`
+	Rendered     int      `json:"rendered_artifacts,omitempty"`
+	ManifestPath string   `json:"manifest_path,omitempty"`
+	Warnings     []string `json:"warnings,omitempty"`
+	Error        string   `json:"error,omitempty"`
 }
 
 type guardVerifyOutput struct {
-	OK             bool                 `json:"ok"`
-	Path           string               `json:"path,omitempty"`
-	PackID         string               `json:"pack_id,omitempty"`
-	RunID          string               `json:"run_id,omitempty"`
-	FilesChecked   int                  `json:"files_checked,omitempty"`
-	MissingFiles   []string             `json:"missing_files,omitempty"`
-	HashMismatches []guard.HashMismatch `json:"hash_mismatches,omitempty"`
-	Error          string               `json:"error,omitempty"`
+	OK              bool                 `json:"ok"`
+	Path            string               `json:"path,omitempty"`
+	PackID          string               `json:"pack_id,omitempty"`
+	RunID           string               `json:"run_id,omitempty"`
+	FilesChecked    int                  `json:"files_checked,omitempty"`
+	MissingFiles    []string             `json:"missing_files,omitempty"`
+	HashMismatches  []guard.HashMismatch `json:"hash_mismatches,omitempty"`
+	SignatureStatus string               `json:"signature_status,omitempty"`
+	SignatureErrors []string             `json:"signature_errors,omitempty"`
+	SignaturesTotal int                  `json:"signatures_total,omitempty"`
+	SignaturesValid int                  `json:"signatures_valid,omitempty"`
+	Error           string               `json:"error,omitempty"`
 }
 
 type guardRetainOutput struct {
@@ -101,6 +108,9 @@ func runGuardPack(arguments []string) int {
 		"approval-audit":      true,
 		"credential-evidence": true,
 		"template":            true,
+		"key-mode":            true,
+		"private-key":         true,
+		"private-key-env":     true,
 	})
 	flagSet := flag.NewFlagSet("guard-pack", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
@@ -114,6 +124,9 @@ func runGuardPack(arguments []string) int {
 	var approvalAuditCSV string
 	var credentialEvidenceCSV string
 	var templateID string
+	var keyMode string
+	var privateKeyPath string
+	var privateKeyEnv string
 	var renderPDF bool
 	var jsonOutput bool
 	var helpFlag bool
@@ -127,6 +140,9 @@ func runGuardPack(arguments []string) int {
 	flagSet.StringVar(&approvalAuditCSV, "approval-audit", "", "comma-separated approval audit record paths")
 	flagSet.StringVar(&credentialEvidenceCSV, "credential-evidence", "", "comma-separated broker credential evidence paths")
 	flagSet.StringVar(&templateID, "template", "soc2", "audit template id: soc2|pci|incident_response")
+	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
+	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
+	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
 	flagSet.BoolVar(&renderPDF, "render-pdf", false, "include optional summary.pdf convenience artifact")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
@@ -151,6 +167,14 @@ func runGuardPack(arguments []string) int {
 	if err != nil {
 		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
+	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
+		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(keyMode))),
+		PrivateKeyPath: privateKeyPath,
+		PrivateKeyEnv:  privateKeyEnv,
+	})
+	if err != nil {
+		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
 	result, err := guard.BuildPack(guard.BuildOptions{
 		RunpackPath:             resolvedRunPath,
 		OutputPath:              outPath,
@@ -164,6 +188,7 @@ func runGuardPack(arguments []string) int {
 		RenderPDF:               renderPDF,
 		AutoDiscoverV12:         true,
 		ProducerVersion:         version,
+		SignKey:                 keyPair.Private,
 	})
 	if err != nil {
 		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -178,6 +203,7 @@ func runGuardPack(arguments []string) int {
 		Controls:     len(result.Manifest.ControlIndex),
 		Rendered:     len(result.Manifest.Rendered),
 		ManifestPath: manifestPath,
+		Warnings:     warnings,
 	}, exitOK)
 }
 
@@ -186,16 +212,30 @@ func runGuardVerify(arguments []string) int {
 		return writeExplain("Verify an evidence_pack zip offline by checking pack manifest hashes deterministically.")
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
-		"path": true,
+		"path":            true,
+		"public-key":      true,
+		"public-key-env":  true,
+		"private-key":     true,
+		"private-key-env": true,
 	})
 	flagSet := flag.NewFlagSet("guard-verify", flag.ContinueOnError)
 	flagSet.SetOutput(io.Discard)
 
 	var pathValue string
+	var requireSignature bool
+	var publicKeyPath string
+	var publicKeyEnv string
+	var privateKeyPath string
+	var privateKeyEnv string
 	var jsonOutput bool
 	var helpFlag bool
 
 	flagSet.StringVar(&pathValue, "path", "", "path to evidence_pack zip")
+	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid pack manifest signatures")
+	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
+	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
+	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
+	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private key (derive public)")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -215,23 +255,50 @@ func runGuardVerify(arguments []string) int {
 		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: "expected <evidence_pack.zip>"}, exitInvalidInput)
 	}
 
-	result, err := guard.VerifyPack(pathValue)
+	var publicKey ed25519.PublicKey
+	keyConfig := sign.KeyConfig{
+		PublicKeyPath:  publicKeyPath,
+		PublicKeyEnv:   publicKeyEnv,
+		PrivateKeyPath: privateKeyPath,
+		PrivateKeyEnv:  privateKeyEnv,
+	}
+	if hasAnyKeySource(keyConfig) {
+		loadedKey, keyErr := sign.LoadVerifyKey(keyConfig)
+		if keyErr != nil {
+			return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: keyErr.Error()}, exitCodeForError(keyErr, exitInvalidInput))
+		}
+		publicKey = loadedKey
+	}
+
+	result, err := guard.VerifyPackWithOptions(pathValue, guard.VerifyOptions{
+		PublicKey:        publicKey,
+		RequireSignature: requireSignature,
+	})
 	if err != nil {
 		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0
+	if requireSignature {
+		ok = ok && result.SignatureStatus == "verified"
+	} else {
+		ok = ok && result.SignatureStatus != "failed"
+	}
 	exitCode := exitOK
 	if !ok {
 		exitCode = exitVerifyFailed
 	}
 	return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{
-		OK:             ok,
-		Path:           pathValue,
-		PackID:         result.PackID,
-		RunID:          result.RunID,
-		FilesChecked:   result.FilesChecked,
-		MissingFiles:   result.MissingFiles,
-		HashMismatches: result.HashMismatches,
+		OK:              ok,
+		Path:            pathValue,
+		PackID:          result.PackID,
+		RunID:           result.RunID,
+		FilesChecked:    result.FilesChecked,
+		MissingFiles:    result.MissingFiles,
+		HashMismatches:  result.HashMismatches,
+		SignatureStatus: result.SignatureStatus,
+		SignatureErrors: result.SignatureErrors,
+		SignaturesTotal: result.SignaturesTotal,
+		SignaturesValid: result.SignaturesValid,
 	}, exitCode)
 }
 
@@ -503,8 +570,8 @@ func writeGuardDecryptOutput(jsonOutput bool, output guardDecryptOutput, exitCod
 
 func printGuardUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--template soc2|pci|incident_response] [--render-pdf] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
-	fmt.Println("  gait guard verify <evidence_pack.zip> [--json] [--explain]")
+	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--template soc2|pci|incident_response] [--render-pdf] [--out <evidence_pack.zip>] [--case-id <id>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait guard verify <evidence_pack.zip> [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait guard retain [--root <dir>] [--trace-ttl <duration>] [--pack-ttl <duration>] [--dry-run] [--report-out <path>] [--json] [--explain]")
 	fmt.Println("  gait guard encrypt --in <artifact> [--out <artifact.gaitenc>] [--key-env <ENV>|--key-command <cmd> --key-command-args <csv>] [--json] [--explain]")
 	fmt.Println("  gait guard decrypt --in <artifact.gaitenc> [--out <artifact>] [--key-env <ENV>|--key-command <cmd> --key-command-args <csv>] [--json] [--explain]")
@@ -512,12 +579,12 @@ func printGuardUsage() {
 
 func printGuardPackUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--template soc2|pci|incident_response] [--render-pdf] [--out <evidence_pack.zip>] [--case-id <id>] [--json] [--explain]")
+	fmt.Println("  gait guard pack --run <run_id|path> [--inventory <csv>] [--trace <csv>] [--regress <csv>] [--approval-audit <csv>] [--credential-evidence <csv>] [--template soc2|pci|incident_response] [--render-pdf] [--out <evidence_pack.zip>] [--case-id <id>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGuardVerifyUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait guard verify <evidence_pack.zip> [--json] [--explain]")
+	fmt.Println("  gait guard verify <evidence_pack.zip> [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGuardRetainUsage() {

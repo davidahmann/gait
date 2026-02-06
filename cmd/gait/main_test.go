@@ -108,6 +108,9 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run verify help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "verify", "chain", "--help"}); code != exitOK {
+		t.Fatalf("run verify chain help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "doctor", "--help"}); code != exitOK {
 		t.Fatalf("run doctor help: expected %d got %d", exitOK, code)
 	}
@@ -755,6 +758,9 @@ func TestValidationBranches(t *testing.T) {
 	if code := runVerify([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runVerify missing path: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runVerify([]string{"chain", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runVerify chain missing --run: expected %d got %d", exitInvalidInput, code)
+	}
 	if code := runRegressInit([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runRegressInit missing --from: expected %d got %d", exitInvalidInput, code)
 	}
@@ -831,6 +837,12 @@ func TestValidationBranches(t *testing.T) {
 
 	if code := runVerify([]string{"--json", "--public-key-env", "MISSING_PUBLIC_KEY", "run_demo"}); code != exitInvalidInput {
 		t.Fatalf("runVerify missing env key: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runVerify([]string{"chain", "--json", "--run", "run_demo", "--trace", "trace.json"}); code != exitInvalidInput {
+		t.Fatalf("runVerify chain trace without key: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runVerify([]string{"chain", "--json", "--run", "run_demo"}); code != exitOK {
+		t.Fatalf("runVerify chain run-only: expected %d got %d", exitOK, code)
 	}
 
 	gaitOutAsFile := filepath.Join(workDir, "gait-out")
@@ -944,6 +956,155 @@ func TestGateEvalApprovalChainAndSimulation(t *testing.T) {
 	}
 }
 
+func TestGateEvalOSSProdProfile(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+	privateKeyPath := filepath.Join(workDir, "private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	allowPolicyPath := filepath.Join(workDir, "policy_allow.yaml")
+	mustWriteFile(t, allowPolicyPath, "default_verdict: allow\n")
+
+	if code := runGateEval([]string{
+		"--policy", allowPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--simulate",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod simulate: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", allowPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod missing key: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", allowPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "dev",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod dev key mode: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", allowPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval oss-prod allow: expected %d got %d", exitOK, code)
+	}
+
+	approvalPolicyPath := filepath.Join(workDir, "policy_approval.yaml")
+	mustWriteFile(t, approvalPolicyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: needs-approval",
+		"    effect: require_approval",
+		"    match:",
+		"      tool_names: [tool.write]",
+	}, "\n")+"\n")
+
+	if code := runGateEval([]string{
+		"--policy", approvalPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval oss-prod missing approval verify key: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runGateEval([]string{
+		"--policy", approvalPolicyPath,
+		"--intent", intentPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--approval-private-key", privateKeyPath,
+		"--json",
+	}); code != exitApprovalRequired {
+		t.Fatalf("runGateEval oss-prod approval path: expected %d got %d", exitApprovalRequired, code)
+	}
+}
+
+func TestVerifyChainRunTracePack(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("runDemo setup: expected %d got %d", exitOK, code)
+	}
+
+	privateKeyPath := filepath.Join(workDir, "private.key")
+	writePrivateKey(t, privateKeyPath)
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+	policyPath := filepath.Join(workDir, "policy_allow.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	tracePath := filepath.Join(workDir, "trace_chain.json")
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--trace-out", tracePath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval trace for chain: expected %d got %d", exitOK, code)
+	}
+
+	packPath := filepath.Join(workDir, "evidence_chain.zip")
+	if code := runGuardPack([]string{
+		"--run", "run_demo",
+		"--out", packPath,
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGuardPack for chain: expected %d got %d", exitOK, code)
+	}
+
+	if code := runVerify([]string{
+		"chain",
+		"--run", "run_demo",
+		"--trace", tracePath,
+		"--pack", packPath,
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runVerify chain success: expected %d got %d", exitOK, code)
+	}
+
+	if code := runVerify([]string{
+		"chain",
+		"--run", "run_demo",
+		"--trace", tracePath,
+		"--pack", packPath,
+		"--private-key", privateKeyPath,
+		"--require-signature",
+		"--json",
+	}); code != exitVerifyFailed {
+		t.Fatalf("runVerify chain require-signature: expected %d got %d", exitVerifyFailed, code)
+	}
+}
+
 func TestRunReplayUnsafeRequiresAllowToolsAndEnv(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
@@ -990,9 +1151,16 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 	}, "\n")+"\n")
 
 	brokerPath := filepath.Join(workDir, "broker.sh")
-	mustWriteFile(t, brokerPath, "#!/bin/sh\necho '{\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}'\n")
-	if err := os.Chmod(brokerPath, 0o700); err != nil {
-		t.Fatalf("chmod broker script: %v", err)
+	brokerScript := "#!/bin/sh\necho '{\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}'\n"
+	if runtime.GOOS == "windows" {
+		brokerPath = filepath.Join(workDir, "broker.cmd")
+		brokerScript = "@echo {\"issued_by\":\"command\",\"credential_ref\":\"cmd:token\"}\r\n"
+	}
+	mustWriteFile(t, brokerPath, brokerScript)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(brokerPath, 0o700); err != nil {
+			t.Fatalf("chmod broker script: %v", err)
+		}
 	}
 
 	rateStatePath := filepath.Join(workDir, "rate_state.json")
@@ -1071,9 +1239,16 @@ func TestGateEvalCredentialCommandBrokerFailureDoesNotLeakSecrets(t *testing.T) 
 	}, "\n")+"\n")
 
 	brokerPath := filepath.Join(workDir, "broker_fail.sh")
-	mustWriteFile(t, brokerPath, "#!/bin/sh\necho 'forced failure token=secret-broker-token' 1>&2\nexit 2\n")
-	if err := os.Chmod(brokerPath, 0o700); err != nil {
-		t.Fatalf("chmod broker script: %v", err)
+	brokerScript := "#!/bin/sh\necho 'forced failure token=secret-broker-token' 1>&2\nexit 2\n"
+	if runtime.GOOS == "windows" {
+		brokerPath = filepath.Join(workDir, "broker_fail.cmd")
+		brokerScript = "@echo forced failure token=secret-broker-token 1>&2\r\n@exit /b 2\r\n"
+	}
+	mustWriteFile(t, brokerPath, brokerScript)
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(brokerPath, 0o700); err != nil {
+			t.Fatalf("chmod broker script: %v", err)
+		}
 	}
 
 	var exitCode int
@@ -1262,6 +1437,29 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	}, exitVerifyFailed); code != exitVerifyFailed {
 		t.Fatalf("writeVerifyOutput text fail: expected %d got %d", exitVerifyFailed, code)
 	}
+	if code := writeVerifyChainOutput(true, verifyChainOutput{
+		OK:  true,
+		Run: verifyOutput{OK: true, Path: "runpack.zip"},
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeVerifyChainOutput json ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeVerifyChainOutput(false, verifyChainOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeVerifyChainOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeVerifyChainOutput(false, verifyChainOutput{
+		OK:  false,
+		Run: verifyOutput{Path: "runpack.zip"},
+		Trace: &traceVerifyOutput{
+			Path:            "trace.json",
+			SignatureStatus: "failed",
+		},
+		Pack: &guardVerifyOutput{
+			Path:            "pack.zip",
+			SignatureStatus: "failed",
+		},
+	}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeVerifyChainOutput text fail: expected %d got %d", exitVerifyFailed, code)
+	}
 
 	if code := writeGuardPackOutput(true, guardPackOutput{OK: true, PackPath: "evidence.zip"}, exitOK); code != exitOK {
 		t.Fatalf("writeGuardPackOutput json: expected %d got %d", exitOK, code)
@@ -1315,6 +1513,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printDiffUsage()
 	printMigrateUsage()
 	printVerifyUsage()
+	printVerifyChainUsage()
 }
 
 func withWorkingDir(t *testing.T, path string) {

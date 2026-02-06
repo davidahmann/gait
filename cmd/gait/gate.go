@@ -19,6 +19,7 @@ import (
 
 type gateEvalOutput struct {
 	OK                     bool     `json:"ok"`
+	Profile                string   `json:"profile,omitempty"`
 	Verdict                string   `json:"verdict,omitempty"`
 	ReasonCodes            []string `json:"reason_codes,omitempty"`
 	Violations             []string `json:"violations,omitempty"`
@@ -45,6 +46,13 @@ type gateEvalOutput struct {
 	Warnings               []string `json:"warnings,omitempty"`
 	Error                  string   `json:"error,omitempty"`
 }
+
+type gateEvalProfile string
+
+const (
+	gateProfileStandard gateEvalProfile = "standard"
+	gateProfileOSSProd  gateEvalProfile = "oss-prod"
+)
 
 func runGate(arguments []string) int {
 	if hasExplainFlag(arguments) {
@@ -85,6 +93,7 @@ func runGateEval(arguments []string) int {
 	var keyMode string
 	var privateKeyPath string
 	var privateKeyEnv string
+	var profile string
 	var rateLimitState string
 	var credentialBroker string
 	var credentialEnvPrefix string
@@ -111,6 +120,7 @@ func runGateEval(arguments []string) int {
 	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
+	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&rateLimitState, "rate-limit-state", ".gait-out/gate_rate_limits.json", "path to persisted rate limit state")
 	flagSet.StringVar(&credentialBroker, "credential-broker", "off", "credential broker: off|stub|env|command")
 	flagSet.StringVar(&credentialEnvPrefix, "credential-env-prefix", "GAIT_BROKER_TOKEN_", "env broker key prefix")
@@ -135,6 +145,22 @@ func runGateEval(arguments []string) int {
 	}
 	if policyPath == "" || intentPath == "" {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "both --policy and --intent are required"}, exitInvalidInput)
+	}
+	resolvedProfile, err := parseGateEvalProfile(profile)
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	keyMode = strings.ToLower(strings.TrimSpace(keyMode))
+	if resolvedProfile == gateProfileOSSProd {
+		if simulate {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "oss-prod profile does not allow --simulate"}, exitInvalidInput)
+		}
+		if sign.KeyMode(keyMode) != sign.ModeProd {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "oss-prod profile requires --key-mode prod"}, exitInvalidInput)
+		}
+		if !hasAnyKeySource(sign.KeyConfig{PrivateKeyPath: privateKeyPath, PrivateKeyEnv: privateKeyEnv}) {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "oss-prod profile requires --private-key or --private-key-env"}, exitInvalidInput)
+		}
 	}
 
 	policy, err := gate.LoadPolicyFile(policyPath)
@@ -178,7 +204,7 @@ func runGateEval(arguments []string) int {
 	}
 
 	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
-		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(keyMode))),
+		Mode:           sign.KeyMode(keyMode),
 		PrivateKeyPath: privateKeyPath,
 		PrivateKeyEnv:  privateKeyEnv,
 	})
@@ -208,6 +234,12 @@ func runGateEval(arguments []string) int {
 			PublicKeyEnv:   approvalPublicKeyEnv,
 			PrivateKeyPath: approvalPrivateKeyPath,
 			PrivateKeyEnv:  approvalPrivateKeyEnv,
+		}
+		if resolvedProfile == gateProfileOSSProd && !hasAnyKeySource(verifyConfig) {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+				OK:    false,
+				Error: "oss-prod profile requires explicit approval verify key (--approval-public-key/--approval-public-key-env or approval private key source)",
+			}, exitInvalidInput)
 		}
 		if hasAnyKeySource(verifyConfig) {
 			verifyKey, err = sign.LoadVerifyKey(verifyConfig)
@@ -398,6 +430,7 @@ func runGateEval(arguments []string) int {
 
 	return writeGateEvalOutput(jsonOutput, gateEvalOutput{
 		OK:                     true,
+		Profile:                string(resolvedProfile),
 		Verdict:                result.Verdict,
 		ReasonCodes:            result.ReasonCodes,
 		Violations:             result.Violations,
@@ -487,12 +520,25 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--approval-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--approval-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+}
+
+func parseGateEvalProfile(value string) (gateEvalProfile, error) {
+	profile := strings.ToLower(strings.TrimSpace(value))
+	if profile == "" {
+		return gateProfileStandard, nil
+	}
+	switch gateEvalProfile(profile) {
+	case gateProfileStandard, gateProfileOSSProd:
+		return gateEvalProfile(profile), nil
+	default:
+		return "", fmt.Errorf("unsupported --profile value %q (expected standard or oss-prod)", value)
+	}
 }
 
 func joinCSV(values []string) string {

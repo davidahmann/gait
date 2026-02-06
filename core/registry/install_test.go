@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -92,14 +93,22 @@ func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stat metadata mode: %v", err)
 	}
-	if metadataInfo.Mode().Perm() != 0o600 {
+	if runtime.GOOS == "windows" {
+		if metadataInfo.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected metadata owner read/write bits on windows got %#o", metadataInfo.Mode().Perm())
+		}
+	} else if metadataInfo.Mode().Perm() != 0o600 {
 		t.Fatalf("expected metadata mode 0600 got %#o", metadataInfo.Mode().Perm())
 	}
 	pinInfo, err := os.Stat(result.PinPath)
 	if err != nil {
 		t.Fatalf("stat pin mode: %v", err)
 	}
-	if pinInfo.Mode().Perm() != 0o600 {
+	if runtime.GOOS == "windows" {
+		if pinInfo.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected pin owner read/write bits on windows got %#o", pinInfo.Mode().Perm())
+		}
+	} else if pinInfo.Mode().Perm() != 0o600 {
 		t.Fatalf("expected pin mode 0600 got %#o", pinInfo.Mode().Perm())
 	}
 }

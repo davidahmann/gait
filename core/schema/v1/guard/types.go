@@ -17,6 +17,7 @@ type PackManifest struct {
 	IncidentWindow  *Window     `json:"incident_window,omitempty"`
 	Rendered        []Rendered  `json:"rendered_artifacts,omitempty"`
 	Contents        []PackEntry `json:"contents"`
+	Signatures      []Signature `json:"signatures,omitempty"`
 }
 
 type PackEntry struct {
@@ -49,6 +50,13 @@ type Rendered struct {
 	Format string `json:"format"`
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+}
+
+type Signature struct {
+	Alg          string `json:"alg"`
+	KeyID        string `json:"key_id"`
+	Sig          string `json:"sig"`
+	SignedDigest string `json:"signed_digest,omitempty"`
 }
 
 type RetentionReport struct {

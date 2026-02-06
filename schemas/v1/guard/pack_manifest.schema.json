@@ -89,6 +89,20 @@
         },
         "additionalProperties": false
       }
+    },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["alg", "key_id", "sig"],
+        "properties": {
+          "alg": { "type": "string", "const": "ed25519" },
+          "key_id": { "type": "string" },
+          "sig": { "type": "string" },
+          "signed_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "additionalProperties": false

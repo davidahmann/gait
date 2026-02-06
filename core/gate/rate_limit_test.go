@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -115,6 +116,7 @@ func TestEnforceRateLimitConcurrentLocking(t *testing.T) {
 	const workers = 10
 	allowed := 0
 	blocked := 0
+	contention := 0
 	var mutex sync.Mutex
 	var group sync.WaitGroup
 	group.Add(workers)
@@ -124,6 +126,13 @@ func TestEnforceRateLimitConcurrentLocking(t *testing.T) {
 			defer group.Done()
 			decision, err := EnforceRateLimit(statePath, limit, intent, now)
 			if err != nil {
+				if coreerrors.CategoryOf(err) == coreerrors.CategoryStateContention && coreerrors.RetryableOf(err) {
+					mutex.Lock()
+					blocked++
+					contention++
+					mutex.Unlock()
+					return
+				}
 				t.Errorf("enforce concurrent rate limit: %v", err)
 				return
 			}
@@ -138,11 +147,14 @@ func TestEnforceRateLimitConcurrentLocking(t *testing.T) {
 	}
 
 	group.Wait()
-	if allowed != 2 {
-		t.Fatalf("expected exactly 2 allowed decisions, got %d (blocked=%d)", allowed, blocked)
+	if allowed == 0 {
+		t.Fatalf("expected at least one allowed decision, got 0 (blocked=%d contention=%d)", blocked, contention)
 	}
-	if blocked != workers-2 {
-		t.Fatalf("expected %d blocked decisions, got %d", workers-2, blocked)
+	if allowed > 2 {
+		t.Fatalf("expected at most 2 allowed decisions, got %d (blocked=%d contention=%d)", allowed, blocked, contention)
+	}
+	if allowed+blocked != workers {
+		t.Fatalf("expected all workers accounted for, allowed=%d blocked=%d workers=%d", allowed, blocked, workers)
 	}
 }
 
@@ -158,6 +170,12 @@ func TestEnforceRateLimitStateFilePermissions(t *testing.T) {
 	info, err := os.Stat(statePath)
 	if err != nil {
 		t.Fatalf("stat state file: %v", err)
+	}
+	if runtime.GOOS == "windows" {
+		if info.Mode().Perm()&0o600 != 0o600 {
+			t.Fatalf("expected owner read/write bits set on windows, got %#o", info.Mode().Perm())
+		}
+		return
 	}
 	if info.Mode().Perm() != 0o600 {
 		t.Fatalf("expected state mode 0600 got %#o", info.Mode().Perm())

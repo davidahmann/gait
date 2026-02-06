@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	"github.com/davidahmann/gait/core/sign"
 	"github.com/davidahmann/gait/core/zipx"
 )
 
@@ -173,8 +175,21 @@ func TestBuildAndVerifyPack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify pack: %v", err)
 	}
+	if verifyResult.SignatureStatus != "missing" {
+		t.Fatalf("expected unsigned pack signature status missing, got %s", verifyResult.SignatureStatus)
+	}
 	if len(verifyResult.MissingFiles) > 0 || len(verifyResult.HashMismatches) > 0 {
 		t.Fatalf("expected clean verify result, got missing=%d mismatches=%d", len(verifyResult.MissingFiles), len(verifyResult.HashMismatches))
+	}
+	requireSignatureResult, err := VerifyPackWithOptions(packPath, VerifyOptions{RequireSignature: true})
+	if err != nil {
+		t.Fatalf("verify unsigned pack with require-signature: %v", err)
+	}
+	if requireSignatureResult.SignatureStatus != "missing" {
+		t.Fatalf("expected missing signature status for unsigned pack, got %s", requireSignatureResult.SignatureStatus)
+	}
+	if len(requireSignatureResult.SignatureErrors) == 0 {
+		t.Fatalf("expected signature error for unsigned pack with require-signature")
 	}
 
 	tamperedPath := filepath.Join(workDir, "evidence_pack_tampered.zip")
@@ -185,6 +200,87 @@ func TestBuildAndVerifyPack(t *testing.T) {
 	}
 	if len(tamperedVerify.MissingFiles) == 0 {
 		t.Fatalf("expected missing file in tampered pack")
+	}
+}
+
+func TestVerifyPackWithSignatures(t *testing.T) {
+	workDir := t.TempDir()
+	now := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	runpackPath := filepath.Join(workDir, "runpack_run_guard_sig.zip")
+	_, err := runpack.WriteRunpack(runpackPath, runpack.RecordOptions{
+		Run: schemarunpack.Run{
+			RunID:           "run_guard_sig",
+			CreatedAt:       now,
+			ProducerVersion: "0.0.0-dev",
+		},
+		Intents: []schemarunpack.IntentRecord{{
+			IntentID:   "intent_1",
+			RunID:      "run_guard_sig",
+			ToolName:   "tool.read",
+			ArgsDigest: strings.Repeat("a", 64),
+		}},
+		Results: []schemarunpack.ResultRecord{{
+			IntentID:     "intent_1",
+			RunID:        "run_guard_sig",
+			Status:       "ok",
+			ResultDigest: strings.Repeat("b", 64),
+		}},
+		Refs: schemarunpack.Refs{
+			RunID: "run_guard_sig",
+		},
+		CaptureMode: "reference",
+	})
+	if err != nil {
+		t.Fatalf("write runpack: %v", err)
+	}
+
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	packPath := filepath.Join(workDir, "evidence_pack_signed.zip")
+	if _, err := BuildPack(BuildOptions{
+		RunpackPath: runpackPath,
+		OutputPath:  packPath,
+		SignKey:     keyPair.Private,
+	}); err != nil {
+		t.Fatalf("build signed pack: %v", err)
+	}
+
+	verified, err := VerifyPackWithOptions(packPath, VerifyOptions{
+		PublicKey:        keyPair.Public,
+		RequireSignature: true,
+	})
+	if err != nil {
+		t.Fatalf("verify signed pack: %v", err)
+	}
+	if verified.SignatureStatus != "verified" || verified.SignaturesValid != 1 {
+		t.Fatalf("expected verified signature status, got status=%s valid=%d", verified.SignatureStatus, verified.SignaturesValid)
+	}
+
+	missingKey, err := VerifyPackWithOptions(packPath, VerifyOptions{
+		RequireSignature: true,
+	})
+	if err != nil {
+		t.Fatalf("verify signed pack without key: %v", err)
+	}
+	if missingKey.SignatureStatus != "skipped" {
+		t.Fatalf("expected skipped signature status without key, got %s", missingKey.SignatureStatus)
+	}
+
+	wrongKeyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate wrong key pair: %v", err)
+	}
+	failed, err := VerifyPackWithOptions(packPath, VerifyOptions{
+		PublicKey:        ed25519.PublicKey(wrongKeyPair.Public),
+		RequireSignature: true,
+	})
+	if err != nil {
+		t.Fatalf("verify signed pack with wrong key: %v", err)
+	}
+	if failed.SignatureStatus != "failed" {
+		t.Fatalf("expected failed signature status with wrong key, got %s", failed.SignatureStatus)
 	}
 }
 

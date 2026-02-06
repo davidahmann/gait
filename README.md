@@ -316,6 +316,19 @@ Non-enforcing rollout simulation:
 gait gate eval --policy examples/policy-test/block.yaml --intent examples/policy-test/intent.json --simulate --json
 ```
 
+Fail-closed OSS production profile:
+
+```bash
+gait gate eval --policy <policy.yaml> --intent <intent.json> --profile oss-prod --key-mode prod --private-key ./private.key --json
+```
+
+`--profile oss-prod` enforces stricter runtime defaults:
+
+- disallows `--simulate`
+- requires `--key-mode prod`
+- requires explicit signing key input (`--private-key` or `--private-key-env`)
+- requires explicit approval verify key input when policy verdict is `require_approval`
+
 For an observe-to-enforce rollout sequence and CI/runtime exit-code handling, see `docs/policy_rollout.md`.
 
 Example v1.2 policy controls:
@@ -403,6 +416,12 @@ gait trace verify ./trace_<trace_id>.json --json --public-key ./public.key
 ```
 
 When Gate emits `approval_audit_*.json` and `credential_evidence_*.json`, `gait guard pack --run <run_id_or_path>` auto-discovers and includes them in the evidence pack manifest.
+
+Verify a full run/trace/pack chain in one command:
+
+```bash
+gait verify chain --run <run_id|path> --trace <trace.json> --pack <evidence_pack.zip> --public-key ./public.key --json
+```
 
 ### 4.5) MCP Proxy Mode (Protocol-Adjacent Enforcement)
 
@@ -505,7 +524,7 @@ gait gate eval --explain
 ## Security, Privacy, And Integrity
 
 - **Default-safe recording**: runpacks store reference receipts by default (no raw sensitive content unless explicitly enabled).
-- **Integrity checks**: `gait verify` checks file hashes deterministically.
+- **Integrity checks**: `gait verify` checks runpack hashes deterministically, and `gait verify chain` verifies runpack + trace + evidence-pack integrity in one pass.
 - **Signatures**: runpacks may include signatures; gate trace records are signed. Verification requires a configured public key.
 - **Release integrity**: release signing/SBOM/provenance is separate from runpack and trace signing.
 

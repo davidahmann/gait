@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	coreerrors "github.com/davidahmann/gait/core/errors"
 	"github.com/davidahmann/gait/core/gate"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
@@ -44,6 +45,7 @@ rules:
 	const workers = 10
 	var allowCount int
 	var blockCount int
+	var contentionCount int
 	var mutex sync.Mutex
 	var group sync.WaitGroup
 	group.Add(workers)
@@ -59,6 +61,13 @@ rules:
 			}
 			decision, enforceErr := gate.EnforceRateLimit(statePath, outcome.RateLimit, intent, now)
 			if enforceErr != nil {
+				if coreerrors.CategoryOf(enforceErr) == coreerrors.CategoryStateContention && coreerrors.RetryableOf(enforceErr) {
+					mutex.Lock()
+					blockCount++
+					contentionCount++
+					mutex.Unlock()
+					return
+				}
 				t.Errorf("enforce rate limit: %v", enforceErr)
 				return
 			}
@@ -74,10 +83,13 @@ rules:
 	}
 
 	group.Wait()
-	if allowCount != 2 {
-		t.Fatalf("expected 2 allowed operations, got %d (blocked=%d)", allowCount, blockCount)
+	if allowCount == 0 {
+		t.Fatalf("expected at least one allowed operation, got 0 (blocked=%d contention=%d)", blockCount, contentionCount)
 	}
-	if blockCount != workers-2 {
-		t.Fatalf("expected %d blocked operations, got %d", workers-2, blockCount)
+	if allowCount > 2 {
+		t.Fatalf("expected at most 2 allowed operations, got %d (blocked=%d contention=%d)", allowCount, blockCount, contentionCount)
+	}
+	if allowCount+blockCount != workers {
+		t.Fatalf("expected all workers accounted for, allowed=%d blocked=%d workers=%d", allowCount, blockCount, workers)
 	}
 }

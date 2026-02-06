@@ -237,7 +237,14 @@ func TestCopyRunpackMissingSource(t *testing.T) {
 
 func TestWriteJSONFailsForDirectoryPath(t *testing.T) {
 	workDir := t.TempDir()
-	if err := writeJSON(workDir, map[string]any{"ok": true}); err == nil {
+	directoryPath := filepath.Join(workDir, "write-target")
+	if err := os.MkdirAll(directoryPath, 0o750); err != nil {
+		t.Fatalf("mkdir write target: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(directoryPath, "keep.txt"), []byte("x"), 0o600); err != nil {
+		t.Fatalf("write keep file: %v", err)
+	}
+	if err := writeJSON(directoryPath, map[string]any{"ok": true}); err == nil {
 		t.Fatalf("expected write json to directory path to fail")
 	}
 }

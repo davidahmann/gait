@@ -266,7 +266,11 @@ func TestGuardV14HelperBranches(t *testing.T) {
 	if _, err := normalizePackPath(""); err == nil {
 		t.Fatalf("expected normalizePackPath empty error")
 	}
-	if _, err := normalizePackPath("/absolute/path"); err == nil {
+	absolutePath, err := filepath.Abs(filepath.Join(workDir, "absolute", "path"))
+	if err != nil {
+		t.Fatalf("resolve absolute path: %v", err)
+	}
+	if _, err := normalizePackPath(absolutePath); err == nil {
 		t.Fatalf("expected normalizePackPath absolute error")
 	}
 	if _, err := normalizePackPath("../escape"); err == nil {

@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 
+	"github.com/davidahmann/gait/core/gate"
+	"github.com/davidahmann/gait/core/guard"
 	"github.com/davidahmann/gait/core/runpack"
 	"github.com/davidahmann/gait/core/sign"
 )
@@ -38,7 +40,22 @@ type verifyOutput struct {
 	Error           string                 `json:"error,omitempty"`
 }
 
+type verifyChainOutput struct {
+	OK    bool               `json:"ok"`
+	Run   verifyOutput       `json:"run"`
+	Trace *traceVerifyOutput `json:"trace,omitempty"`
+	Pack  *guardVerifyOutput `json:"pack,omitempty"`
+	Error string             `json:"error,omitempty"`
+}
+
 func runVerify(arguments []string) int {
+	if len(arguments) > 0 && arguments[0] == "chain" {
+		return runVerifyChain(arguments[1:])
+	}
+	return runVerifyRunpack(arguments)
+}
+
+func runVerifyRunpack(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Verify runpack integrity offline: file hashes, manifest digest, and optional signatures.")
 	}
@@ -79,41 +96,151 @@ func runVerify(arguments []string) int {
 		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: "expected run_id or path"}, exitInvalidInput)
 	}
 
-	runpackPath, err := resolveRunpackPath(remaining[0])
-	if err != nil {
-		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-	}
-
-	var publicKey ed25519.PublicKey
 	keyConfig := sign.KeyConfig{
 		PublicKeyPath:  publicKeyPath,
 		PublicKeyEnv:   publicKeyEnv,
 		PrivateKeyPath: privateKeyPath,
 		PrivateKeyEnv:  privateKeyEnv,
 	}
-	if hasAnyKeySource(keyConfig) {
-		publicKey, err = sign.LoadVerifyKey(keyConfig)
-		if err != nil {
-			return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-		}
+	publicKey, err := loadOptionalVerifyKey(keyConfig)
+	if err != nil {
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
+	output, err := verifyRunpackArtifact(remaining[0], requireSignature, publicKey)
+	if err != nil {
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	exitCode := exitOK
+	if !output.OK {
+		exitCode = exitVerifyFailed
+	}
+	return writeVerifyOutput(jsonOutput, output, exitCode)
+}
+
+func runVerifyChain(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Verify runpack, trace, and evidence pack artifacts together to produce one deterministic integrity verdict.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"run":             true,
+		"trace":           true,
+		"pack":            true,
+		"public-key":      true,
+		"public-key-env":  true,
+		"private-key":     true,
+		"private-key-env": true,
+	})
+	flagSet := flag.NewFlagSet("verify-chain", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var runPath string
+	var tracePath string
+	var packPath string
+	var requireSignature bool
+	var publicKeyPath string
+	var publicKeyEnv string
+	var privateKeyPath string
+	var privateKeyEnv string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&runPath, "run", "", "run_id or runpack path")
+	flagSet.StringVar(&tracePath, "trace", "", "path to trace record")
+	flagSet.StringVar(&packPath, "pack", "", "path to evidence pack zip")
+	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid signatures for runpack/pack")
+	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
+	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
+	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
+	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private key (derive public)")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printVerifyChainUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) > 0 {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: "unexpected positional arguments"}, exitInvalidInput)
+	}
+	if strings.TrimSpace(runPath) == "" {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: "--run is required"}, exitInvalidInput)
+	}
+
+	keyConfig := sign.KeyConfig{
+		PublicKeyPath:  publicKeyPath,
+		PublicKeyEnv:   publicKeyEnv,
+		PrivateKeyPath: privateKeyPath,
+		PrivateKeyEnv:  privateKeyEnv,
+	}
+	publicKey, err := loadOptionalVerifyKey(keyConfig)
+	if err != nil {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	runOutput, err := verifyRunpackArtifact(runPath, requireSignature, publicKey)
+	if err != nil {
+		return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	output := verifyChainOutput{
+		OK:  runOutput.OK,
+		Run: runOutput,
+	}
+
+	if strings.TrimSpace(tracePath) != "" {
+		traceOut, traceErr := verifyTraceArtifact(tracePath, publicKey)
+		if traceErr != nil {
+			return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Run: runOutput, Error: traceErr.Error()}, exitCodeForError(traceErr, exitInvalidInput))
+		}
+		output.Trace = &traceOut
+		output.OK = output.OK && traceOut.OK
+	}
+
+	if strings.TrimSpace(packPath) != "" {
+		packOut, packErr := verifyPackArtifact(packPath, requireSignature, publicKey)
+		if packErr != nil {
+			return writeVerifyChainOutput(jsonOutput, verifyChainOutput{OK: false, Run: runOutput, Trace: output.Trace, Error: packErr.Error()}, exitCodeForError(packErr, exitInvalidInput))
+		}
+		output.Pack = &packOut
+		output.OK = output.OK && packOut.OK
+	}
+
+	exitCode := exitOK
+	if !output.OK {
+		exitCode = exitVerifyFailed
+	}
+	return writeVerifyChainOutput(jsonOutput, output, exitCode)
+}
+
+func loadOptionalVerifyKey(cfg sign.KeyConfig) (ed25519.PublicKey, error) {
+	if !hasAnyKeySource(cfg) {
+		return nil, nil
+	}
+	return sign.LoadVerifyKey(cfg)
+}
+
+func verifyRunpackArtifact(runValue string, requireSignature bool, publicKey ed25519.PublicKey) (verifyOutput, error) {
+	runpackPath, err := resolveRunpackPath(runValue)
+	if err != nil {
+		return verifyOutput{}, err
+	}
 	result, err := runpack.VerifyZip(runpackPath, runpack.VerifyOptions{
 		PublicKey:        publicKey,
 		RequireSignature: requireSignature,
 	})
 	if err != nil {
-		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		return verifyOutput{}, err
 	}
-
 	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0
 	if requireSignature {
 		ok = ok && result.SignatureStatus == "verified"
 	} else {
 		ok = ok && result.SignatureStatus != "failed"
 	}
-
-	output := verifyOutput{
+	return verifyOutput{
 		OK:              ok,
 		Path:            runpackPath,
 		RunID:           result.RunID,
@@ -125,13 +252,77 @@ func runVerify(arguments []string) int {
 		SignatureErrors: result.SignatureErrors,
 		SignaturesTotal: result.SignaturesTotal,
 		SignaturesValid: result.SignaturesValid,
-	}
+	}, nil
+}
 
-	exitCode := exitOK
-	if !ok {
-		exitCode = exitVerifyFailed
+func verifyTraceArtifact(path string, publicKey ed25519.PublicKey) (traceVerifyOutput, error) {
+	tracePath := strings.TrimSpace(path)
+	if tracePath == "" {
+		return traceVerifyOutput{}, fmt.Errorf("trace path is required")
 	}
-	return writeVerifyOutput(jsonOutput, output, exitCode)
+	if len(publicKey) == 0 {
+		return traceVerifyOutput{}, fmt.Errorf("trace verification requires --public-key/--public-key-env or private key source")
+	}
+	record, err := gate.ReadTraceRecord(tracePath)
+	if err != nil {
+		return traceVerifyOutput{}, err
+	}
+	ok, err := gate.VerifyTraceRecordSignature(record, publicKey)
+	if err != nil {
+		return traceVerifyOutput{
+			OK:              false,
+			Path:            tracePath,
+			TraceID:         record.TraceID,
+			Verdict:         record.Verdict,
+			SignatureStatus: "failed",
+			Error:           err.Error(),
+		}, nil
+	}
+	status := "failed"
+	if ok {
+		status = "verified"
+	}
+	keyID := ""
+	if record.Signature != nil {
+		keyID = record.Signature.KeyID
+	}
+	return traceVerifyOutput{
+		OK:              ok,
+		Path:            tracePath,
+		TraceID:         record.TraceID,
+		Verdict:         record.Verdict,
+		SignatureStatus: status,
+		KeyID:           keyID,
+	}, nil
+}
+
+func verifyPackArtifact(path string, requireSignature bool, publicKey ed25519.PublicKey) (guardVerifyOutput, error) {
+	result, err := guard.VerifyPackWithOptions(path, guard.VerifyOptions{
+		PublicKey:        publicKey,
+		RequireSignature: requireSignature,
+	})
+	if err != nil {
+		return guardVerifyOutput{}, err
+	}
+	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0
+	if requireSignature {
+		ok = ok && result.SignatureStatus == "verified"
+	} else {
+		ok = ok && result.SignatureStatus != "failed"
+	}
+	return guardVerifyOutput{
+		OK:              ok,
+		Path:            path,
+		PackID:          result.PackID,
+		RunID:           result.RunID,
+		FilesChecked:    result.FilesChecked,
+		MissingFiles:    result.MissingFiles,
+		HashMismatches:  result.HashMismatches,
+		SignatureStatus: result.SignatureStatus,
+		SignatureErrors: result.SignatureErrors,
+		SignaturesTotal: result.SignaturesTotal,
+		SignaturesValid: result.SignaturesValid,
+	}, nil
 }
 
 func hasAnyKeySource(cfg sign.KeyConfig) bool {
@@ -170,13 +361,45 @@ func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 	return exitCode
 }
 
+func writeVerifyChainOutput(jsonOutput bool, output verifyChainOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Println("verify chain: ok")
+		fmt.Printf("runpack: %s\n", output.Run.Path)
+		if output.Trace != nil {
+			fmt.Printf("trace: %s (%s)\n", output.Trace.Path, output.Trace.SignatureStatus)
+		}
+		if output.Pack != nil {
+			fmt.Printf("pack: %s (%s)\n", output.Pack.Path, output.Pack.SignatureStatus)
+		}
+		return exitCode
+	}
+	if output.Error != "" {
+		fmt.Printf("verify chain error: %s\n", output.Error)
+		return exitCode
+	}
+	fmt.Println("verify chain failed")
+	if output.Run.Path != "" {
+		fmt.Printf("runpack: %s\n", output.Run.Path)
+	}
+	if output.Trace != nil {
+		fmt.Printf("trace: %s (%s)\n", output.Trace.Path, output.Trace.SignatureStatus)
+	}
+	if output.Pack != nil {
+		fmt.Printf("pack: %s (%s)\n", output.Pack.Path, output.Pack.SignatureStatus)
+	}
+	return exitCode
+}
+
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json] [--explain]")
 	fmt.Println("  gait demo [--explain]")
 	fmt.Println("  gait doctor [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")
@@ -200,6 +423,7 @@ func printUsage() {
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait version")
 }
 
@@ -207,4 +431,12 @@ func printVerifyUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait verify <run_id|path> [--json] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
+}
+
+func printVerifyChainUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--json] [--explain]")
 }

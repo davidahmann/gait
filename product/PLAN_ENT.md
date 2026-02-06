@@ -196,3 +196,13 @@ One hard recommendation
 Do not try to make “Fleet” a big always-on platform in v2. Make it a small appliance that makes enterprise procurement easy and risk acceptable. Marketplaces are the procurement wedge; artifacts are the trust wedge; Kubernetes is the delivery wedge.
 
 If you want, I can translate this into a concrete v2 packaging spec: chart layout, components, required managed services per cloud, and the exact entitlement provider interface.
+
+Least privilege by default is only partial: broker exists (stub|env|command) but is policy/flag driven, not globally mandatory in providers.go (line 146) and gate.go (line 294).
+Tamper-evident ledger is strong but not complete: signatures are optional for runpacks, and guard packs are hash-verified but not signed as first-class provenance chain in verify.go (line 108) and pack.go (line 288).
+Enterprise-native integration is partial: CI and exports exist, but no native IAM/ticketing/SIEM connectors yet (repo is still CLI-first with one binary surface in main.go (line 42) and framework examples under /Users/davidahmann/Projects/gait/examples/integrations).
+Execution chokepoint depth: replay is safely stub-first, but real-tool replay is intentionally not implemented yet ("real tools not implemented; replaying stubs") in run.go (line 233).
+
+Centralized multi-tenant control plane.
+Native IAM/SSO/ticketing/SIEM managed connectors.
+Hosted approval workflows and fleet policy distribution.
+Long-term managed retention/compliance operations.

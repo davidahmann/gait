@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -21,6 +22,7 @@ import (
 	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
+	"github.com/davidahmann/gait/core/sign"
 	"github.com/davidahmann/gait/core/zipx"
 )
 
@@ -39,6 +41,7 @@ type BuildOptions struct {
 	IncidentWindow          *schemaguard.Window
 	AutoDiscoverV12         bool
 	ProducerVersion         string
+	SignKey                 ed25519.PrivateKey
 }
 
 type BuildResult struct {
@@ -47,11 +50,20 @@ type BuildResult struct {
 }
 
 type VerifyResult struct {
-	PackID         string         `json:"pack_id,omitempty"`
-	RunID          string         `json:"run_id,omitempty"`
-	FilesChecked   int            `json:"files_checked"`
-	MissingFiles   []string       `json:"missing_files,omitempty"`
-	HashMismatches []HashMismatch `json:"hash_mismatches,omitempty"`
+	PackID          string         `json:"pack_id,omitempty"`
+	RunID           string         `json:"run_id,omitempty"`
+	FilesChecked    int            `json:"files_checked"`
+	MissingFiles    []string       `json:"missing_files,omitempty"`
+	HashMismatches  []HashMismatch `json:"hash_mismatches,omitempty"`
+	SignatureStatus string         `json:"signature_status,omitempty"`
+	SignatureErrors []string       `json:"signature_errors,omitempty"`
+	SignaturesTotal int            `json:"signatures_total"`
+	SignaturesValid int            `json:"signatures_valid"`
+}
+
+type VerifyOptions struct {
+	PublicKey        ed25519.PublicKey
+	RequireSignature bool
 }
 
 type HashMismatch struct {
@@ -244,6 +256,24 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 		Rendered:        renderedArtifacts,
 		Contents:        contents,
 	}
+	if len(options.SignKey) > 0 {
+		signableManifest := manifest
+		signableManifest.Signatures = nil
+		signableBytes, err := marshalCanonicalJSON(signableManifest)
+		if err != nil {
+			return BuildResult{}, fmt.Errorf("encode signable pack manifest: %w", err)
+		}
+		sig, err := sign.SignJSON(options.SignKey, signableBytes)
+		if err != nil {
+			return BuildResult{}, fmt.Errorf("sign pack manifest: %w", err)
+		}
+		manifest.Signatures = []schemaguard.Signature{{
+			Alg:          sig.Alg,
+			KeyID:        sig.KeyID,
+			Sig:          sig.Sig,
+			SignedDigest: sig.SignedDigest,
+		}}
+	}
 
 	manifestBytes, err := marshalCanonicalJSON(manifest)
 	if err != nil {
@@ -286,6 +316,10 @@ func BuildPack(options BuildOptions) (BuildResult, error) {
 }
 
 func VerifyPack(path string) (VerifyResult, error) {
+	return VerifyPackWithOptions(path, VerifyOptions{})
+}
+
+func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error) {
 	zipReader, err := zip.OpenReader(path)
 	if err != nil {
 		return VerifyResult{}, fmt.Errorf("open evidence pack zip: %w", err)
@@ -313,9 +347,11 @@ func VerifyPack(path string) (VerifyResult, error) {
 	}
 
 	result := VerifyResult{
-		PackID:       manifest.PackID,
-		RunID:        manifest.RunID,
-		FilesChecked: len(manifest.Contents),
+		PackID:          manifest.PackID,
+		RunID:           manifest.RunID,
+		FilesChecked:    len(manifest.Contents),
+		SignatureStatus: "missing",
+		SignaturesTotal: len(manifest.Signatures),
 	}
 	for _, entry := range manifest.Contents {
 		zipFile := files[entry.Path]
@@ -339,6 +375,46 @@ func VerifyPack(path string) (VerifyResult, error) {
 	sort.Slice(result.HashMismatches, func(i, j int) bool {
 		return result.HashMismatches[i].Path < result.HashMismatches[j].Path
 	})
+	if len(manifest.Signatures) == 0 {
+		if opts.RequireSignature {
+			result.SignatureErrors = append(result.SignatureErrors, "pack manifest has no signatures")
+		}
+	} else if len(opts.PublicKey) == 0 {
+		result.SignatureStatus = "skipped"
+		result.SignatureErrors = append(result.SignatureErrors, "public key not configured")
+	} else {
+		signableManifest := manifest
+		signableManifest.Signatures = nil
+		signableBytes, err := marshalCanonicalJSON(signableManifest)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("encode signable pack manifest: %w", err)
+		}
+		valid := 0
+		for _, signature := range manifest.Signatures {
+			ok, verifyErr := sign.VerifyJSON(opts.PublicKey, sign.Signature{
+				Alg:          signature.Alg,
+				KeyID:        signature.KeyID,
+				Sig:          signature.Sig,
+				SignedDigest: signature.SignedDigest,
+			}, signableBytes)
+			if verifyErr != nil {
+				result.SignatureErrors = append(result.SignatureErrors, verifyErr.Error())
+				continue
+			}
+			if ok {
+				valid++
+				continue
+			}
+			result.SignatureErrors = append(result.SignatureErrors, "signature verification failed")
+		}
+		result.SignaturesValid = valid
+		if valid > 0 {
+			result.SignatureStatus = "verified"
+		} else {
+			result.SignatureStatus = "failed"
+		}
+	}
+	sort.Strings(result.SignatureErrors)
 	return result, nil
 }
 

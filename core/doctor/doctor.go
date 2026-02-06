@@ -523,7 +523,7 @@ func checkOnboardingAssets(workDir string) Check {
 			missing = append(missing, relativePath)
 			continue
 		}
-		if relativePath == "scripts/quickstart.sh" && info.Mode().Perm()&0o111 == 0 {
+		if runtime.GOOS != "windows" && relativePath == "scripts/quickstart.sh" && info.Mode().Perm()&0o111 == 0 {
 			return Check{
 				Name:       "onboarding_assets",
 				Status:     statusWarn,
@@ -654,6 +654,9 @@ func checkKeyFilePermissions(cfg sign.KeyConfig) Check {
 				Message:    fmt.Sprintf("key path is a directory: %s", path),
 				FixCommand: fmt.Sprintf("set key path to a file: %s", shellQuote(path)),
 			}
+		}
+		if runtime.GOOS == "windows" {
+			continue
 		}
 		if info.Mode().Perm()&0o022 != 0 {
 			return Check{
