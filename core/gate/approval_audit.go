@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
@@ -107,7 +108,7 @@ func WriteApprovalAuditRecord(path string, record schemagate.ApprovalAuditRecord
 		return fmt.Errorf("marshal approval audit record: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(path, encoded, 0o600); err != nil {
 		return fmt.Errorf("write approval audit record: %w", err)
 	}
 	return nil

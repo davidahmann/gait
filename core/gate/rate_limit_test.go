@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -140,6 +141,24 @@ func TestEnforceRateLimitConcurrentLocking(t *testing.T) {
 	}
 	if blocked != workers-2 {
 		t.Fatalf("expected %d blocked decisions, got %d", workers-2, blocked)
+	}
+}
+
+func TestEnforceRateLimitStateFilePermissions(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "rate_state.json")
+	intent := rateLimitTestIntent()
+	limit := RateLimitPolicy{Requests: 1, Scope: "tool_identity", Window: "minute"}
+
+	if _, err := EnforceRateLimit(statePath, limit, intent, time.Date(2026, time.February, 5, 12, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("enforce rate limit: %v", err)
+	}
+
+	info, err := os.Stat(statePath)
+	if err != nil {
+		t.Fatalf("stat state file: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("expected state mode 0600 got %#o", info.Mode().Perm())
 	}
 }
 

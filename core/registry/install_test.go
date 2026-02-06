@@ -86,6 +86,20 @@ func TestInstallRemoteWithSignatureAndPin(t *testing.T) {
 	if _, err := os.Stat(result.PinPath); err != nil {
 		t.Fatalf("pin path: %v", err)
 	}
+	metadataInfo, err := os.Stat(result.MetadataPath)
+	if err != nil {
+		t.Fatalf("stat metadata mode: %v", err)
+	}
+	if metadataInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("expected metadata mode 0600 got %#o", metadataInfo.Mode().Perm())
+	}
+	pinInfo, err := os.Stat(result.PinPath)
+	if err != nil {
+		t.Fatalf("stat pin mode: %v", err)
+	}
+	if pinInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("expected pin mode 0600 got %#o", pinInfo.Mode().Perm())
+	}
 }
 
 func TestInstallRemoteRequiresAllowlist(t *testing.T) {

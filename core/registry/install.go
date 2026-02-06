@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/jcs"
 	schemaregistry "github.com/davidahmann/gait/core/schema/v1/registry"
 	"github.com/davidahmann/gait/core/sign"
@@ -87,7 +88,7 @@ func Install(ctx context.Context, options InstallOptions) (InstallResult, error)
 	if err := os.MkdirAll(filepath.Dir(metadataPath), 0o750); err != nil {
 		return InstallResult{}, fmt.Errorf("mkdir metadata dir: %w", err)
 	}
-	if err := os.WriteFile(metadataPath, metadataBytes, 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(metadataPath, metadataBytes, 0o600); err != nil {
 		return InstallResult{}, fmt.Errorf("write registry metadata: %w", err)
 	}
 
@@ -96,7 +97,7 @@ func Install(ctx context.Context, options InstallOptions) (InstallResult, error)
 		return InstallResult{}, fmt.Errorf("mkdir pins dir: %w", err)
 	}
 	pinPath := filepath.Join(pinsDir, manifest.PackName+".pin")
-	if err := os.WriteFile(pinPath, []byte("sha256:"+signableDigest+"\n"), 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(pinPath, []byte("sha256:"+signableDigest+"\n"), 0o600); err != nil {
 		return InstallResult{}, fmt.Errorf("write pin file: %w", err)
 	}
 

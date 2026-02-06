@@ -59,6 +59,13 @@ func TestRunPassesWithDefaultFixture(t *testing.T) {
 	if decoded["status"] != regressStatusPass {
 		t.Fatalf("unexpected output status: %v", decoded["status"])
 	}
+	info, err := os.Stat(outputPath)
+	if err != nil {
+		t.Fatalf("stat regress output: %v", err)
+	}
+	if info.Mode().Perm() != 0o600 {
+		t.Fatalf("expected regress output mode 0600 got %#o", info.Mode().Perm())
+	}
 }
 
 func TestRunFailsOnExpectedExitMismatch(t *testing.T) {
@@ -701,6 +708,13 @@ func TestWriteJUnitReportPaths(t *testing.T) {
 	}
 	if _, err := os.Stat(reportPath); err != nil {
 		t.Fatalf("expected junit report to exist: %v", err)
+	}
+	reportInfo, err := os.Stat(reportPath)
+	if err != nil {
+		t.Fatalf("stat junit report mode: %v", err)
+	}
+	if reportInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("expected junit mode 0600 got %#o", reportInfo.Mode().Perm())
 	}
 
 	blocker := filepath.Join(workDir, "blocker")

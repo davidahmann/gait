@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/runpack"
 )
 
@@ -227,7 +228,7 @@ func copyRunpack(sourcePath, destinationPath string) error {
 	if err != nil {
 		return fmt.Errorf("read source runpack: %w", err)
 	}
-	if err := os.WriteFile(destinationPath, content, 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(destinationPath, content, 0o600); err != nil {
 		return fmt.Errorf("write fixture runpack: %w", err)
 	}
 	return nil
@@ -239,7 +240,7 @@ func writeJSON(path string, value any) error {
 		return err
 	}
 	encoded = append(encoded, '\n')
-	return os.WriteFile(path, encoded, 0o600)
+	return fsx.WriteFileAtomic(path, encoded, 0o600)
 }
 
 func sanitizeFixtureName(value string) string {

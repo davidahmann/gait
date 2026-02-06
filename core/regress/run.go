@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/runpack"
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 )
@@ -551,7 +552,7 @@ func writeJUnitReport(path string, result schemaregress.RegressResult) error {
 	}
 	document := append([]byte(xml.Header), encoded...)
 	document = append(document, '\n')
-	return os.WriteFile(path, document, 0o600)
+	return fsx.WriteFileAtomic(path, document, 0o600)
 }
 
 func buildJUnit(result schemaregress.RegressResult) junitTestSuites {
