@@ -69,3 +69,14 @@ jobs:
           }
           JSON
           cosign attest-blob --yes --type slsaprovenance --predicate provenance.json dist/checksums.txt > dist/checksums.txt.intoto.jsonl
+      - name: Upload integrity artifacts to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            sbom.spdx.json \
+            grype.json \
+            provenance.json \
+            dist/checksums.txt.sig \
+            dist/checksums.txt.intoto.jsonl \
+            --clobber

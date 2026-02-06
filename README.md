@@ -13,9 +13,49 @@ The durable product contract is **artifacts, schemas, and exit codes**, not a ho
 
 ## Start Here (5 minutes, offline)
 
-Install by downloading a release binary:
+Install from tagged releases and verify checksums before execution:
 
 - https://github.com/davidahmann/gait/releases
+
+macOS/Linux (`bash`, `curl`, `tar`, `sha256sum`/`shasum`):
+
+```bash
+VERSION=vX.Y.Z
+OS=darwin   # or linux
+ARCH=arm64  # or amd64
+ARCHIVE="gait_${VERSION#v}_${OS}_${ARCH}.tar.gz"
+BASE="https://github.com/davidahmann/gait/releases/download/${VERSION}"
+
+curl -fsSLO "${BASE}/${ARCHIVE}"
+curl -fsSLO "${BASE}/checksums.txt"
+(sha256sum -c <(grep " ${ARCHIVE}$" checksums.txt) || shasum -a 256 -c <(grep " ${ARCHIVE}$" checksums.txt))
+tar -xzf "${ARCHIVE}"
+./gait --help
+```
+
+Windows PowerShell:
+
+```powershell
+$Version = "vX.Y.Z"
+$Archive = "gait_$($Version.TrimStart('v'))_windows_amd64.zip" # or windows_arm64.zip
+$Base = "https://github.com/davidahmann/gait/releases/download/$Version"
+
+Invoke-WebRequest "$Base/$Archive" -OutFile $Archive
+Invoke-WebRequest "$Base/checksums.txt" -OutFile checksums.txt
+$Expected = (Select-String " $Archive$" checksums.txt).Line.Split(" ")[0]
+$Actual = (Get-FileHash $Archive -Algorithm SHA256).Hash.ToLower()
+if ($Actual -ne $Expected) { throw "checksum mismatch" }
+Expand-Archive -Force $Archive .
+.\gait.exe --help
+```
+
+Release integrity assets (same release page):
+
+- `checksums.txt`
+- `checksums.txt.sig`
+- `checksums.txt.intoto.jsonl`
+- `sbom.spdx.json`
+- `provenance.json`
 
 Run the offline demo and verify the artifact:
 
