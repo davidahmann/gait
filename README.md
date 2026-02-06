@@ -388,6 +388,9 @@ See `examples/` for exact commands and expected outcomes:
 - `examples/regress-run/`
 - `examples/prompt-injection/`
 - `examples/python/` (thin adapter demo calling local `gait`)
+- `examples/integrations/openai_agents/` (wrapped tool path with allow/block and trace artifacts)
+- `examples/integrations/langchain/` (wrapped tool path with allow/block and trace artifacts)
+- `examples/integrations/autogen/` (wrapped tool path with allow/block and trace artifacts)
 
 ## Python SDK (Thin Adoption Layer)
 
