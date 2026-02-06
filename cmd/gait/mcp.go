@@ -47,6 +47,8 @@ func runMCP(arguments []string) int {
 	switch arguments[0] {
 	case "proxy":
 		return runMCPProxy(arguments[1:])
+	case "bridge":
+		return runMCPProxy(arguments[1:])
 	default:
 		printMCPUsage()
 		return exitInvalidInput
@@ -357,6 +359,7 @@ func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) i
 func printMCPUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 }
 
 func printMCPProxyUsage() {

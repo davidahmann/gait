@@ -3,6 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
+	"time"
+
+	"github.com/davidahmann/gait/core/scout"
 )
 
 const version = "0.0.0-dev"
@@ -12,6 +16,14 @@ func main() {
 }
 
 func run(arguments []string) int {
+	startedAt := time.Now()
+	command := normalizeAdoptionCommand(arguments)
+	exitCode := runDispatch(arguments)
+	writeAdoptionEvent(command, exitCode, time.Since(startedAt), time.Now().UTC())
+	return exitCode
+}
+
+func runDispatch(arguments []string) int {
 	if len(arguments) < 2 {
 		fmt.Println("gait", version)
 		return exitOK
@@ -61,4 +73,37 @@ func run(arguments []string) int {
 		printUsage()
 		return exitInvalidInput
 	}
+}
+
+func normalizeAdoptionCommand(arguments []string) string {
+	if len(arguments) < 2 {
+		return "version"
+	}
+	command := strings.TrimSpace(arguments[1])
+	if command == "" {
+		return "unknown"
+	}
+	switch command {
+	case "--version", "-v", "version":
+		return "version"
+	case "--explain":
+		return "explain"
+	case "gate", "policy", "trace", "regress", "run", "scout", "guard", "incident", "registry", "mcp", "doctor":
+		if len(arguments) > 2 {
+			subcommand := strings.TrimSpace(arguments[2])
+			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {
+				return command + " " + subcommand
+			}
+		}
+	}
+	return command
+}
+
+func writeAdoptionEvent(command string, exitCode int, elapsed time.Duration, now time.Time) {
+	adoptionPath := strings.TrimSpace(os.Getenv("GAIT_ADOPTION_LOG"))
+	if adoptionPath == "" {
+		return
+	}
+	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now)
+	_ = scout.AppendAdoptionEvent(adoptionPath, event)
 }

@@ -62,6 +62,7 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/scout/inventory_snapshot.schema.json",
 	"schemas/v1/guard/pack_manifest.schema.json",
 	"schemas/v1/registry/registry_pack.schema.json",
+	"schemas/v1/scout/adoption_event.schema.json",
 }
 
 func Run(opts Options) Result {

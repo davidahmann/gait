@@ -21,3 +21,21 @@ type InventoryItem struct {
 	Tags        []string `json:"tags,omitempty"`
 	LastSeenRun string   `json:"last_seen_run,omitempty"`
 }
+
+type AdoptionEvent struct {
+	SchemaID        string             `json:"schema_id"`
+	SchemaVersion   string             `json:"schema_version"`
+	CreatedAt       time.Time          `json:"created_at"`
+	ProducerVersion string             `json:"producer_version"`
+	Command         string             `json:"command"`
+	Success         bool               `json:"success"`
+	ExitCode        int                `json:"exit_code"`
+	ElapsedMS       int64              `json:"elapsed_ms"`
+	Milestones      []string           `json:"milestones,omitempty"`
+	Environment     AdoptionEnvContext `json:"environment"`
+}
+
+type AdoptionEnvContext struct {
+	OS   string `json:"os"`
+	Arch string `json:"arch"`
+}

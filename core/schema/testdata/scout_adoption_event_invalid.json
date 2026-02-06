@@ -1,0 +1,14 @@
+{
+  "schema_id": "gait.scout.adoption_event",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-06T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "command": "",
+  "success": true,
+  "exit_code": -1,
+  "elapsed_ms": 247,
+  "milestones": ["A9"],
+  "environment": {
+    "os": "darwin"
+  }
+}

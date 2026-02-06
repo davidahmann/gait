@@ -21,7 +21,7 @@ jobs:
           GOMAXPROCS: "1"
         run: |
           mkdir -p perf
-          go test ./core/gate ./core/runpack -run '^$' -bench 'Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical)$' -benchmem -count=5 | tee perf/bench_output.txt
+          go test ./core/gate ./core/runpack ./core/scout ./core/guard ./core/registry ./core/mcp -run '^$' -bench 'Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical|SnapshotTypical|DiffSnapshotsTypical|VerifyPackTypical|BuildIncidentPackTypical|InstallLocalTypical|VerifyInstalledTypical|DecodeToolCallOpenAITypical|EvaluateToolCallTypical)$' -benchmem -count=5 | tee perf/bench_output.txt
       - name: Check benchmark regressions
         run: |
           python scripts/check_bench_regression.py perf/bench_output.txt perf/bench_baseline.json perf/bench_report.json

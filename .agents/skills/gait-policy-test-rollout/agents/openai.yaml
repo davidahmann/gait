@@ -1,0 +1,4 @@
+interface:
+  display_name: "Policy Test Rollout"
+  short_description: "Validate policy behavior before enforcement rollout"
+  default_prompt: "Use $gait-policy-test-rollout to run deterministic policy tests and summarize rollout-safe next actions."

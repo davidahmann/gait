@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/davidahmann/gait/core/doctor"
+	"github.com/davidahmann/gait/core/scout"
 	"github.com/davidahmann/gait/core/sign"
 )
 
@@ -25,7 +27,16 @@ type doctorOutput struct {
 	Error           string         `json:"error,omitempty"`
 }
 
+type doctorAdoptionOutput struct {
+	OK     bool                  `json:"ok"`
+	Report *scout.AdoptionReport `json:"report,omitempty"`
+	Error  string                `json:"error,omitempty"`
+}
+
 func runDoctor(arguments []string) int {
+	if len(arguments) > 0 && strings.TrimSpace(arguments[0]) == "adoption" {
+		return runDoctorAdoption(arguments[1:])
+	}
 	if hasExplainFlag(arguments) {
 		return writeExplain("Diagnose local environment issues for Gait workflows and return stable fix suggestions.")
 	}
@@ -94,6 +105,46 @@ func runDoctor(arguments []string) int {
 	}, exitCode)
 }
 
+func runDoctorAdoption(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Summarize local activation milestones and blockers from GAIT_ADOPTION_LOG events.")
+	}
+	flagSet := flag.NewFlagSet("doctor-adoption", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var fromPath string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&fromPath, "from", "", "path to adoption events jsonl")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if helpFlag {
+		printDoctorAdoptionUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) > 0 {
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: "unexpected positional arguments"}, exitInvalidInput)
+	}
+	if strings.TrimSpace(fromPath) == "" {
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: "missing required --from <path>"}, exitInvalidInput)
+	}
+
+	events, err := scout.LoadAdoptionEvents(fromPath)
+	if err != nil {
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	report := scout.BuildAdoptionReport(events, fromPath, version, time.Time{})
+	return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{
+		OK:     true,
+		Report: &report,
+	}, exitOK)
+}
+
 func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 	if jsonOutput {
 		encoded, err := json.Marshal(output)
@@ -119,7 +170,39 @@ func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 	return exitCode
 }
 
+func writeDoctorAdoptionOutput(jsonOutput bool, output doctorAdoptionOutput, exitCode int) int {
+	if jsonOutput {
+		encoded, err := json.Marshal(output)
+		if err != nil {
+			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
+			return exitInvalidInput
+		}
+		fmt.Println(string(encoded))
+		return exitCode
+	}
+
+	if output.Error != "" {
+		fmt.Printf("doctor adoption error: %s\n", output.Error)
+		return exitCode
+	}
+	if output.Report == nil {
+		fmt.Println("doctor adoption error: missing report")
+		return exitInvalidInput
+	}
+	fmt.Printf("doctor adoption: source=%s total_events=%d activation_complete=%t\n", output.Report.Source, output.Report.TotalEvents, output.Report.ActivationComplete)
+	if len(output.Report.Blockers) > 0 {
+		fmt.Printf("blockers: %s\n", strings.Join(output.Report.Blockers, "; "))
+	}
+	return exitCode
+}
+
 func printDoctorUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
+}
+
+func printDoctorAdoptionUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 }

@@ -58,7 +58,11 @@ func Install(ctx context.Context, options InstallOptions) (InstallResult, error)
 	if err != nil {
 		return InstallResult{}, err
 	}
-	signableDigest, signableBytes, err := digestSignableManifest(manifest)
+	signableDigest, _, err := digestSignableManifest(manifest)
+	if err != nil {
+		return InstallResult{}, err
+	}
+	metadataBytes, err := canonicalManifest(manifest)
 	if err != nil {
 		return InstallResult{}, err
 	}
@@ -83,7 +87,7 @@ func Install(ctx context.Context, options InstallOptions) (InstallResult, error)
 	if err := os.MkdirAll(filepath.Dir(metadataPath), 0o750); err != nil {
 		return InstallResult{}, fmt.Errorf("mkdir metadata dir: %w", err)
 	}
-	if err := os.WriteFile(metadataPath, signableBytes, 0o600); err != nil {
+	if err := os.WriteFile(metadataPath, metadataBytes, 0o600); err != nil {
 		return InstallResult{}, fmt.Errorf("write registry metadata: %w", err)
 	}
 
@@ -221,6 +225,18 @@ func digestSignableManifest(manifest schemaregistry.RegistryPack) (string, []byt
 		return "", nil, fmt.Errorf("digest signable registry manifest: %w", err)
 	}
 	return digest, canonical, nil
+}
+
+func canonicalManifest(manifest schemaregistry.RegistryPack) ([]byte, error) {
+	raw, err := json.Marshal(manifest)
+	if err != nil {
+		return nil, fmt.Errorf("marshal registry manifest: %w", err)
+	}
+	canonical, err := jcs.CanonicalizeJSON(raw)
+	if err != nil {
+		return nil, fmt.Errorf("canonicalize registry manifest: %w", err)
+	}
+	return canonical, nil
 }
 
 func enforcePin(expected string, actual string) error {

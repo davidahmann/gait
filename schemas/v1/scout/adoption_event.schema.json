@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/scout/adoption_event.schema.json",
+  "title": "Scout Adoption Event",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "command",
+    "success",
+    "exit_code",
+    "elapsed_ms",
+    "environment"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.scout.adoption_event" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "command": { "type": "string", "minLength": 1 },
+    "success": { "type": "boolean" },
+    "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "elapsed_ms": { "type": "integer", "minimum": 0 },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["A1", "A2", "A3", "A4", "E1", "E2", "E3"]
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "arch": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

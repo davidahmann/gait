@@ -8,12 +8,12 @@ PYTHON_COVERAGE_THRESHOLD ?= 85
 SDK_DIR := sdk/python
 UV_PY := 3.13
 GO_COVERAGE_PACKAGES := ./core/... ./cmd/gait
-BENCH_PACKAGES := ./core/gate ./core/runpack
-BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical)$$
+BENCH_PACKAGES := ./core/gate ./core/runpack ./core/scout ./core/guard ./core/registry ./core/mcp
+BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical|SnapshotTypical|DiffSnapshotsTypical|VerifyPackTypical|BuildIncidentPackTypical|InstallLocalTypical|VerifyInstalledTypical|DecodeToolCallOpenAITypical|EvaluateToolCallTypical)$$
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-e2e test-acceptance build bench bench-check
+.PHONY: fmt lint test test-e2e test-acceptance build bench bench-check skills-validate
 .PHONY: hooks
 
 fmt:
@@ -21,6 +21,7 @@ fmt:
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev ruff format)
 
 lint:
+	$(PYTHON) scripts/validate_repo_skills.py
 	$(GO) vet ./...
 	$(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1 run ./...
 	$(GO) run github.com/securego/gosec/v2/cmd/gosec@v2.22.0 ./...
@@ -59,3 +60,6 @@ bench-check: bench
 
 hooks:
 	git config core.hooksPath .githooks
+
+skills-validate:
+	$(PYTHON) scripts/validate_repo_skills.py

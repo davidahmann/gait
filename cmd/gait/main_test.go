@@ -90,17 +90,29 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "registry", "install", "--help"}); code != exitOK {
 		t.Fatalf("run registry install help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "registry", "list", "--help"}); code != exitOK {
+		t.Fatalf("run registry list help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "registry", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run registry verify help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "migrate", "--help"}); code != exitOK {
 		t.Fatalf("run migrate help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "mcp", "proxy", "--help"}); code != exitOK {
 		t.Fatalf("run mcp proxy help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "mcp", "bridge", "--help"}); code != exitOK {
+		t.Fatalf("run mcp bridge help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run verify help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "doctor", "--help"}); code != exitOK {
 		t.Fatalf("run doctor help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "doctor", "adoption", "--help"}); code != exitOK {
+		t.Fatalf("run doctor adoption help: expected %d got %d", exitOK, code)
 	}
 }
 
@@ -517,12 +529,42 @@ func TestScoutGuardRegistryAndReduceFlow(t *testing.T) {
 	if err := os.WriteFile(publicKeyPath, []byte(base64.StdEncoding.EncodeToString(keyPair.Public)), 0o600); err != nil {
 		t.Fatalf("write public key: %v", err)
 	}
+	cacheDir := filepath.Join(workDir, "registry_cache")
 	if code := runRegistryInstall([]string{
 		"--source", registryManifestPath,
+		"--cache-dir", cacheDir,
 		"--public-key", publicKeyPath,
 		"--json",
 	}); code != exitOK {
 		t.Fatalf("runRegistryInstall: expected %d got %d", exitOK, code)
+	}
+	if code := runRegistryList([]string{"--cache-dir", cacheDir, "--json"}); code != exitOK {
+		t.Fatalf("runRegistryList: expected %d got %d", exitOK, code)
+	}
+	installedMetadataPath := filepath.Join(cacheDir, "baseline-highrisk", "1.1.0", digest, "registry_pack.json")
+	if code := runRegistryVerify([]string{
+		"--path", installedMetadataPath,
+		"--cache-dir", cacheDir,
+		"--public-key", publicKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runRegistryVerify success: expected %d got %d", exitOK, code)
+	}
+	otherPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate alternate key pair: %v", err)
+	}
+	otherPublicKeyPath := filepath.Join(workDir, "public_other.key")
+	if err := os.WriteFile(otherPublicKeyPath, []byte(base64.StdEncoding.EncodeToString(otherPair.Public)), 0o600); err != nil {
+		t.Fatalf("write alternate public key: %v", err)
+	}
+	if code := runRegistryVerify([]string{
+		"--path", installedMetadataPath,
+		"--cache-dir", cacheDir,
+		"--public-key", otherPublicKeyPath,
+		"--json",
+	}); code != exitVerifyFailed {
+		t.Fatalf("runRegistryVerify invalid key: expected %d got %d", exitVerifyFailed, code)
 	}
 }
 

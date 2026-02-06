@@ -308,6 +308,36 @@ gait guard encrypt --in ./gait-out/evidence_pack_<id>.zip --key-env GAIT_GUARD_K
 gait guard decrypt --in ./gait-out/evidence_pack_<id>.zip.gaitenc --key-env GAIT_GUARD_KEY --json
 ```
 
+### 4.7) Gait Skills (v1.5)
+
+Gait ships installable skills under `.agents/skills/` for Codex and Claude Code using shared `SKILL.md` content.
+
+Install repo skills into both local providers:
+
+```bash
+bash scripts/install_repo_skills.sh
+```
+
+Install provider-specific:
+
+```bash
+bash scripts/install_repo_skills.sh --provider codex
+bash scripts/install_repo_skills.sh --provider claude
+```
+
+Included skills:
+
+- `gait-capture-runpack`
+- `gait-incident-to-regression`
+- `gait-policy-test-rollout`
+
+Design constraints for all shipped skills:
+
+- Skills call `gait` commands and parse `--json`.
+- Skills do not embed credentials.
+- Skills default to deterministic and safe modes.
+- Shared skill frontmatter is Claude-compatible; Codex-specific UI metadata lives in `agents/openai.yaml`.
+
 ### 5) Explain Command Intent
 
 Every major command supports `--explain` for short, stable intent text:

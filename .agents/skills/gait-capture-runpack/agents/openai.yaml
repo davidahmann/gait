@@ -1,0 +1,4 @@
+interface:
+  display_name: "Capture Runpack"
+  short_description: "Record and verify deterministic run artifacts"
+  default_prompt: "Use $gait-capture-runpack to record a runpack, verify it, and return a ticket-ready evidence block."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Incident To Regression"
+  short_description: "Convert incidents into deterministic CI fixtures"
+  default_prompt: "Use $gait-incident-to-regression to initialize regress fixtures from a run and execute deterministic graders."
