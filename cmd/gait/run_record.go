@@ -59,7 +59,7 @@ func runRecord(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRecordUsage()
@@ -85,7 +85,7 @@ func runRecord(arguments []string) int {
 
 	recordInput, err := readRunRecordInput(inputPath)
 	if err != nil {
-		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	if strings.TrimSpace(runIDOverride) != "" {
@@ -120,7 +120,7 @@ func runRecord(arguments []string) int {
 	}
 
 	if err := os.MkdirAll(outDir, 0o750); err != nil {
-		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	zipPath := filepath.Join(outDir, fmt.Sprintf("runpack_%s.zip", recordInput.Run.RunID))
 
@@ -132,11 +132,11 @@ func runRecord(arguments []string) int {
 		CaptureMode: resolvedCaptureMode,
 	})
 	if err != nil {
-		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	verifyResult, err := runpack.VerifyZip(zipPath, runpack.VerifyOptions{RequireSignature: false})
 	if err != nil {
-		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRunRecordOutput(jsonOutput, runRecordOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if len(verifyResult.MissingFiles) > 0 || len(verifyResult.HashMismatches) > 0 || verifyResult.SignatureStatus == "failed" {
 		return writeRunRecordOutput(jsonOutput, runRecordOutput{
@@ -183,13 +183,7 @@ func displayOutputPath(path string) string {
 
 func writeRunRecordOutput(jsonOutput bool, output runRecordOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("run_id=%s\n", output.RunID)

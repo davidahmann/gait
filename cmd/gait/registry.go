@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -105,7 +104,7 @@ func runRegistryInstall(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRegistryInstallOutput(jsonOutput, registryInstallOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryInstallOutput(jsonOutput, registryInstallOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRegistryInstallUsage()
@@ -127,7 +126,7 @@ func runRegistryInstall(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeRegistryInstallOutput(jsonOutput, registryInstallOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryInstallOutput(jsonOutput, registryInstallOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := registry.Install(context.Background(), registry.InstallOptions{
@@ -170,7 +169,7 @@ func runRegistryList(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRegistryListOutput(jsonOutput, registryListOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryListOutput(jsonOutput, registryListOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRegistryListUsage()
@@ -182,7 +181,7 @@ func runRegistryList(arguments []string) int {
 
 	packs, err := registry.List(registry.ListOptions{CacheDir: cacheDir})
 	if err != nil {
-		return writeRegistryListOutput(jsonOutput, registryListOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryListOutput(jsonOutput, registryListOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	return writeRegistryListOutput(jsonOutput, registryListOutput{
 		OK:    true,
@@ -224,7 +223,7 @@ func runRegistryVerify(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRegistryVerifyUsage()
@@ -246,7 +245,7 @@ func runRegistryVerify(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := registry.Verify(registry.VerifyOptions{
@@ -255,7 +254,7 @@ func runRegistryVerify(arguments []string) int {
 		PublicKey:    publicKey,
 	})
 	if err != nil {
-		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegistryVerifyOutput(jsonOutput, registryVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	ok := result.SignatureVerified && (!result.PinPresent || result.PinVerified)
@@ -280,13 +279,7 @@ func runRegistryVerify(arguments []string) int {
 
 func writeRegistryInstallOutput(jsonOutput bool, output registryInstallOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("registry install ok: %s@%s\n", output.PackName, output.PackVersion)
@@ -299,13 +292,7 @@ func writeRegistryInstallOutput(jsonOutput bool, output registryInstallOutput, e
 
 func writeRegistryListOutput(jsonOutput bool, output registryListOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("registry list ok: %d packs\n", len(output.Packs))
@@ -320,13 +307,7 @@ func writeRegistryListOutput(jsonOutput bool, output registryListOutput, exitCod
 
 func writeRegistryVerifyOutput(jsonOutput bool, output registryVerifyOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("registry verify ok: %s@%s sha256:%s\n", output.PackName, output.PackVersion, output.Digest)

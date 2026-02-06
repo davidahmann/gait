@@ -86,7 +86,7 @@ func runScoutSnapshot(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printScoutSnapshotUsage()
@@ -103,14 +103,14 @@ func runScoutSnapshot(arguments []string) int {
 		Exclude: parseCSVList(excludeCSV),
 	})
 	if err != nil {
-		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	if strings.TrimSpace(outPath) == "" {
 		outPath = fmt.Sprintf("./gait-out/inventory_snapshot_%s.json", snapshot.SnapshotID)
 	}
 	if err := writeJSONFile(outPath, snapshot); err != nil {
-		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	var coverage *scout.CoverageReport
@@ -125,7 +125,7 @@ func runScoutSnapshot(arguments []string) int {
 			coverageOutPath = fmt.Sprintf("./gait-out/inventory_coverage_%s.json", snapshot.SnapshotID)
 		}
 		if err := writeJSONFile(coverageOutPath, report); err != nil {
-			return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -164,7 +164,7 @@ func runScoutDiff(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printScoutDiffUsage()
@@ -185,16 +185,16 @@ func runScoutDiff(arguments []string) int {
 
 	leftSnapshot, err := readInventorySnapshot(leftPath)
 	if err != nil {
-		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	rightSnapshot, err := readInventorySnapshot(rightPath)
 	if err != nil {
-		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	diff := scout.DiffSnapshots(leftSnapshot, rightSnapshot)
 	if strings.TrimSpace(outPath) != "" {
 		if err := writeJSONFile(outPath, diff); err != nil {
-			return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeScoutDiffOutput(jsonOutput, scoutDiffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 	ok := diff.AddedCount == 0 && diff.RemovedCount == 0 && diff.ChangedCount == 0
@@ -256,13 +256,7 @@ func readInventorySnapshot(path string) (schemascout.InventorySnapshot, error) {
 
 func writeScoutSnapshotOutput(jsonOutput bool, output scoutSnapshotOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("scout snapshot ok: %s\n", output.SnapshotPath)
@@ -282,13 +276,7 @@ func writeScoutSnapshotOutput(jsonOutput bool, output scoutSnapshotOutput, exitC
 
 func writeScoutDiffOutput(jsonOutput bool, output scoutDiffOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("scout diff ok: %s vs %s\n", output.Left, output.Right)

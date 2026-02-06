@@ -124,7 +124,7 @@ func runGateEval(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGateEvalUsage()
@@ -139,18 +139,27 @@ func runGateEval(arguments []string) int {
 
 	policy, err := gate.LoadPolicyFile(policyPath)
 	if err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	intent, err := readIntentRequest(intentPath)
 	if err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	resolvedBroker, err := credential.ResolveBroker(
+		credentialBroker,
+		credentialEnvPrefix,
+		credentialCommand,
+		parseCSV(credentialCommandArgsCSV),
+	)
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	evalStart := time.Now()
 	outcome, err := gate.EvaluatePolicyDetailed(policy, intent, gate.EvalOptions{ProducerVersion: version})
 	if err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	result := outcome.Result
 	evalLatencyMS := time.Since(evalStart).Seconds() * 1000
@@ -159,7 +168,7 @@ func runGateEval(arguments []string) int {
 	if outcome.RateLimit.Requests > 0 {
 		rateDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.RateLimit, intent, time.Now().UTC())
 		if err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 		if !rateDecision.Allowed {
 			result.Verdict = "block"
@@ -174,7 +183,7 @@ func runGateEval(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	exitCode := exitOK
@@ -187,7 +196,7 @@ func runGateEval(arguments []string) int {
 	if result.Verdict == "require_approval" {
 		policyDigest, intentDigest, requiredScope, err := gate.ApprovalContext(policy, intent)
 		if err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 		if requiredApprovals <= 0 {
 			requiredApprovals = 1
@@ -203,7 +212,7 @@ func runGateEval(arguments []string) int {
 		if hasAnyKeySource(verifyConfig) {
 			verifyKey, err = sign.LoadVerifyKey(verifyConfig)
 			if err != nil {
-				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 			}
 		}
 
@@ -217,7 +226,7 @@ func runGateEval(arguments []string) int {
 			for _, tokenPath := range approvalTokenPaths {
 				token, err := gate.ReadApprovalToken(tokenPath)
 				if err != nil {
-					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 				}
 
 				entry := schemagate.ApprovalAuditEntry{
@@ -283,16 +292,7 @@ func runGateEval(arguments []string) int {
 	credentialReferenceUsed := ""
 	credentialScopesUsed := []string{}
 	if outcome.RequireBrokerCredential && result.Verdict == "allow" {
-		broker, err := credential.ResolveBroker(
-			credentialBroker,
-			credentialEnvPrefix,
-			credentialCommand,
-			parseCSV(credentialCommandArgsCSV),
-		)
-		if err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
-		}
-		if broker == nil {
+		if resolvedBroker == nil {
 			result.Verdict = "block"
 			result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"broker_credential_required"})
 			result.Violations = mergeUniqueSorted(result.Violations, []string{"broker_credential_missing"})
@@ -304,7 +304,7 @@ func runGateEval(arguments []string) int {
 			}
 			credentialReferenceUsed = reference
 			credentialScopesUsed = scope
-			issued, issueErr := credential.Issue(broker, credential.Request{
+			issued, issueErr := credential.Issue(resolvedBroker, credential.Request{
 				ToolName:  intent.ToolName,
 				Identity:  intent.Context.Identity,
 				Workspace: intent.Context.Workspace,
@@ -349,7 +349,7 @@ func runGateEval(arguments []string) int {
 		TracePath:         tracePath,
 	})
 	if err != nil {
-		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	resolvedApprovalAuditPath := ""
@@ -370,7 +370,7 @@ func runGateEval(arguments []string) int {
 			Entries:           approvalEntries,
 		})
 		if err := gate.WriteApprovalAuditRecord(resolvedApprovalAuditPath, audit); err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 		validApprovals = audit.ValidApprovals
 	}
@@ -391,7 +391,7 @@ func runGateEval(arguments []string) int {
 			CredentialRef:   credentialRefOut,
 		})
 		if err := gate.WriteBrokerCredentialRecord(resolvedCredentialEvidencePath, credentialRecord); err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -448,13 +448,7 @@ func readIntentRequest(path string) (schemagate.IntentRequest, error) {
 
 func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {

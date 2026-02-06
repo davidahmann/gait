@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -71,7 +70,7 @@ func runRegressInit(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRegressInitUsage()
@@ -92,7 +91,7 @@ func runRegressInit(arguments []string) int {
 
 	runpackPath, err := resolveRunpackPath(from)
 	if err != nil {
-		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := regress.InitFixture(regress.InitOptions{
@@ -101,7 +100,7 @@ func runRegressInit(arguments []string) int {
 		WorkDir:           ".",
 	})
 	if err != nil {
-		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	return writeRegressInitOutput(jsonOutput, regressInitOutput{
@@ -117,13 +116,7 @@ func runRegressInit(arguments []string) int {
 
 func writeRegressInitOutput(jsonOutput bool, output regressInitOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {
@@ -161,7 +154,7 @@ func runRegressRun(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printRegressRunUsage()
@@ -183,7 +176,7 @@ func runRegressRun(arguments []string) int {
 		AllowNondeterministic: allowNondeterministic,
 	})
 	if err != nil {
-		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeRegressRunOutput(jsonOutput, regressRunOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	exitCode := exitOK
@@ -205,13 +198,7 @@ func runRegressRun(arguments []string) int {
 
 func writeRegressRunOutput(jsonOutput bool, output regressRunOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {

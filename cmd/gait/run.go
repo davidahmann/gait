@@ -87,7 +87,7 @@ func runDiff(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printDiffUsage()
@@ -100,16 +100,16 @@ func runDiff(arguments []string) int {
 
 	leftPath, err := resolveRunpackPath(remaining[0])
 	if err != nil {
-		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	rightPath, err := resolveRunpackPath(remaining[1])
 	if err != nil {
-		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := runpack.DiffRunpacks(leftPath, rightPath, runpack.DiffPrivacy(privacy))
 	if err != nil {
-		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	ok := !result.Summary.ManifestChanged && !result.Summary.IntentsChanged &&
 		!result.Summary.ResultsChanged && !result.Summary.RefsChanged
@@ -123,7 +123,7 @@ func runDiff(arguments []string) int {
 
 	if outputPath != "" {
 		if err := writeDiffFile(outputPath, result); err != nil {
-			return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeDiffOutput(jsonOutput, diffOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -144,13 +144,7 @@ func writeDiffFile(path string, result runpack.DiffResult) error {
 
 func writeDiffOutput(jsonOutput bool, output diffOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("diff ok: %s vs %s\n", output.Summary.RunIDLeft, output.Summary.RunIDRight)
@@ -195,7 +189,7 @@ func runReplay(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printReplayUsage()
@@ -233,7 +227,7 @@ func runReplay(arguments []string) int {
 
 	runpackPath, err := resolveRunpackPath(remaining[0])
 	if err != nil {
-		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	warnings := []string{}
@@ -244,7 +238,7 @@ func runReplay(arguments []string) int {
 
 	result, err := runpack.ReplayStub(runpackPath)
 	if err != nil {
-		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReplayOutput(jsonOutput, replayOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	ok := len(result.MissingResults) == 0
@@ -266,13 +260,7 @@ func runReplay(arguments []string) int {
 
 func writeReplayOutput(jsonOutput bool, output replayOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {
@@ -337,7 +325,7 @@ func runReduce(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printReduceUsage()
@@ -354,11 +342,11 @@ func runReduce(arguments []string) int {
 
 	predicate, err := runpack.ParseReducePredicate(predicateRaw)
 	if err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	resolvedPath, err := resolveRunpackPath(from)
 	if err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := runpack.ReduceToMinimal(runpack.ReduceOptions{
@@ -367,17 +355,17 @@ func runReduce(arguments []string) int {
 		Predicate:  predicate,
 	})
 	if err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if reportOut == "" {
 		reportOut = result.OutputPath + ".reduce_report.json"
 	}
 	encodedReport, err := runpack.EncodeReduceReport(result.Report)
 	if err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if err := os.WriteFile(reportOut, encodedReport, 0o600); err != nil {
-		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeReduceOutput(jsonOutput, reduceOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	return writeReduceOutput(jsonOutput, reduceOutput{
@@ -394,13 +382,7 @@ func runReduce(arguments []string) int {
 
 func writeReduceOutput(jsonOutput bool, output reduceOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("run reduce ok: %s -> %s\n", output.Input, output.Output)

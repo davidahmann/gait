@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -64,7 +63,7 @@ func runDoctor(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeDoctorOutput(jsonOutput, doctorOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDoctorOutput(jsonOutput, doctorOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printDoctorUsage()
@@ -121,7 +120,7 @@ func runDoctorAdoption(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printDoctorAdoptionUsage()
@@ -136,7 +135,7 @@ func runDoctorAdoption(arguments []string) int {
 
 	events, err := scout.LoadAdoptionEvents(fromPath)
 	if err != nil {
-		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	report := scout.BuildAdoptionReport(events, fromPath, version, time.Time{})
 	return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{
@@ -147,13 +146,7 @@ func runDoctorAdoption(arguments []string) int {
 
 func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.Error != "" {
@@ -172,13 +165,7 @@ func writeDoctorOutput(jsonOutput bool, output doctorOutput, exitCode int) int {
 
 func writeDoctorAdoptionOutput(jsonOutput bool, output doctorAdoptionOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.Error != "" {

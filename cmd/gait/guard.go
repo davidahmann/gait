@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -133,7 +132,7 @@ func runGuardPack(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGuardPackUsage()
@@ -150,7 +149,7 @@ func runGuardPack(arguments []string) int {
 
 	resolvedRunPath, err := resolveRunpackPath(runPath)
 	if err != nil {
-		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	result, err := guard.BuildPack(guard.BuildOptions{
 		RunpackPath:             resolvedRunPath,
@@ -167,7 +166,7 @@ func runGuardPack(arguments []string) int {
 		ProducerVersion:         version,
 	})
 	if err != nil {
-		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardPackOutput(jsonOutput, guardPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	manifestPath := result.PackPath + "#pack_manifest.json"
 	return writeGuardPackOutput(jsonOutput, guardPackOutput{
@@ -201,7 +200,7 @@ func runGuardVerify(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGuardVerifyUsage()
@@ -218,7 +217,7 @@ func runGuardVerify(arguments []string) int {
 
 	result, err := guard.VerifyPack(pathValue)
 	if err != nil {
-		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardVerifyOutput(jsonOutput, guardVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0
 	exitCode := exitOK
@@ -266,7 +265,7 @@ func runGuardRetain(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGuardRetainOutput(jsonOutput, guardRetainOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardRetainOutput(jsonOutput, guardRetainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGuardRetainUsage()
@@ -294,7 +293,7 @@ func runGuardRetain(arguments []string) int {
 		ProducerVersion: version,
 	})
 	if err != nil {
-		return writeGuardRetainOutput(jsonOutput, guardRetainOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardRetainOutput(jsonOutput, guardRetainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	return writeGuardRetainOutput(jsonOutput, guardRetainOutput{
 		OK:           true,
@@ -337,7 +336,7 @@ func runGuardEncrypt(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGuardEncryptUsage()
@@ -361,7 +360,7 @@ func runGuardEncrypt(arguments []string) int {
 		ProducerVersion: version,
 	})
 	if err != nil {
-		return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{
 		OK:        true,
@@ -405,7 +404,7 @@ func runGuardDecrypt(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeGuardDecryptOutput(jsonOutput, guardDecryptOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardDecryptOutput(jsonOutput, guardDecryptOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printGuardDecryptUsage()
@@ -428,7 +427,7 @@ func runGuardDecrypt(arguments []string) int {
 		KeyCommandArgs: parseCSVList(keyCommandArgs),
 	})
 	if err != nil {
-		return writeGuardDecryptOutput(jsonOutput, guardDecryptOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeGuardDecryptOutput(jsonOutput, guardDecryptOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	return writeGuardDecryptOutput(jsonOutput, guardDecryptOutput{
 		OK:        true,
@@ -440,13 +439,7 @@ func runGuardDecrypt(arguments []string) int {
 
 func writeGuardPackOutput(jsonOutput bool, output guardPackOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("guard pack ok: %s\n", output.PackPath)
@@ -458,13 +451,7 @@ func writeGuardPackOutput(jsonOutput bool, output guardPackOutput, exitCode int)
 
 func writeGuardVerifyOutput(jsonOutput bool, output guardVerifyOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("guard verify ok: %s\n", output.Path)
@@ -480,13 +467,7 @@ func writeGuardVerifyOutput(jsonOutput bool, output guardVerifyOutput, exitCode 
 
 func writeGuardRetainOutput(jsonOutput bool, output guardRetainOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("guard retain ok: scanned=%d deleted=%d\n", output.ScannedFiles, len(output.DeletedFiles))
@@ -498,13 +479,7 @@ func writeGuardRetainOutput(jsonOutput bool, output guardRetainOutput, exitCode 
 
 func writeGuardEncryptOutput(jsonOutput bool, output guardEncryptOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("guard encrypt ok: %s\n", output.Path)
@@ -516,13 +491,7 @@ func writeGuardEncryptOutput(jsonOutput bool, output guardEncryptOutput, exitCod
 
 func writeGuardDecryptOutput(jsonOutput bool, output guardDecryptOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("guard decrypt ok: %s\n", output.Path)

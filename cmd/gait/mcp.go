@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -104,7 +103,7 @@ func runMCPProxy(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printMCPProxyUsage()
@@ -125,21 +124,21 @@ func runMCPProxy(arguments []string) int {
 
 	payload, err := readMCPPayload(callPath)
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	call, err := mcp.DecodeToolCall(adapter, payload)
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	policy, err := gate.LoadPolicyFile(policyPath)
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	evalResult, err := mcp.EvaluateToolCall(policy, call, gate.EvalOptions{ProducerVersion: version})
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
@@ -148,7 +147,7 @@ func runMCPProxy(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
 		ProducerVersion:   version,
@@ -156,7 +155,7 @@ func runMCPProxy(arguments []string) int {
 		TracePath:         tracePath,
 	})
 	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	resolvedRunID := normalizeRunID(runID)
@@ -171,7 +170,7 @@ func runMCPProxy(arguments []string) int {
 	if strings.TrimSpace(runpackOut) != "" {
 		resolvedRunpackPath = runpackOut
 		if err := writeMCPRunpack(resolvedRunpackPath, resolvedRunID, evalResult, traceResult.Trace.TraceID); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -191,14 +190,14 @@ func runMCPProxy(arguments []string) int {
 	if strings.TrimSpace(logExportPath) != "" {
 		resolvedLogExport = strings.TrimSpace(logExportPath)
 		if err := mcp.ExportLogEvent(resolvedLogExport, exportEvent); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 	resolvedOTelExport := ""
 	if strings.TrimSpace(otelExportPath) != "" {
 		resolvedOTelExport = strings.TrimSpace(otelExportPath)
 		if err := mcp.ExportOTelEvent(resolvedOTelExport, exportEvent); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -336,13 +335,7 @@ func normalizeRunID(raw string) string {
 
 func writeMCPProxyOutput(jsonOutput bool, output mcpProxyOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("mcp proxy: verdict=%s\n", output.Verdict)

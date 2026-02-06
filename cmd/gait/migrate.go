@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -49,7 +48,7 @@ func runMigrate(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printMigrateUsage()
@@ -81,7 +80,7 @@ func runMigrate(arguments []string) int {
 
 	resolvedInput, err := resolveRunpackPath(inputPath)
 	if err != nil {
-		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if !strings.HasSuffix(strings.ToLower(resolvedInput), ".zip") {
 		return writeMigrateOutput(jsonOutput, migrateOutput{
@@ -92,7 +91,7 @@ func runMigrate(arguments []string) int {
 
 	runpackData, err := runpack.ReadRunpack(resolvedInput)
 	if err != nil {
-		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	if strings.TrimSpace(outputPath) == "" {
@@ -117,12 +116,12 @@ func runMigrate(arguments []string) int {
 		CaptureMode: captureMode,
 	})
 	if err != nil {
-		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	verifyResult, err := runpack.VerifyZip(outputPath, runpack.VerifyOptions{RequireSignature: false})
 	if err != nil {
-		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeMigrateOutput(jsonOutput, migrateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if len(verifyResult.MissingFiles) > 0 || len(verifyResult.HashMismatches) > 0 || verifyResult.SignatureStatus == "failed" {
 		return writeMigrateOutput(jsonOutput, migrateOutput{
@@ -162,13 +161,7 @@ func defaultMigratedRunpackPath(inputPath, runID string) string {
 
 func writeMigrateOutput(jsonOutput bool, output migrateOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("migrate ok: %s -> %s (%s)\n", output.Input, output.Output, output.Status)

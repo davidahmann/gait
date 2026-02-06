@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -73,7 +72,7 @@ func runTraceVerify(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printTraceVerifyUsage()
@@ -91,7 +90,7 @@ func runTraceVerify(arguments []string) int {
 
 	record, err := gate.ReadTraceRecord(pathValue)
 	if err != nil {
-		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	publicKey, err := sign.LoadVerifyKey(sign.KeyConfig{
 		PublicKeyPath:  publicKeyPath,
@@ -100,7 +99,7 @@ func runTraceVerify(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeTraceVerifyOutput(jsonOutput, traceVerifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	ok, err := gate.VerifyTraceRecordSignature(record, publicKey)
@@ -137,13 +136,7 @@ func runTraceVerify(arguments []string) int {
 
 func writeTraceVerifyOutput(jsonOutput bool, output traceVerifyOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("trace verify ok: %s\n", output.Path)

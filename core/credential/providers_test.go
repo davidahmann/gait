@@ -134,6 +134,9 @@ func TestResolveBroker(t *testing.T) {
 	if commandBroker == nil {
 		t.Fatalf("expected command broker")
 	}
+	if _, err := ResolveBroker("command", "", "", nil); err == nil {
+		t.Fatalf("expected command broker missing-command error")
+	}
 }
 
 func TestBrokerNames(t *testing.T) {

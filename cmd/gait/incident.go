@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -77,7 +76,7 @@ func runIncidentPack(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printIncidentPackUsage()
@@ -94,7 +93,7 @@ func runIncidentPack(arguments []string) int {
 
 	resolvedRunPath, err := resolveRunpackPath(from)
 	if err != nil {
-		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	parsedWindow, err := time.ParseDuration(strings.TrimSpace(window))
 	if err != nil {
@@ -111,7 +110,7 @@ func runIncidentPack(arguments []string) int {
 		ProducerVersion: version,
 	})
 	if err != nil {
-		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	return writeIncidentPackOutput(jsonOutput, incidentPackOutput{
@@ -132,13 +131,7 @@ func runIncidentPack(arguments []string) int {
 
 func writeIncidentPackOutput(jsonOutput bool, output incidentPackOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 	if output.OK {
 		fmt.Printf("incident pack ok: %s\n", output.PackPath)

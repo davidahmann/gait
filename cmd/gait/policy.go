@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -58,7 +57,7 @@ func runPolicyTest(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printPolicyTestUsage()
@@ -76,11 +75,11 @@ func runPolicyTest(arguments []string) int {
 
 	policy, err := gate.LoadPolicyFile(policyPath)
 	if err != nil {
-		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	intent, err := readIntentRequest(intentPath)
 	if err != nil {
-		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	runResult, err := policytest.Run(policytest.RunOptions{
@@ -89,7 +88,7 @@ func runPolicyTest(arguments []string) int {
 		ProducerVersion: version,
 	})
 	if err != nil {
-		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	exitCode := exitOK
@@ -116,13 +115,7 @@ func runPolicyTest(arguments []string) int {
 
 func writePolicyTestOutput(jsonOutput bool, output policyTestOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {

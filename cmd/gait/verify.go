@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/ed25519"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 
 const (
 	exitOK                = 0
+	exitInternalFailure   = 1
 	exitPolicyBlocked     = 3
 	exitApprovalRequired  = 4
 	exitRegressFailed     = 5
@@ -68,7 +68,7 @@ func runVerify(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printVerifyUsage()
@@ -81,7 +81,7 @@ func runVerify(arguments []string) int {
 
 	runpackPath, err := resolveRunpackPath(remaining[0])
 	if err != nil {
-		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	var publicKey ed25519.PublicKey
@@ -94,7 +94,7 @@ func runVerify(arguments []string) int {
 	if hasAnyKeySource(keyConfig) {
 		publicKey, err = sign.LoadVerifyKey(keyConfig)
 		if err != nil {
-			return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+			return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
 
@@ -103,7 +103,7 @@ func runVerify(arguments []string) int {
 		RequireSignature: requireSignature,
 	})
 	if err != nil {
-		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeVerifyOutput(jsonOutput, verifyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0
@@ -143,13 +143,7 @@ func hasAnyKeySource(cfg sign.KeyConfig) bool {
 
 func writeVerifyOutput(jsonOutput bool, output verifyOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {

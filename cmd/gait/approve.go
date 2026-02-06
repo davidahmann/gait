@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -59,7 +58,7 @@ func runApprove(arguments []string) int {
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
 	if err := flagSet.Parse(arguments); err != nil {
-		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	if helpFlag {
 		printApproveUsage()
@@ -84,7 +83,7 @@ func runApprove(arguments []string) int {
 		PrivateKeyEnv:  privateKeyEnv,
 	})
 	if err != nil {
-		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := gate.MintApprovalToken(gate.MintApprovalTokenOptions{
@@ -99,7 +98,7 @@ func runApprove(arguments []string) int {
 		TokenPath:         outputPath,
 	})
 	if err != nil {
-		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	keyID := ""
@@ -134,13 +133,7 @@ func parseCSV(value string) []string {
 
 func writeApproveOutput(jsonOutput bool, output approveOutput, exitCode int) int {
 	if jsonOutput {
-		encoded, err := json.Marshal(output)
-		if err != nil {
-			fmt.Println(`{"ok":false,"error":"failed to encode output"}`)
-			return exitInvalidInput
-		}
-		fmt.Println(string(encoded))
-		return exitCode
+		return writeJSONOutput(output, exitCode)
 	}
 
 	if output.OK {

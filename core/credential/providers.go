@@ -143,6 +143,9 @@ func ResolveBroker(name string, envPrefix string, command string, commandArgs []
 	case "env":
 		return EnvBroker{Prefix: strings.TrimSpace(envPrefix)}, nil
 	case "command":
+		if strings.TrimSpace(command) == "" {
+			return nil, fmt.Errorf("command broker requires --credential-command")
+		}
 		return CommandBroker{
 			Command: strings.TrimSpace(command),
 			Args:    normalizeCommandArgs(commandArgs),
