@@ -10,6 +10,7 @@ import (
 
 	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
+	schemaguard "github.com/davidahmann/gait/core/schema/v1/guard"
 	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 )
@@ -256,5 +257,123 @@ func TestBuildIncidentPackV14(t *testing.T) {
 	}
 	if result.BuildResult.Manifest.IncidentWindow == nil {
 		t.Fatalf("expected incident window metadata")
+	}
+}
+
+func TestGuardV14HelperBranches(t *testing.T) {
+	workDir := t.TempDir()
+
+	if _, err := normalizePackPath(""); err == nil {
+		t.Fatalf("expected normalizePackPath empty error")
+	}
+	if _, err := normalizePackPath("/absolute/path"); err == nil {
+		t.Fatalf("expected normalizePackPath absolute error")
+	}
+	if _, err := normalizePackPath("../escape"); err == nil {
+		t.Fatalf("expected normalizePackPath traversal error")
+	}
+	if normalized, err := normalizePackPath("nested/evidence.json"); err != nil || normalized != "nested/evidence.json" {
+		t.Fatalf("normalizePackPath valid path mismatch: path=%s err=%v", normalized, err)
+	}
+
+	if got := normalizeTemplateID(""); got != defaultTemplateID {
+		t.Fatalf("normalizeTemplateID default mismatch: %s", got)
+	}
+	if got := normalizeTemplateID("unknown-template"); got != templateIncident {
+		t.Fatalf("normalizeTemplateID fallback mismatch: %s", got)
+	}
+	if got := normalizeTemplateID("SOC2"); got != templateSOC2 {
+		t.Fatalf("normalizeTemplateID case mismatch: %s", got)
+	}
+
+	if normalizeIncidentWindow(nil) != nil {
+		t.Fatalf("expected nil incident window for nil input")
+	}
+	invalidWindow := normalizeIncidentWindow(&schemaguard.Window{
+		From: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		To:   time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+	})
+	if invalidWindow != nil {
+		t.Fatalf("expected nil incident window when to < from")
+	}
+	validWindow := normalizeIncidentWindow(&schemaguard.Window{
+		From:            time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:              time.Date(2026, 1, 1, 1, 0, 0, 0, time.UTC),
+		WindowSeconds:   -5,
+		SelectionAnchor: " run_1 ",
+	})
+	if validWindow == nil || validWindow.WindowSeconds != 0 || validWindow.SelectionAnchor != "run_1" {
+		t.Fatalf("unexpected normalized incident window: %#v", validWindow)
+	}
+
+	if classifyRetentionFile("trace_abc.json") != "trace" {
+		t.Fatalf("expected trace classification")
+	}
+	if classifyRetentionFile("evidence_pack_abc.zip") != "pack" {
+		t.Fatalf("expected pack classification for evidence zip")
+	}
+	if classifyRetentionFile("incident_pack_abc.zip") != "pack" {
+		t.Fatalf("expected pack classification for incident zip")
+	}
+	if classifyRetentionFile("incident_pack_abc.gaitenc") != "pack" {
+		t.Fatalf("expected pack classification for encrypted incident")
+	}
+	if classifyRetentionFile("other.txt") != "" {
+		t.Fatalf("expected empty classification for other file")
+	}
+
+	if _, _, err := resolveEncryptionKey("", "", nil); err == nil {
+		t.Fatalf("expected missing key source error")
+	}
+	t.Setenv("GAIT_V14_INVALID_KEY", "not-base64")
+	if _, _, err := resolveEncryptionKey("GAIT_V14_INVALID_KEY", "", nil); err == nil {
+		t.Fatalf("expected invalid env key decode error")
+	}
+	t.Setenv("GAIT_V14_SHORT_KEY", base64.StdEncoding.EncodeToString([]byte("short")))
+	if _, _, err := resolveEncryptionKey("GAIT_V14_SHORT_KEY", "", nil); err == nil {
+		t.Fatalf("expected invalid env key length error")
+	}
+	commandKey := base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef"))
+	key, keySource, err := resolveEncryptionKey("", "/bin/sh", []string{"-c", "printf '%s' '" + commandKey + "'"})
+	if err != nil {
+		t.Fatalf("resolve command key: %v", err)
+	}
+	if len(key) != 32 || keySource.Mode != "command" {
+		t.Fatalf("unexpected command key source: key=%d source=%#v", len(key), keySource)
+	}
+	if _, _, err := resolveEncryptionKey("", "/bin/sh", []string{"-c", "printf '%s' not_base64"}); err == nil {
+		t.Fatalf("expected command key decode error")
+	}
+
+	if _, err := BuildIncidentPack(IncidentPackOptions{}); err == nil {
+		t.Fatalf("expected BuildIncidentPack missing runpack path error")
+	}
+
+	mustWriteJSON(t, filepath.Join(workDir, "trace_bad.json"), map[string]any{"trace_id": "x"})
+	tracePaths, traceIDs, policyDigests, err := collectIncidentTraces(workDir, time.Now().Add(-time.Hour), time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatalf("collectIncidentTraces tolerate malformed trace entries: %v", err)
+	}
+	if len(tracePaths) != 0 || len(traceIDs) != 0 || len(policyDigests) != 0 {
+		t.Fatalf("expected no valid traces from malformed payloads")
+	}
+}
+
+func TestDecryptArtifactErrorBranches(t *testing.T) {
+	workDir := t.TempDir()
+	if _, err := DecryptArtifact(DecryptOptions{}); err == nil {
+		t.Fatalf("expected decrypt missing input error")
+	}
+
+	invalidPath := filepath.Join(workDir, "invalid.gaitenc")
+	if err := os.WriteFile(invalidPath, []byte("{"), 0o600); err != nil {
+		t.Fatalf("write invalid encrypted artifact: %v", err)
+	}
+	t.Setenv("GAIT_ENCRYPTION_KEY_X", base64.StdEncoding.EncodeToString([]byte("0123456789abcdef0123456789abcdef")))
+	if _, err := DecryptArtifact(DecryptOptions{
+		InputPath: invalidPath,
+		KeyEnv:    "GAIT_ENCRYPTION_KEY_X",
+	}); err == nil {
+		t.Fatalf("expected decrypt parse error")
 	}
 }

@@ -157,3 +157,48 @@ func TestRunIncidentPackCommand(t *testing.T) {
 		t.Fatalf("guard verify incident pack: expected %d got %d", exitOK, code)
 	}
 }
+
+func TestGuardAndIncidentOutputBranches(t *testing.T) {
+	if code := runIncident(nil); code != exitInvalidInput {
+		t.Fatalf("runIncident no args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runIncident([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runIncident unknown expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeIncidentPackOutput(true, incidentPackOutput{OK: true, PackPath: "incident.zip"}, exitOK); code != exitOK {
+		t.Fatalf("writeIncidentPackOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeIncidentPackOutput(false, incidentPackOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeIncidentPackOutput text expected %d got %d", exitInvalidInput, code)
+	}
+	printIncidentUsage()
+	printIncidentPackUsage()
+
+	if code := runGuardRetain([]string{"--trace-ttl", "bad"}); code != exitInvalidInput {
+		t.Fatalf("runGuardRetain invalid ttl expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuardEncrypt([]string{}); code != exitInvalidInput {
+		t.Fatalf("runGuardEncrypt missing args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runGuardDecrypt([]string{}); code != exitInvalidInput {
+		t.Fatalf("runGuardDecrypt missing args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeGuardRetainOutput(true, guardRetainOutput{OK: true, ScannedFiles: 1}, exitOK); code != exitOK {
+		t.Fatalf("writeGuardRetainOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeGuardRetainOutput(false, guardRetainOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeGuardRetainOutput text expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeGuardEncryptOutput(true, guardEncryptOutput{OK: true, Path: "a.gaitenc"}, exitOK); code != exitOK {
+		t.Fatalf("writeGuardEncryptOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeGuardEncryptOutput(false, guardEncryptOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeGuardEncryptOutput text expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeGuardDecryptOutput(true, guardDecryptOutput{OK: true, Path: "a"}, exitOK); code != exitOK {
+		t.Fatalf("writeGuardDecryptOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeGuardDecryptOutput(false, guardDecryptOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeGuardDecryptOutput text expected %d got %d", exitInvalidInput, code)
+	}
+}

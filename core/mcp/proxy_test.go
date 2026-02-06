@@ -152,6 +152,66 @@ func TestExportersWriteJSONL(t *testing.T) {
 	}
 }
 
+func TestDecodeArgumentsBranches(t *testing.T) {
+	cases := []struct {
+		name      string
+		input     any
+		wantKey   string
+		wantValue any
+		wantErr   bool
+	}{
+		{name: "nil", input: nil, wantErr: false},
+		{name: "map", input: map[string]any{"k": "v"}, wantKey: "k", wantValue: "v", wantErr: false},
+		{name: "empty string", input: " ", wantErr: false},
+		{name: "json string", input: `{"a":1}`, wantKey: "a", wantValue: float64(1), wantErr: false},
+		{name: "invalid json string", input: "{", wantErr: true},
+		{name: "struct-like", input: map[string]string{"x": "y"}, wantKey: "x", wantValue: "y", wantErr: false},
+	}
+	for _, testCase := range cases {
+		got, err := decodeArguments(testCase.input)
+		if testCase.wantErr {
+			if err == nil {
+				t.Fatalf("%s: expected error", testCase.name)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", testCase.name, err)
+		}
+		if testCase.wantKey == "" {
+			continue
+		}
+		if got[testCase.wantKey] != testCase.wantValue {
+			t.Fatalf("%s: unexpected decode result: %#v", testCase.name, got)
+		}
+	}
+}
+
+func TestEvaluateToolCallValidationError(t *testing.T) {
+	policy, err := gate.ParsePolicyYAML([]byte("default_verdict: allow\n"))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	if _, err := EvaluateToolCall(policy, ToolCall{}, gate.EvalOptions{ProducerVersion: "0.0.0-test"}); err == nil {
+		t.Fatalf("expected EvaluateToolCall to fail when name is empty")
+	}
+}
+
+func TestAppendJSONLErrorBranches(t *testing.T) {
+	workDir := t.TempDir()
+	nestedPath := filepath.Join(workDir, "nested", "events.jsonl")
+	if err := appendJSONL(nestedPath, []byte(`{"ok":true}`)); err != nil {
+		t.Fatalf("appendJSONL nested path: %v", err)
+	}
+	dirPath := filepath.Join(workDir, "dir_as_file")
+	if err := os.MkdirAll(dirPath, 0o750); err != nil {
+		t.Fatalf("mkdir dir_as_file: %v", err)
+	}
+	if err := appendJSONL(dirPath, []byte(`{"ok":false}`)); err == nil {
+		t.Fatalf("expected appendJSONL to fail when target path is a directory")
+	}
+}
+
 func bytesTrimNewline(raw []byte) []byte {
 	return []byte(strings.TrimSpace(string(raw)))
 }
