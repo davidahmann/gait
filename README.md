@@ -279,6 +279,8 @@ For multi-party approval flows, pass additional tokens with `--approval-token-ch
 gait gate eval --policy <policy.yaml> --intent <intent.json> --approval-token token_a.json --approval-token-chain token_b.json --json
 ```
 
+Operational details for token minting, TTL/scoping, key handling, and incident audit are in `docs/approval_runbook.md`.
+
 Policies can also require broker-issued credentials before allowing selected tools:
 
 ```bash
@@ -473,6 +475,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 - Code of conduct: `CODE_OF_CONDUCT.md`
 - Integration checklist: `docs/integration_checklist.md`
 - Policy rollout guide: `docs/policy_rollout.md`
+- Approval runbook: `docs/approval_runbook.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`
