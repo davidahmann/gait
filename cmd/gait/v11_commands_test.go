@@ -95,11 +95,37 @@ func TestGuardRegistryAndReduceWriters(t *testing.T) {
 	if code := writeRegistryInstallOutput(false, registryInstallOutput{OK: false, Error: "x"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writeRegistryInstallOutput text expected %d got %d", exitInvalidInput, code)
 	}
+	if code := writeRegistryListOutput(true, registryListOutput{OK: true, Packs: nil}, exitOK); code != exitOK {
+		t.Fatalf("writeRegistryListOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeRegistryListOutput(false, registryListOutput{OK: false, Error: "x"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRegistryListOutput text expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeRegistryVerifyOutput(true, registryVerifyOutput{OK: true, PackName: "pack"}, exitOK); code != exitOK {
+		t.Fatalf("writeRegistryVerifyOutput json expected %d got %d", exitOK, code)
+	}
+	if code := writeRegistryVerifyOutput(false, registryVerifyOutput{OK: false, Error: "x"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeRegistryVerifyOutput text error expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeRegistryVerifyOutput(false, registryVerifyOutput{OK: false, SignatureError: "bad sig"}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeRegistryVerifyOutput signature branch expected %d got %d", exitVerifyFailed, code)
+	}
+	if code := writeRegistryVerifyOutput(false, registryVerifyOutput{OK: false, PackName: "pack-no-pin"}, exitVerifyFailed); code != exitVerifyFailed {
+		t.Fatalf("writeRegistryVerifyOutput pin-mismatch branch expected %d got %d", exitVerifyFailed, code)
+	}
 	printGuardUsage()
 	printGuardPackUsage()
 	printGuardVerifyUsage()
 	printRegistryUsage()
 	printRegistryInstallUsage()
+	printRegistryListUsage()
+	printRegistryVerifyUsage()
+	if code := runRegistryList([]string{"unexpected"}); code != exitInvalidInput {
+		t.Fatalf("runRegistryList positional arg expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runRegistryVerify([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runRegistryVerify missing path expected %d got %d", exitInvalidInput, code)
+	}
 
 	runpackPath := filepath.Join(workDir, "runpack_run_reduce_writer.zip")
 	_, err := runpack.WriteRunpack(runpackPath, runpack.RecordOptions{

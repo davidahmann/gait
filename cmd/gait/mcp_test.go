@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -161,6 +162,18 @@ func TestRunMCPProxyValidation(t *testing.T) {
 	if code := runMCPProxy([]string{}); code != exitInvalidInput {
 		t.Fatalf("runMCPProxy missing args expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runMCP([]string{}); code != exitInvalidInput {
+		t.Fatalf("runMCP missing args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runMCP([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runMCP unknown expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runMCP([]string{"bridge", "--help"}); code != exitOK {
+		t.Fatalf("runMCP bridge help expected %d got %d", exitOK, code)
+	}
+	if code := writeMCPProxyOutput(false, mcpProxyOutput{OK: true, Verdict: "allow"}, exitOK); code != exitOK {
+		t.Fatalf("writeMCPProxyOutput text success expected %d got %d", exitOK, code)
+	}
 	if code := writeMCPProxyOutput(true, mcpProxyOutput{OK: true, Verdict: "allow"}, exitOK); code != exitOK {
 		t.Fatalf("writeMCPProxyOutput json expected %d got %d", exitOK, code)
 	}
@@ -185,6 +198,31 @@ func TestReadMCPPayloadAndRunIDHelpers(t *testing.T) {
 	}
 	if parsed["name"] != "tool.read" {
 		t.Fatalf("unexpected payload: %#v", parsed)
+	}
+	if _, err := readMCPPayload(filepath.Join(workDir, "missing.json")); err == nil {
+		t.Fatalf("expected readMCPPayload missing file error")
+	}
+
+	stdinPath := filepath.Join(workDir, "stdin_call.json")
+	mustWriteFile(t, stdinPath, `{"name":"tool.stdin"}`)
+	stdinFile, err := os.Open(stdinPath)
+	if err != nil {
+		t.Fatalf("open stdin fixture: %v", err)
+	}
+	defer func() {
+		_ = stdinFile.Close()
+	}()
+	originalStdin := os.Stdin
+	defer func() {
+		os.Stdin = originalStdin
+	}()
+	os.Stdin = stdinFile
+	stdinPayload, err := readMCPPayload("-")
+	if err != nil {
+		t.Fatalf("readMCPPayload stdin: %v", err)
+	}
+	if !strings.Contains(string(stdinPayload), "tool.stdin") {
+		t.Fatalf("unexpected stdin payload: %s", string(stdinPayload))
 	}
 
 	if normalized := normalizeRunID(""); normalized != "" {
