@@ -1,0 +1,1 @@
+{"correlation_id":"cid-golden-internal","error":"unexpected failure","error_category":"internal_failure","error_code":"internal_failure","hint":"retry after checking local environment and logs","ok":false,"retryable":false}

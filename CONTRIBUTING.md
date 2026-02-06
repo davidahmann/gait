@@ -9,6 +9,7 @@ Thanks for your interest in contributing. This repo is optimized for **determini
    - `make fmt`
    - `make lint`
    - `make test`
+   - `make test-hardening`
    - `make test-adoption`
 
 ## Pre-commit
@@ -34,6 +35,11 @@ make hooks
 ```
 
 This runs `make lint` and `make test` on every push.
+`make lint` now enforces hook activation (`core.hooksPath=.githooks`) and prints remediation:
+
+```
+make hooks
+```
 
 ## Code quality
 

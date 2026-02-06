@@ -1,0 +1,1 @@
+{"correlation_id":"cid-golden-invalid","error":"missing required --policy","error_category":"invalid_input","error_code":"invalid_input","hint":"check command usage and input schema","ok":false,"retryable":false}

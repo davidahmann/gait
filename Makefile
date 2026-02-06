@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-e2e test-acceptance test-adoption build bench bench-check skills-validate
+.PHONY: fmt lint test test-hardening test-e2e test-acceptance test-adoption build bench bench-check skills-validate
 .PHONY: hooks
 
 fmt:
@@ -22,6 +22,7 @@ fmt:
 
 lint:
 	$(PYTHON) scripts/validate_repo_skills.py
+	bash scripts/check_hooks_config.sh
 	$(GO) vet ./...
 	$(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1 run ./...
 	$(GO) run github.com/securego/gosec/v2/cmd/gosec@v2.22.0 ./...
@@ -36,6 +37,9 @@ test:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=$(PYTHON_COVERAGE_THRESHOLD))
+
+test-hardening:
+	bash scripts/test_hardening.sh
 
 coverage:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
