@@ -593,6 +593,7 @@ CI cadence guidance:
 - Evidence templates: `docs/evidence_templates.md`
 - Hardening contracts: `docs/hardening/contracts.md`
 - Hardening risk register: `docs/hardening/risk_register.md`
+- Hardening release checklist: `docs/hardening/release_checklist.md`
 - Hardening ADRs: `docs/adr/`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
