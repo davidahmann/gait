@@ -8,7 +8,7 @@ Run on every pull request:
 
 - `make lint`
 - `make test`
-- `gait policy test ...` for changed policy packs
+- `bash scripts/policy_compliance_ci.sh` for canonical policy fixtures and reason-code summaries
 - `gait regress run --json --junit=...` when regress fixtures are in scope
 
 PR objective:

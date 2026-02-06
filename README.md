@@ -471,6 +471,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 CI cadence guidance:
 
 - PR checks: `make lint` + `make test`
+- Policy compliance fixture suite: `bash scripts/policy_compliance_ci.sh`
 - Nightly profile: `.github/workflows/adoption-nightly.yml`
 - Full cadence guide: `docs/test_cadence.md`
 
