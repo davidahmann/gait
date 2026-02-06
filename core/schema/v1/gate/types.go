@@ -8,6 +8,7 @@ type TraceRecord struct {
 	CreatedAt        time.Time  `json:"created_at"`
 	ProducerVersion  string     `json:"producer_version"`
 	TraceID          string     `json:"trace_id"`
+	CorrelationID    string     `json:"correlation_id,omitempty"`
 	ToolName         string     `json:"tool_name"`
 	ArgsDigest       string     `json:"args_digest"`
 	IntentDigest     string     `json:"intent_digest"`

@@ -65,6 +65,7 @@ var requiredSchemaPaths = []string{
 	"schemas/v1/guard/pack_manifest.schema.json",
 	"schemas/v1/registry/registry_pack.schema.json",
 	"schemas/v1/scout/adoption_event.schema.json",
+	"schemas/v1/scout/operational_event.schema.json",
 }
 
 var requiredOnboardingPaths = []string{
@@ -95,9 +96,14 @@ func Run(opts Options) Result {
 	checks := []Check{
 		checkWorkDirWritable(workDir),
 		checkOutputDir(outputDir),
+		checkTempDirWritable(),
 		checkSchemaFiles(workDir),
+		checkHooksPath(workDir),
+		checkRegistryCacheHealth(),
+		checkRateLimitLock(outputDir),
 		checkOnboardingBinary(workDir),
 		checkOnboardingAssets(workDir),
+		checkKeySourceAmbiguity(opts.KeyConfig),
 		checkKeyFilePermissions(opts.KeyConfig),
 		checkKeyConfig(opts.KeyMode, opts.KeyConfig),
 	}
@@ -244,6 +250,221 @@ func checkSchemaFiles(workDir string) Check {
 		Name:    "schema_files",
 		Status:  statusPass,
 		Message: "required schema files are present",
+	}
+}
+
+func checkHooksPath(workDir string) Check {
+	if _, err := exec.LookPath("git"); err != nil {
+		return Check{
+			Name:       "hooks_path",
+			Status:     statusWarn,
+			Message:    "git is not available; cannot verify core.hooksPath",
+			FixCommand: "make hooks",
+		}
+	}
+	command := exec.Command("git", "-C", workDir, "config", "--get", "core.hooksPath") // #nosec G204 -- fixed executable and arguments.
+	output, err := command.Output()
+	if err != nil {
+		return Check{
+			Name:       "hooks_path",
+			Status:     statusWarn,
+			Message:    "git core.hooksPath is not configured",
+			FixCommand: "make hooks",
+		}
+	}
+	configured := filepath.Clean(strings.TrimSpace(string(output)))
+	if configured == ".githooks" {
+		return Check{
+			Name:    "hooks_path",
+			Status:  statusPass,
+			Message: "git hooks path is configured",
+		}
+	}
+	return Check{
+		Name:       "hooks_path",
+		Status:     statusWarn,
+		Message:    fmt.Sprintf("git core.hooksPath is %q (expected .githooks)", configured),
+		FixCommand: "make hooks",
+	}
+}
+
+func checkRegistryCacheHealth() Check {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Check{
+			Name:       "registry_cache",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("unable to resolve user home for registry cache: %v", err),
+			FixCommand: "mkdir -p ~/.gait/registry",
+		}
+	}
+	cacheDir := filepath.Join(home, ".gait", "registry")
+	info, err := os.Stat(cacheDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Check{
+				Name:       "registry_cache",
+				Status:     statusWarn,
+				Message:    "registry cache is not initialized",
+				FixCommand: "mkdir -p ~/.gait/registry",
+			}
+		}
+		return Check{
+			Name:       "registry_cache",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("registry cache check failed: %v", err),
+			FixCommand: "mkdir -p ~/.gait/registry",
+		}
+	}
+	if !info.IsDir() {
+		return Check{
+			Name:    "registry_cache",
+			Status:  statusFail,
+			Message: "registry cache path is not a directory",
+		}
+	}
+	pinsDir := filepath.Join(cacheDir, "pins")
+	pinFiles, err := filepath.Glob(filepath.Join(pinsDir, "*.pin"))
+	if err != nil {
+		return Check{
+			Name:    "registry_cache",
+			Status:  statusWarn,
+			Message: fmt.Sprintf("unable to inspect registry pins: %v", err),
+		}
+	}
+	if len(pinFiles) == 0 {
+		return Check{
+			Name:    "registry_cache",
+			Status:  statusPass,
+			Message: "registry cache is accessible",
+		}
+	}
+	brokenPins := 0
+	for _, pinPath := range pinFiles {
+		// #nosec G304 -- pin files come from local cache glob.
+		raw, readErr := os.ReadFile(pinPath)
+		if readErr != nil {
+			brokenPins++
+			continue
+		}
+		digest := strings.ToLower(strings.TrimSpace(string(raw)))
+		digest = strings.TrimPrefix(digest, "sha256:")
+		if len(digest) != 64 {
+			brokenPins++
+			continue
+		}
+		metadataMatches, globErr := filepath.Glob(filepath.Join(cacheDir, "*", "*", digest, "registry_pack.json"))
+		if globErr != nil || len(metadataMatches) == 0 {
+			brokenPins++
+		}
+	}
+	if brokenPins > 0 {
+		return Check{
+			Name:       "registry_cache",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("registry cache has %d inconsistent pin entries", brokenPins),
+			FixCommand: fmt.Sprintf("gait registry list --cache-dir %s", shellQuote(cacheDir)),
+		}
+	}
+	return Check{
+		Name:    "registry_cache",
+		Status:  statusPass,
+		Message: fmt.Sprintf("registry cache healthy (%d pinned pack(s))", len(pinFiles)),
+	}
+}
+
+func checkRateLimitLock(outputDir string) Check {
+	lockPath := filepath.Join(outputDir, "gate_rate_limits.json.lock")
+	info, err := os.Stat(lockPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return Check{
+				Name:    "gate_rate_limit_lock",
+				Status:  statusPass,
+				Message: "no stale gate rate-limit lock detected",
+			}
+		}
+		return Check{
+			Name:    "gate_rate_limit_lock",
+			Status:  statusWarn,
+			Message: fmt.Sprintf("unable to inspect gate lock file: %v", err),
+		}
+	}
+	if info.IsDir() {
+		return Check{
+			Name:    "gate_rate_limit_lock",
+			Status:  statusWarn,
+			Message: "gate rate-limit lock path is a directory",
+		}
+	}
+	age := time.Since(info.ModTime().UTC())
+	if age > 30*time.Second {
+		return Check{
+			Name:       "gate_rate_limit_lock",
+			Status:     statusWarn,
+			Message:    fmt.Sprintf("stale gate rate-limit lock detected (%s old)", age.Truncate(time.Second)),
+			FixCommand: fmt.Sprintf("rm -f %s", shellQuote(lockPath)),
+		}
+	}
+	return Check{
+		Name:    "gate_rate_limit_lock",
+		Status:  statusPass,
+		Message: "gate rate-limit lock is not stale",
+	}
+}
+
+func checkTempDirWritable() Check {
+	tempDir := strings.TrimSpace(os.TempDir())
+	if tempDir == "" {
+		return Check{
+			Name:    "temp_dir",
+			Status:  statusFail,
+			Message: "temporary directory is not configured",
+		}
+	}
+	testPath := filepath.Join(tempDir, fmt.Sprintf("gait-doctor-%d.tmp", time.Now().UTC().UnixNano()))
+	if err := os.WriteFile(testPath, []byte("ok"), 0o600); err != nil {
+		return Check{
+			Name:       "temp_dir",
+			Status:     statusFail,
+			Message:    fmt.Sprintf("temporary directory is not writable: %v", err),
+			FixCommand: fmt.Sprintf("chmod u+w %s", shellQuote(tempDir)),
+		}
+	}
+	_ = os.Remove(testPath)
+	return Check{
+		Name:    "temp_dir",
+		Status:  statusPass,
+		Message: "temporary directory is writable",
+	}
+}
+
+func checkKeySourceAmbiguity(cfg sign.KeyConfig) Check {
+	privatePath := strings.TrimSpace(cfg.PrivateKeyPath)
+	privateEnv := strings.TrimSpace(cfg.PrivateKeyEnv)
+	publicPath := strings.TrimSpace(cfg.PublicKeyPath)
+	publicEnv := strings.TrimSpace(cfg.PublicKeyEnv)
+
+	if privatePath != "" && privateEnv != "" {
+		return Check{
+			Name:       "key_source_ambiguity",
+			Status:     statusFail,
+			Message:    "private key path and env are both set",
+			FixCommand: "set only one of --private-key or --private-key-env",
+		}
+	}
+	if publicPath != "" && publicEnv != "" {
+		return Check{
+			Name:       "key_source_ambiguity",
+			Status:     statusFail,
+			Message:    "public key path and env are both set",
+			FixCommand: "set only one of --public-key or --public-key-env",
+		}
+	}
+	return Check{
+		Name:    "key_source_ambiguity",
+		Status:  statusPass,
+		Message: "key source configuration is unambiguous",
 	}
 }
 

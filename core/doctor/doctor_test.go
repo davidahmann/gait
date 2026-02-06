@@ -2,11 +2,14 @@ package doctor
 
 import (
 	"encoding/base64"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davidahmann/gait/core/sign"
 )
@@ -45,13 +48,13 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 		KeyMode:         sign.ModeDev,
 	})
 
-	if result.Status != statusPass {
-		t.Fatalf("expected pass status, got: %s (%s)", result.Status, result.Summary)
+	if result.Status == statusFail {
+		t.Fatalf("expected non-failing status, got: %s (%s)", result.Status, result.Summary)
 	}
 	if result.NonFixable {
 		t.Fatalf("expected non-fixable to be false")
 	}
-	if len(result.Checks) != 7 {
+	if len(result.Checks) != 12 {
 		t.Fatalf("unexpected checks count: %d", len(result.Checks))
 	}
 	if !checkStatus(result.Checks, "key_permissions", statusPass) {
@@ -62,6 +65,9 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	}
 	if !checkStatus(result.Checks, "onboarding_assets", statusPass) {
 		t.Fatalf("expected onboarding_assets pass check")
+	}
+	if !checkStatus(result.Checks, "key_source_ambiguity", statusPass) {
+		t.Fatalf("expected key_source_ambiguity pass check")
 	}
 }
 
@@ -144,6 +150,14 @@ func TestDoctorHelperBranches(t *testing.T) {
 	check = checkKeyConfig(sign.ModeProd, sign.KeyConfig{PrivateKeyPath: "/missing"})
 	if check.Status != statusFail {
 		t.Fatalf("prod mode invalid key should fail: %#v", check)
+	}
+	check = checkKeySourceAmbiguity(sign.KeyConfig{PrivateKeyPath: "a", PrivateKeyEnv: "KEY"})
+	if check.Status != statusFail {
+		t.Fatalf("key source ambiguity should fail: %#v", check)
+	}
+	check = checkTempDirWritable()
+	if check.Status != statusPass {
+		t.Fatalf("temp dir check should pass: %#v", check)
 	}
 
 	keyPair, err := sign.GenerateKeyPair()
@@ -234,6 +248,188 @@ func TestOnboardingChecks(t *testing.T) {
 	check = checkOnboardingAssets(workDir)
 	if check.Status != statusPass {
 		t.Fatalf("expected onboarding assets pass, got %#v", check)
+	}
+}
+
+func TestHardeningDoctorChecks(t *testing.T) {
+	outputDir := t.TempDir()
+	lockPath := filepath.Join(outputDir, "gate_rate_limits.json.lock")
+	if err := os.WriteFile(lockPath, []byte("lock"), 0o600); err != nil {
+		t.Fatalf("write lock: %v", err)
+	}
+	staleTime := time.Now().Add(-5 * time.Minute)
+	if err := os.Chtimes(lockPath, staleTime, staleTime); err != nil {
+		t.Fatalf("set stale lock time: %v", err)
+	}
+	lockCheck := checkRateLimitLock(outputDir)
+	if lockCheck.Status != statusWarn {
+		t.Fatalf("expected stale lock warning, got %#v", lockCheck)
+	}
+
+	hookCheck := checkHooksPath(t.TempDir())
+	if hookCheck.Status != statusWarn && hookCheck.Status != statusPass {
+		t.Fatalf("unexpected hooks check status: %#v", hookCheck)
+	}
+
+	registryCheck := checkRegistryCacheHealth()
+	if registryCheck.Status != statusWarn && registryCheck.Status != statusPass {
+		t.Fatalf("unexpected registry cache check status: %#v", registryCheck)
+	}
+}
+
+func TestCheckHooksPathScenarios(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	repoDir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		command := exec.Command("git", args...) // #nosec G204 -- static test command.
+		command.Dir = repoDir
+		if output, err := command.CombinedOutput(); err != nil {
+			t.Fatalf("git %v failed: %v (%s)", args, err, string(output))
+		}
+	}
+	run("init")
+	run("config", "core.hooksPath", ".githooks")
+	if err := os.MkdirAll(filepath.Join(repoDir, ".githooks"), 0o750); err != nil {
+		t.Fatalf("mkdir hooks: %v", err)
+	}
+	check := checkHooksPath(repoDir)
+	if check.Status != statusPass {
+		t.Fatalf("expected hooks path pass, got %#v", check)
+	}
+	run("config", "core.hooksPath", "hooks")
+	check = checkHooksPath(repoDir)
+	if check.Status != statusWarn {
+		t.Fatalf("expected hooks path warning for mismatch, got %#v", check)
+	}
+}
+
+func TestCheckRegistryCacheHealthScenarios(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	cacheDir := filepath.Join(home, ".gait", "registry")
+
+	check := checkRegistryCacheHealth()
+	if check.Status != statusWarn {
+		t.Fatalf("expected uninitialized cache warning, got %#v", check)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(cacheDir), 0o750); err != nil {
+		t.Fatalf("mkdir cache parent: %v", err)
+	}
+	if err := os.WriteFile(cacheDir, []byte("x"), 0o600); err != nil {
+		t.Fatalf("write file cache path: %v", err)
+	}
+	check = checkRegistryCacheHealth()
+	if check.Status != statusFail {
+		t.Fatalf("expected non-directory cache failure, got %#v", check)
+	}
+	if err := os.Remove(cacheDir); err != nil {
+		t.Fatalf("remove file cache path: %v", err)
+	}
+
+	pinDigest := strings.Repeat("a", 64)
+	pinDir := filepath.Join(cacheDir, "pins")
+	if err := os.MkdirAll(pinDir, 0o750); err != nil {
+		t.Fatalf("mkdir pins dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(pinDir, "pack.pin"), []byte("sha256:"+pinDigest+"\n"), 0o600); err != nil {
+		t.Fatalf("write pin: %v", err)
+	}
+	check = checkRegistryCacheHealth()
+	if check.Status != statusWarn {
+		t.Fatalf("expected inconsistent pin warning, got %#v", check)
+	}
+
+	metadataPath := filepath.Join(cacheDir, "pack", "1.0.0", pinDigest, "registry_pack.json")
+	if err := os.MkdirAll(filepath.Dir(metadataPath), 0o750); err != nil {
+		t.Fatalf("mkdir metadata dir: %v", err)
+	}
+	if err := os.WriteFile(metadataPath, []byte("{}"), 0o600); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	check = checkRegistryCacheHealth()
+	if check.Status != statusPass {
+		t.Fatalf("expected healthy cache pass, got %#v", check)
+	}
+}
+
+func TestCheckRateLimitLockBranches(t *testing.T) {
+	outputDir := t.TempDir()
+	check := checkRateLimitLock(outputDir)
+	if check.Status != statusPass {
+		t.Fatalf("expected pass when no lock exists, got %#v", check)
+	}
+	lockPath := filepath.Join(outputDir, "gate_rate_limits.json.lock")
+	if err := os.MkdirAll(lockPath, 0o750); err != nil {
+		t.Fatalf("mkdir lock path: %v", err)
+	}
+	check = checkRateLimitLock(outputDir)
+	if check.Status != statusWarn {
+		t.Fatalf("expected warning for lock directory, got %#v", check)
+	}
+}
+
+func TestCheckTempDirWritableFailure(t *testing.T) {
+	tempDir := filepath.Join(t.TempDir(), "readonly")
+	if err := os.MkdirAll(tempDir, 0o750); err != nil {
+		t.Fatalf("mkdir temp dir: %v", err)
+	}
+	if err := os.Chmod(tempDir, 0o500); err != nil {
+		t.Fatalf("chmod temp dir readonly: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(tempDir, 0o700)
+	})
+	t.Setenv("TMPDIR", tempDir)
+	t.Setenv("TMP", tempDir)
+	t.Setenv("TEMP", tempDir)
+
+	check := checkTempDirWritable()
+	if runtime.GOOS != "windows" && check.Status != statusFail {
+		t.Fatalf("expected temp dir writable failure, got %#v", check)
+	}
+	if runtime.GOOS == "windows" && check.Status != statusFail && check.Status != statusPass {
+		t.Fatalf("unexpected temp dir check status on windows: %#v", check)
+	}
+}
+
+func TestCheckHooksPathGitUnavailable(t *testing.T) {
+	repoDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoDir, ".githooks"), 0o750); err != nil {
+		t.Fatalf("mkdir hooks: %v", err)
+	}
+	originalPath := os.Getenv("PATH")
+	emptyPathDir := t.TempDir()
+	t.Setenv("PATH", emptyPathDir)
+	check := checkHooksPath(repoDir)
+	if check.Status != statusWarn {
+		t.Fatalf("expected hooks warning without git, got %#v", check)
+	}
+	if originalPath != "" {
+		t.Logf("original PATH length=%d", len(originalPath))
+	}
+}
+
+func TestCheckRegistryCacheHealthGlobErrorPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	cacheDir := filepath.Join(home, ".gait", "registry")
+	pinsDir := filepath.Join(cacheDir, "pins")
+	if err := os.MkdirAll(pinsDir, 0o750); err != nil {
+		t.Fatalf("mkdir pins dir: %v", err)
+	}
+	badPinPath := filepath.Join(pinsDir, "bad.pin")
+	if err := os.WriteFile(badPinPath, []byte(fmt.Sprintf("sha256:%s\n", strings.Repeat("z", 64))), 0o600); err != nil {
+		t.Fatalf("write bad pin: %v", err)
+	}
+	check := checkRegistryCacheHealth()
+	if check.Status != statusWarn {
+		t.Fatalf("expected warning for bad pin digest, got %#v", check)
 	}
 }
 

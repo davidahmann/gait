@@ -343,6 +343,7 @@ func runGateEval(arguments []string) int {
 
 	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
 		ProducerVersion:   version,
+		CorrelationID:     currentCorrelationID(),
 		ApprovalTokenRef:  resolvedApprovalRef,
 		LatencyMS:         evalLatencyMS,
 		SigningPrivateKey: keyPair.Private,

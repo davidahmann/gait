@@ -17,6 +17,7 @@ import (
 
 type EmitTraceOptions struct {
 	ProducerVersion   string
+	CorrelationID     string
 	ApprovalTokenRef  string
 	LatencyMS         float64
 	SigningPrivateKey ed25519.PrivateKey
@@ -72,6 +73,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		CreatedAt:        createdAt,
 		ProducerVersion:  producerVersion,
 		TraceID:          computeTraceID(policyDigest, normalizedIntent.IntentDigest, verdict),
+		CorrelationID:    strings.TrimSpace(opts.CorrelationID),
 		ToolName:         normalizedIntent.ToolName,
 		ArgsDigest:       normalizedIntent.ArgsDigest,
 		IntentDigest:     normalizedIntent.IntentDigest,

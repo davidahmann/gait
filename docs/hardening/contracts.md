@@ -61,6 +61,8 @@ Mapped hardening epics: `H4`, `H12`.
 
 - `gait doctor --json` emits actionable fix guidance for common operational faults.
 - Diagnostics remain deterministic and safe for offline usage.
+- Optional operational logs (`GAIT_OPERATIONAL_LOG`) emit stable start/end events with correlation IDs.
+- Correlation IDs are present in JSON command outputs and gate traces for deterministic cross-artifact debugging.
 
 Mapped hardening epics: `H5`, `H6`.
 

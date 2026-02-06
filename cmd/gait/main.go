@@ -17,9 +17,16 @@ func main() {
 
 func run(arguments []string) int {
 	startedAt := time.Now()
+	correlationID := newCorrelationID(arguments)
+	setCurrentCorrelationID(correlationID)
 	command := normalizeAdoptionCommand(arguments)
+	writeOperationalEventStart(command, correlationID, startedAt.UTC())
 	exitCode := runDispatch(arguments)
-	writeAdoptionEvent(command, exitCode, time.Since(startedAt), time.Now().UTC())
+	finishedAt := time.Now().UTC()
+	elapsed := time.Since(startedAt)
+	writeAdoptionEvent(command, exitCode, elapsed, finishedAt)
+	writeOperationalEventEnd(command, correlationID, exitCode, elapsed, finishedAt)
+	setCurrentCorrelationID("")
 	return exitCode
 }
 
@@ -106,4 +113,29 @@ func writeAdoptionEvent(command string, exitCode int, elapsed time.Duration, now
 	}
 	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now)
 	_ = scout.AppendAdoptionEvent(adoptionPath, event)
+}
+
+func writeOperationalEventStart(command string, correlationID string, now time.Time) {
+	operationalPath := strings.TrimSpace(os.Getenv("GAIT_OPERATIONAL_LOG"))
+	if operationalPath == "" {
+		return
+	}
+	event := scout.NewOperationalStartEvent(command, correlationID, version, now)
+	_ = scout.AppendOperationalEvent(operationalPath, event)
+}
+
+func writeOperationalEventEnd(command string, correlationID string, exitCode int, elapsed time.Duration, now time.Time) {
+	operationalPath := strings.TrimSpace(os.Getenv("GAIT_OPERATIONAL_LOG"))
+	if operationalPath == "" {
+		return
+	}
+	category := "none"
+	retryable := false
+	if exitCode != exitOK {
+		resolvedCategory := defaultErrorCategory(exitCode)
+		category = string(resolvedCategory)
+		retryable = defaultRetryable(resolvedCategory)
+	}
+	event := scout.NewOperationalEndEvent(command, correlationID, version, exitCode, category, retryable, elapsed, now)
+	_ = scout.AppendOperationalEvent(operationalPath, event)
 }

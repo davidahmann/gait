@@ -136,6 +136,12 @@ For adoption milestone visibility from local logs:
 gait doctor adoption --from ./gait-out/adoption.jsonl --json
 ```
 
+For optional local operational event logs (start/end events with correlation IDs), set `GAIT_OPERATIONAL_LOG`:
+
+```bash
+GAIT_OPERATIONAL_LOG=./gait-out/operational.jsonl gait verify run_demo --json
+```
+
 ## The Receipt You Paste Into Tickets
 
 The `ticket_footer` line is a copy/paste receipt designed for incident threads, PRs, and CI logs:

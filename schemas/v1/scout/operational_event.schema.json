@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/scout/operational_event.schema.json",
+  "title": "Scout Operational Event",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "correlation_id",
+    "command",
+    "phase",
+    "exit_code",
+    "error_category",
+    "retryable",
+    "elapsed_ms",
+    "environment"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.scout.operational_event" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "correlation_id": { "type": "string", "minLength": 1 },
+    "command": { "type": "string", "minLength": 1 },
+    "phase": { "type": "string", "enum": ["start", "end"] },
+    "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
+    "error_category": {
+      "type": "string",
+      "enum": [
+        "none",
+        "invalid_input",
+        "verification_failed",
+        "policy_blocked",
+        "approval_required",
+        "dependency_missing",
+        "io_failure",
+        "state_contention",
+        "network_transient",
+        "network_permanent",
+        "internal_failure"
+      ]
+    },
+    "retryable": { "type": "boolean" },
+    "elapsed_ms": { "type": "integer", "minimum": 0 },
+    "environment": {
+      "type": "object",
+      "required": ["os", "arch"],
+      "properties": {
+        "os": { "type": "string", "minLength": 1 },
+        "arch": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

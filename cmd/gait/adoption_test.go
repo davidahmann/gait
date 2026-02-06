@@ -41,6 +41,71 @@ func TestRunWritesAdoptionLogWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestRunWritesOperationalLogWhenEnabled(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "operational.jsonl")
+	t.Setenv("GAIT_OPERATIONAL_LOG", logPath)
+
+	if code := run([]string{"gait", "version"}); code != exitOK {
+		t.Fatalf("run version expected %d got %d", exitOK, code)
+	}
+
+	events, err := scout.LoadOperationalEvents(logPath)
+	if err != nil {
+		t.Fatalf("load operational events: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 operational events got %d", len(events))
+	}
+	if events[0].Phase != "start" || events[1].Phase != "end" {
+		t.Fatalf("unexpected phase sequence: %#v %#v", events[0].Phase, events[1].Phase)
+	}
+	if events[0].CorrelationID == "" || events[0].CorrelationID != events[1].CorrelationID {
+		t.Fatalf("expected matching correlation id for start/end events")
+	}
+	if events[1].ExitCode != exitOK {
+		t.Fatalf("expected end exit code %d got %d", exitOK, events[1].ExitCode)
+	}
+}
+
+func TestRunWritesOperationalFailureCategory(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "operational.jsonl")
+	t.Setenv("GAIT_OPERATIONAL_LOG", logPath)
+
+	if code := run([]string{"gait", "policy", "test"}); code != exitInvalidInput {
+		t.Fatalf("run invalid policy invocation expected %d got %d", exitInvalidInput, code)
+	}
+
+	events, err := scout.LoadOperationalEvents(logPath)
+	if err != nil {
+		t.Fatalf("load operational events: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected start/end events got %d", len(events))
+	}
+	end := events[1]
+	if end.Phase != "end" {
+		t.Fatalf("expected end phase, got %s", end.Phase)
+	}
+	if end.ErrorCategory != "invalid_input" {
+		t.Fatalf("expected invalid_input category, got %s", end.ErrorCategory)
+	}
+	if end.Retryable {
+		t.Fatalf("expected retryable=false for invalid input")
+	}
+}
+
+func TestRunJSONOutputIncludesCorrelationID(t *testing.T) {
+	root := repoRootFromPackageDir(t)
+	output := captureStdout(t, func() {
+		if code := run([]string{"gait", "doctor", "--json", "--workdir", root, "--output-dir", filepath.Join(t.TempDir(), "gait-out")}); code != exitOK {
+			t.Fatalf("run doctor json expected %d got %d", exitOK, code)
+		}
+	})
+	if !strings.Contains(output, `"correlation_id":"`) {
+		t.Fatalf("expected correlation_id in json output: %s", output)
+	}
+}
+
 func TestRunDoctorAdoptionJSON(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "adoption.jsonl")
 	base := time.Date(2026, time.February, 6, 15, 0, 0, 0, time.UTC)

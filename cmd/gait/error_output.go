@@ -29,9 +29,14 @@ func marshalOutputWithErrorEnvelope(output any, exitCode int) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(asString(result["correlation_id"])) == "" {
+		if correlationID := currentCorrelationID(); correlationID != "" {
+			result["correlation_id"] = correlationID
+		}
+	}
 	errorText := strings.TrimSpace(asString(result["error"]))
 	if errorText == "" {
-		return encoded, nil
+		return marshalJSON(result)
 	}
 	if strings.TrimSpace(asString(result["error_code"])) == "" {
 		result["error_code"] = defaultErrorCode(exitCode)

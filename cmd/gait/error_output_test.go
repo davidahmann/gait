@@ -9,6 +9,10 @@ import (
 )
 
 func TestMarshalOutputWithErrorEnvelope(t *testing.T) {
+	setCurrentCorrelationID("cid-test")
+	t.Cleanup(func() {
+		setCurrentCorrelationID("")
+	})
 	payload := map[string]any{
 		"ok":    false,
 		"error": "boom",
@@ -29,6 +33,25 @@ func TestMarshalOutputWithErrorEnvelope(t *testing.T) {
 	}
 	if !strings.Contains(result, `"hint":"check command usage and input schema"`) {
 		t.Fatalf("missing hint in output: %s", result)
+	}
+	if !strings.Contains(result, `"correlation_id":"cid-test"`) {
+		t.Fatalf("missing correlation id in output: %s", result)
+	}
+}
+
+func TestMarshalOutputWithCorrelationForSuccess(t *testing.T) {
+	setCurrentCorrelationID("cid-success")
+	t.Cleanup(func() {
+		setCurrentCorrelationID("")
+	})
+	payload := map[string]any{"ok": true}
+	encoded, err := marshalOutputWithErrorEnvelope(payload, exitOK)
+	if err != nil {
+		t.Fatalf("marshalOutputWithErrorEnvelope error: %v", err)
+	}
+	result := string(encoded)
+	if !strings.Contains(result, `"correlation_id":"cid-success"`) {
+		t.Fatalf("missing correlation_id for success output: %s", result)
 	}
 }
 

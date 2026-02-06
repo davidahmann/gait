@@ -21,6 +21,7 @@
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string" },
     "trace_id": { "type": "string" },
+    "correlation_id": { "type": "string" },
     "tool_name": { "type": "string" },
     "args_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },

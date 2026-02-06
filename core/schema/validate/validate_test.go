@@ -123,6 +123,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "scout_adoption_event_invalid.json"),
 		},
 		{
+			name:       "scout_operational_event",
+			schemaPath: filepath.Join(root, "schemas", "v1", "scout", "operational_event.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "scout_operational_event_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "scout_operational_event_invalid.json"),
+		},
+		{
 			name:       "guard_pack_manifest",
 			schemaPath: filepath.Join(root, "schemas", "v1", "guard", "pack_manifest.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "guard_pack_manifest_valid.json"),

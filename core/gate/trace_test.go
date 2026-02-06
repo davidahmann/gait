@@ -43,6 +43,7 @@ rules:
 	tracePath := filepath.Join(t.TempDir(), "trace.json")
 	emitted, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
 		ProducerVersion:   "test",
+		CorrelationID:     "cid-123",
 		LatencyMS:         12.5,
 		ApprovalTokenRef:  "approval_1",
 		SigningPrivateKey: keyPair.Private,
@@ -56,6 +57,9 @@ rules:
 	}
 	if emitted.Trace.Verdict != "block" {
 		t.Fatalf("unexpected trace verdict: %#v", emitted.Trace)
+	}
+	if emitted.Trace.CorrelationID != "cid-123" {
+		t.Fatalf("unexpected trace correlation id: %#v", emitted.Trace)
 	}
 	if emitted.Trace.LatencyMS != 12.5 {
 		t.Fatalf("unexpected trace latency: %#v", emitted.Trace)

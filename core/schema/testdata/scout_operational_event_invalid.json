@@ -1,0 +1,17 @@
+{
+  "schema_id": "gait.scout.operational_event",
+  "schema_version": "1.0.0",
+  "created_at": "not-a-date",
+  "producer_version": "0.0.0-dev",
+  "correlation_id": "",
+  "command": "verify",
+  "phase": "complete",
+  "exit_code": 999,
+  "error_category": "bad",
+  "retryable": "no",
+  "elapsed_ms": -1,
+  "environment": {
+    "os": "",
+    "arch": "amd64"
+  }
+}

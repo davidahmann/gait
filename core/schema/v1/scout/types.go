@@ -39,3 +39,18 @@ type AdoptionEnvContext struct {
 	OS   string `json:"os"`
 	Arch string `json:"arch"`
 }
+
+type OperationalEvent struct {
+	SchemaID        string             `json:"schema_id"`
+	SchemaVersion   string             `json:"schema_version"`
+	CreatedAt       time.Time          `json:"created_at"`
+	ProducerVersion string             `json:"producer_version"`
+	CorrelationID   string             `json:"correlation_id"`
+	Command         string             `json:"command"`
+	Phase           string             `json:"phase"`
+	ExitCode        int                `json:"exit_code"`
+	ErrorCategory   string             `json:"error_category"`
+	Retryable       bool               `json:"retryable"`
+	ElapsedMS       int64              `json:"elapsed_ms"`
+	Environment     AdoptionEnvContext `json:"environment"`
+}
