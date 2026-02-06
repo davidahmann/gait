@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -198,6 +199,61 @@ func TestRecordRunDifferentInputManifestDigest(test *testing.T) {
 	}
 	if resultA.Manifest.ManifestDigest == resultB.Manifest.ManifestDigest {
 		test.Fatalf("expected different manifest digest for different inputs")
+	}
+}
+
+func TestRecordRunLargeInputStress(test *testing.T) {
+	ts := time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)
+	run := schemarunpack.Run{
+		RunID:           "run_large_stress",
+		CreatedAt:       ts,
+		ProducerVersion: "0.0.0-test",
+		Env:             schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline:        []schemarunpack.TimelineEvt{{Event: "start", TS: ts}},
+	}
+
+	const recordCount = 1500
+	intents := make([]schemarunpack.IntentRecord, 0, recordCount)
+	results := make([]schemarunpack.ResultRecord, 0, recordCount)
+	for index := 0; index < recordCount; index++ {
+		intentID := fmt.Sprintf("intent_%d", index)
+		intents = append(intents, schemarunpack.IntentRecord{
+			IntentID:   intentID,
+			ToolName:   "tool.write",
+			ArgsDigest: fmt.Sprintf("%064x", index+1),
+			Args:       map[string]any{"path": fmt.Sprintf("/tmp/%d.txt", index), "content": "x"},
+		})
+		results = append(results, schemarunpack.ResultRecord{
+			IntentID:     intentID,
+			Status:       "ok",
+			ResultDigest: fmt.Sprintf("%064x", index+4000),
+			Result:       map[string]any{"ok": true},
+		})
+	}
+
+	result, err := RecordRun(RecordOptions{
+		Run:         run,
+		Intents:     intents,
+		Results:     results,
+		CaptureMode: "reference",
+	})
+	if err != nil {
+		test.Fatalf("record run large input: %v", err)
+	}
+	if len(result.ZipBytes) == 0 {
+		test.Fatalf("expected non-empty runpack zip")
+	}
+	if len(result.ZipBytes) > 32*1024*1024 {
+		test.Fatalf("expected stress runpack zip <= 32MiB, got %d bytes", len(result.ZipBytes))
+	}
+
+	zipPath := writeTempZip(test, result.ZipBytes)
+	verifyResult, err := VerifyZip(zipPath, VerifyOptions{})
+	if err != nil {
+		test.Fatalf("verify large runpack zip: %v", err)
+	}
+	if len(verifyResult.HashMismatches) > 0 || len(verifyResult.MissingFiles) > 0 {
+		test.Fatalf("expected no verification mismatches for large runpack: %#v", verifyResult)
 	}
 }
 

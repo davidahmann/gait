@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -429,6 +430,96 @@ func TestInstallRemoteRetryAndFallbackBranches(t *testing.T) {
 			t.Fatalf("expected https error, got %v", installErr)
 		}
 	})
+}
+
+func TestInstallLocalConcurrentOperations(t *testing.T) {
+	workDir := t.TempDir()
+	cacheDir := filepath.Join(workDir, "cache")
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	manifest := schemaregistry.RegistryPack{
+		SchemaID:        "gait.registry.pack",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-dev",
+		PackName:        "concurrent-pack",
+		PackVersion:     "1.0.0",
+		Artifacts: []schemaregistry.PackArtifact{{
+			Path:   "policy.yaml",
+			SHA256: strings.Repeat("a", 64),
+		}},
+	}
+	digest, err := signableManifestDigest(manifest)
+	if err != nil {
+		t.Fatalf("signable digest: %v", err)
+	}
+	signature, err := sign.SignDigestHex(keyPair.Private, digest)
+	if err != nil {
+		t.Fatalf("sign digest: %v", err)
+	}
+	manifest.Signatures = []schemaregistry.SignatureRef{{
+		Alg:          signature.Alg,
+		KeyID:        signature.KeyID,
+		Sig:          signature.Sig,
+		SignedDigest: signature.SignedDigest,
+	}}
+	payload, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	manifestPath := filepath.Join(workDir, "registry_pack.json")
+	if err := os.WriteFile(manifestPath, payload, 0o600); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+
+	const workers = 8
+	var group sync.WaitGroup
+	errs := make(chan error, workers)
+	results := make(chan InstallResult, workers)
+	for worker := 0; worker < workers; worker++ {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			result, installErr := Install(context.Background(), InstallOptions{
+				Source:    manifestPath,
+				CacheDir:  cacheDir,
+				PublicKey: keyPair.Public,
+				PinDigest: "sha256:" + digest,
+			})
+			if installErr != nil {
+				errs <- installErr
+				return
+			}
+			results <- result
+		}()
+	}
+	group.Wait()
+	close(errs)
+	close(results)
+
+	for installErr := range errs {
+		if installErr != nil {
+			t.Fatalf("concurrent install error: %v", installErr)
+		}
+	}
+	count := 0
+	for result := range results {
+		count++
+		if result.Digest != digest {
+			t.Fatalf("unexpected digest from concurrent install: %s", result.Digest)
+		}
+		if _, statErr := os.Stat(result.MetadataPath); statErr != nil {
+			t.Fatalf("missing metadata path from concurrent install: %v", statErr)
+		}
+		if _, statErr := os.Stat(result.PinPath); statErr != nil {
+			t.Fatalf("missing pin path from concurrent install: %v", statErr)
+		}
+	}
+	if count != workers {
+		t.Fatalf("expected %d successful install results, got %d", workers, count)
+	}
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

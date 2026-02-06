@@ -25,6 +25,15 @@ jobs:
       - name: Check benchmark regressions
         run: |
           python scripts/check_bench_regression.py perf/bench_output.txt perf/bench_baseline.json perf/bench_report.json
+      - name: Check benchmark resource budgets
+        run: |
+          python scripts/check_resource_budgets.py perf/bench_output.txt perf/resource_budgets.json perf/resource_budget_report.json
+      - name: Build gait binary for command budgets
+        run: |
+          go build -o ./gait ./cmd/gait
+      - name: Check command latency budgets
+        run: |
+          python scripts/check_command_budgets.py ./gait perf/command_budget_report.json
       - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -33,3 +42,5 @@ jobs:
           path: |
             perf/bench_output.txt
             perf/bench_report.json
+            perf/resource_budget_report.json
+            perf/command_budget_report.json

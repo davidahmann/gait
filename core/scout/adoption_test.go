@@ -182,3 +182,32 @@ func TestAdoptionHelpersAndDefaults(t *testing.T) {
 		t.Fatalf("expected fixed created_at, got %s", emptyReport.CreatedAt.Format(time.RFC3339Nano))
 	}
 }
+
+func TestLoadAdoptionEventsHighVolume(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "adoption_large.jsonl")
+	base := time.Date(2026, time.February, 6, 15, 0, 0, 0, time.UTC)
+
+	const eventCount = 5000
+	for index := 0; index < eventCount; index++ {
+		event := NewAdoptionEvent("verify", 0, 5*time.Millisecond, "stress-test", base.Add(time.Duration(index)*time.Millisecond))
+		if err := AppendAdoptionEvent(logPath, event); err != nil {
+			t.Fatalf("append adoption event %d: %v", index, err)
+		}
+	}
+
+	loaded, err := LoadAdoptionEvents(logPath)
+	if err != nil {
+		t.Fatalf("load adoption events: %v", err)
+	}
+	if len(loaded) != eventCount {
+		t.Fatalf("expected %d events, got %d", eventCount, len(loaded))
+	}
+
+	report := BuildAdoptionReport(loaded, logPath, "stress-test", time.Time{})
+	if report.TotalEvents != eventCount {
+		t.Fatalf("expected total_events=%d got %d", eventCount, report.TotalEvents)
+	}
+	if report.CreatedAt.IsZero() {
+		t.Fatalf("expected deterministic created_at")
+	}
+}
