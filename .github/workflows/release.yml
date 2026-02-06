@@ -5,6 +5,12 @@ on:
     tags:
       - "v*"
 
+env:
+  GORELEASER_VERSION: v2.7.0
+  SYFT_VERSION: v1.32.0
+  GRYPE_VERSION: v0.99.1
+  COSIGN_VERSION: v2.5.3
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -21,24 +27,27 @@ jobs:
           python-version: "3.13"
       - name: Install goreleaser
         run: |
-          go install github.com/goreleaser/goreleaser@latest
+          go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
       - name: Build release artifacts
         run: |
           goreleaser release --clean
       - name: Generate SBOM (syft)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}
           syft packages dir:. -o spdx-json=sbom.spdx.json
       - name: Scan vulnerabilities (grype)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+          go install github.com/anchore/grype@${GRYPE_VERSION}
           grype dir:. -o json > grype.json
       - name: Sign artifacts (cosign)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          curl -sSfL https://raw.githubusercontent.com/sigstore/cosign/main/install.sh | sh -s -- -b /usr/local/bin
-          cosign sign-blob --yes dist/checksums.txt > dist/checksums.txt.sig
+          go install github.com/sigstore/cosign/v2/cmd/cosign@${COSIGN_VERSION}
+          cosign sign-blob --yes \
+            --output-signature dist/checksums.txt.sig \
+            --output-certificate dist/checksums.txt.pem \
+            dist/checksums.txt
       - name: Generate provenance (cosign)
         env:
           COSIGN_EXPERIMENTAL: "1"
@@ -69,6 +78,43 @@ jobs:
           }
           JSON
           cosign attest-blob --yes --type slsaprovenance --predicate provenance.json dist/checksums.txt > dist/checksums.txt.intoto.jsonl
+      - name: Verify release integrity artifacts
+        run: |
+          test -s dist/checksums.txt
+          test -s dist/checksums.txt.sig
+          test -s dist/checksums.txt.pem
+          test -s dist/checksums.txt.intoto.jsonl
+          test -s sbom.spdx.json
+          test -s provenance.json
+
+          (
+            cd dist
+            sha256sum -c checksums.txt
+          )
+
+          cosign verify-blob \
+            --certificate dist/checksums.txt.pem \
+            --signature dist/checksums.txt.sig \
+            dist/checksums.txt
+
+          python - <<'PY'
+          import json
+          import pathlib
+          import hashlib
+
+          provenance = json.loads(pathlib.Path("provenance.json").read_text(encoding="utf-8"))
+          intoto = json.loads(pathlib.Path("dist/checksums.txt.intoto.jsonl").read_text(encoding="utf-8"))
+          if not isinstance(intoto, dict):
+              raise SystemExit("intoto attestation payload must be a JSON object")
+
+          digest = hashlib.sha256(pathlib.Path("dist/checksums.txt").read_bytes()).hexdigest()
+          subject = provenance.get("subject", [])
+          if not subject:
+              raise SystemExit("provenance subject missing")
+          subject_digest = subject[0].get("digest", {}).get("sha256")
+          if subject_digest != digest:
+              raise SystemExit("provenance digest mismatch")
+          PY
       - name: Upload integrity artifacts to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,6 +123,7 @@ jobs:
             sbom.spdx.json \
             grype.json \
             provenance.json \
+            dist/checksums.txt.pem \
             dist/checksums.txt.sig \
             dist/checksums.txt.intoto.jsonl \
             --clobber
