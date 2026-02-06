@@ -258,6 +258,29 @@ gait trace verify ./trace_<trace_id>.json --json --public-key ./public.key
 
 When Gate emits `approval_audit_*.json` and `credential_evidence_*.json`, `gait guard pack --run <run_id_or_path>` auto-discovers and includes them in the evidence pack manifest.
 
+### 4.5) MCP Proxy Mode (Protocol-Adjacent Enforcement)
+
+Proxy an MCP or adapter-formatted tool call through Gate without changing gate trace verification flow:
+
+```bash
+gait mcp proxy --policy <policy.yaml> --call <tool_call.json> --adapter mcp --trace-out trace_mcp.json --json
+```
+
+Supported adapter payload formats:
+
+- `mcp`
+- `openai`
+- `anthropic`
+- `langchain`
+
+Optional proxy artifacts:
+
+- `--runpack-out <path>` writes a replayable runpack for the proxied decision
+- `--export-log-out <path>` writes JSONL events
+- `--export-otel-out <path>` writes OTEL-style JSONL events
+
+Adapter lifecycle is composable by default: for each supported adapter payload, use `gait mcp proxy --runpack-out ...` for capture and `gait regress init --from <runpack.zip>` to create deterministic regress fixtures.
+
 ### 5) Explain Command Intent
 
 Every major command supports `--explain` for short, stable intent text:

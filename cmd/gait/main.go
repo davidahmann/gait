@@ -45,6 +45,8 @@ func run(arguments []string) int {
 		return runRegistry(arguments[2:])
 	case "migrate":
 		return runMigrate(arguments[2:])
+	case "mcp":
+		return runMCP(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
 	case "version", "--version", "-v":

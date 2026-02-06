@@ -196,6 +196,7 @@ func printUsage() {
 	fmt.Println("  gait guard verify <evidence_pack.zip> [--json] [--explain]")
 	fmt.Println("  gait registry install --source <path|url> --allow-host <csv> [--json] [--explain]")
 	fmt.Println("  gait migrate <artifact_path|run_id> [--out <path>] [--json] [--explain]")
+	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait version")
 }
