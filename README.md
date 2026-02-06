@@ -594,6 +594,9 @@ CI cadence guidance:
 - Hardening contracts: `docs/hardening/contracts.md`
 - Hardening risk register: `docs/hardening/risk_register.md`
 - Hardening release checklist: `docs/hardening/release_checklist.md`
+- Beyond 12-Factor matrix: `docs/hardening/beyond12factor_matrix.md`
+- AWS Well-Architected matrix: `docs/hardening/aws_well_architected_matrix.md`
+- Frugal architecture matrix: `docs/hardening/frugal_architecture_matrix.md`
 - Hardening ADRs: `docs/adr/`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
