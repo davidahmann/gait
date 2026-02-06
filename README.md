@@ -219,6 +219,8 @@ Non-enforcing rollout simulation:
 gait gate eval --policy examples/policy-test/block.yaml --intent examples/policy-test/intent.json --simulate --json
 ```
 
+For an observe-to-enforce rollout sequence and CI/runtime exit-code handling, see `docs/policy_rollout.md`.
+
 Example v1.2 policy controls:
 
 ```yaml
@@ -470,6 +472,7 @@ pre-commit install --hook-type pre-commit --hook-type pre-push
 - Contributing: `CONTRIBUTING.md`
 - Code of conduct: `CODE_OF_CONDUCT.md`
 - Integration checklist: `docs/integration_checklist.md`
+- Policy rollout guide: `docs/policy_rollout.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`
