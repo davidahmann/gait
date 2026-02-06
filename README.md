@@ -146,6 +146,8 @@ The `ticket_footer` line is a copy/paste receipt designed for incident threads, 
 
 This is the core workflow: convert "the agent did something" into **a reproducible artifact**.
 
+For copy/paste incident, PR, and postmortem formats that enforce `run_id` + `gait verify` conventions, see `docs/evidence_templates.md`.
+
 ## Why Gait Exists
 
 Teams shipping agents to production eventually hit the same hair-on-fire questions:
@@ -538,6 +540,7 @@ CI cadence guidance:
 - Approval runbook: `docs/approval_runbook.md`
 - CI regress kit: `docs/ci_regress_kit.md`
 - Test cadence guide: `docs/test_cadence.md`
+- Evidence templates: `docs/evidence_templates.md`
 - Product plan: `product/PLAN_v1.md`
 - Product requirements: `product/PRD.md`
 - Roadmap: `product/ROADMAP.md`
