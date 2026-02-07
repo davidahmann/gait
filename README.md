@@ -221,9 +221,14 @@ make lint
 make test
 make test-e2e
 make test-adoption
+make test-release-smoke
+make test-contracts
 make test-hardening
 make test-hardening-acceptance
+make test-live-connectors
 ```
+
+`make test-live-connectors` is non-gating by default and skips unless `GAIT_ENABLE_LIVE_CONNECTOR_TESTS=1`.
 
 Enable hooks locally:
 

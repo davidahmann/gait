@@ -103,6 +103,34 @@ jobs:
         run: |
           make test-acceptance
 
+  release-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Release smoke checks
+        run: |
+          make test-release-smoke
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Contract and compatibility checks
+        run: |
+          make test-contracts
+
   policy-compliance:
     runs-on: ubuntu-latest
     steps:
