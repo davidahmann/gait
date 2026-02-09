@@ -14,11 +14,11 @@ if [[ ! -s "$output_path" ]]; then
   echo "ecosystem release notes output missing or empty: $output_path" >&2
   exit 1
 fi
-if ! rg -q '^# Ecosystem Release Notes$' "$output_path"; then
+if ! grep -Eq '^# Ecosystem Release Notes$' "$output_path"; then
   echo "ecosystem release notes heading missing in $output_path" >&2
   exit 1
 fi
-if ! rg -q 'adapter-openai-agents-official' "$output_path"; then
+if ! grep -q 'adapter-openai-agents-official' "$output_path"; then
   echo "expected adapter entry missing from ecosystem release notes" >&2
   exit 1
 fi
