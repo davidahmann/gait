@@ -39,8 +39,22 @@ func WriteFileAtomic(path string, content []byte, mode os.FileMode) error {
 		return fmt.Errorf("close temp file: %w", err)
 	}
 
+	if err := renameWithWindowsFallback(tempPath, path, runtime.GOOS); err != nil {
+		return err
+	}
+	cleanup = false
+
+	// #nosec G304 -- parent directory path is derived from explicit caller-provided destination path.
+	if dirHandle, err := os.Open(parent); err == nil {
+		_ = dirHandle.Sync()
+		_ = dirHandle.Close()
+	}
+	return nil
+}
+
+func renameWithWindowsFallback(tempPath string, path string, goos string) error {
 	if err := os.Rename(tempPath, path); err != nil {
-		if runtime.GOOS != "windows" {
+		if goos != "windows" {
 			return fmt.Errorf("rename temp file: %w", err)
 		}
 		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
@@ -49,13 +63,6 @@ func WriteFileAtomic(path string, content []byte, mode os.FileMode) error {
 		if renameErr := os.Rename(tempPath, path); renameErr != nil {
 			return fmt.Errorf("rename temp file after remove: %w", renameErr)
 		}
-	}
-	cleanup = false
-
-	// #nosec G304 -- parent directory path is derived from explicit caller-provided destination path.
-	if dirHandle, err := os.Open(parent); err == nil {
-		_ = dirHandle.Sync()
-		_ = dirHandle.Close()
 	}
 	return nil
 }

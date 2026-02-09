@@ -95,6 +95,43 @@ detect_arch() {
   esac
 }
 
+path_contains_dir() {
+  local dir="$1"
+  case ":$PATH:" in
+    *":${dir}:"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+print_path_hint() {
+  local dir="$1"
+  local shell_name="${SHELL##*/}"
+  case "$shell_name" in
+    zsh)
+      echo "add PATH for zsh:"
+      echo "  echo 'export PATH=\"${dir}:\$PATH\"' >> ~/.zshrc"
+      echo "  source ~/.zshrc"
+      ;;
+    bash)
+      local rc_file="$HOME/.bashrc"
+      if [[ -f "$HOME/.bash_profile" ]]; then
+        rc_file="$HOME/.bash_profile"
+      fi
+      echo "add PATH for bash:"
+      echo "  echo 'export PATH=\"${dir}:\$PATH\"' >> ${rc_file}"
+      echo "  source ${rc_file}"
+      ;;
+    fish)
+      echo "add PATH for fish:"
+      echo "  set -U fish_user_paths ${dir} \$fish_user_paths"
+      ;;
+    *)
+      echo "add PATH for your shell:"
+      echo "  export PATH=\"${dir}:\$PATH\""
+      ;;
+  esac
+}
+
 repo="$REPO_DEFAULT"
 version="$VERSION_DEFAULT"
 install_dir="$INSTALL_DIR_DEFAULT"
@@ -187,8 +224,11 @@ chmod 0755 "$bin_dst"
 echo "==> Installed: ${bin_dst}"
 if command -v gait >/dev/null 2>&1; then
   echo "==> gait on PATH: $(command -v gait)"
+elif path_contains_dir "$install_dir"; then
+  echo "==> ${install_dir} is on PATH. Open a new shell and run: gait --version"
 else
-  echo "note: add ${install_dir} to PATH (example: export PATH=\"${install_dir}:\$PATH\")"
+  echo "note: ${install_dir} is not on PATH for this shell session."
+  print_path_hint "$install_dir"
 fi
 
 echo "==> Next steps"

@@ -11,6 +11,10 @@ It gives teams a deterministic workflow from incident to proof:
 
 The durable contract is artifacts, schemas, and exit codes. Not a hosted UI.
 
+Mental model first:
+
+- `docs/concepts/mental_model.md`
+
 ## Why Teams Adopt Gait
 
 Production agent incidents usually fail on the same question: "What happened, exactly?"
@@ -55,6 +59,11 @@ Boundary details:
 ## Start Here (Single Install Path)
 
 Use one path for first use: install a release binary with checksum verification.
+
+Installer support note:
+
+- `scripts/install.sh` supports Linux and macOS.
+- Windows users should use the release asset path documented in `docs/install.md`.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
@@ -168,17 +177,33 @@ Typical outcomes:
 - medium risk write -> `require_approval`
 - high risk destructive call -> `block`
 
-Then evaluate real tool intents through Gate:
+Then evaluate real tool intents through Gate.
+
+Standard profile (local/dev):
+
+```bash
+gait gate eval \
+  --policy examples/policy/base_high_risk.yaml \
+  --intent examples/policy/intents/intent_delete.json \
+  --trace-out ./gait-out/trace_delete_standard.json \
+  --json
+```
+
+`oss-prod` profile (fail-closed production posture):
 
 ```bash
 gait gate eval \
   --policy examples/policy/base_high_risk.yaml \
   --intent examples/policy/intents/intent_delete.json \
   --profile oss-prod \
+  --key-mode prod \
+  --private-key examples/scenarios/keys/approval_private.key \
   --credential-broker stub \
   --trace-out ./gait-out/trace_delete.json \
   --json
 ```
+
+The demo key in `examples/scenarios/keys/` is for local walkthroughs only.
 
 For staged rollout, use simulate mode first:
 
@@ -267,6 +292,24 @@ Canonical integration paths:
 
 Use `docs/integration_checklist.md` for the implementation checklist and conformance checks.
 
+## Demo To Production Integration (30 to 120 Minutes)
+
+Use this sequence to move from first win to real integration with minimal friction:
+
+1. Complete the checklist once in `docs/integration_checklist.md`.
+2. Start from a framework adapter example close to your stack:
+   - `examples/integrations/openai_agents`
+   - `examples/integrations/langchain`
+   - `examples/integrations/autogen`
+   - `examples/integrations/openclaw`
+   - `examples/integrations/autogpt`
+3. Keep the boundary strict: wrapper/sidecar -> `gait gate eval` -> execute only on `allow`.
+4. Add regress fixture and JUnit output in CI before enabling privileged tools.
+
+If your team needs fewer repeated flags, use project defaults in:
+
+- `docs/project_defaults.md`
+
 ## Ecosystem Surface (Public Contribution Path)
 
 Gait keeps ecosystem growth explicit and reviewable through a public index plus deterministic contribution checks.
@@ -350,18 +393,20 @@ Security posture tips:
 Read in this order:
 
 1. `README.md`
-2. `docs/contracts/primitive_contract.md`
-3. `docs/positioning.md`
-4. `docs/packaging.md`
-5. `docs/integration_checklist.md`
-6. `docs/policy_rollout.md`
-7. `docs/approval_runbook.md`
-8. `docs/ci_regress_kit.md`
-9. `docs/evidence_templates.md`
-10. `docs/install.md`
-11. `docs/ecosystem/awesome.md`
-12. `docs/ecosystem/contribute.md`
-13. `docs/launch/README.md`
+2. `docs/concepts/mental_model.md`
+3. `docs/contracts/primitive_contract.md`
+4. `docs/positioning.md`
+5. `docs/packaging.md`
+6. `docs/integration_checklist.md`
+7. `docs/project_defaults.md`
+8. `docs/policy_rollout.md`
+9. `docs/approval_runbook.md`
+10. `docs/ci_regress_kit.md`
+11. `docs/evidence_templates.md`
+12. `docs/install.md`
+13. `docs/ecosystem/awesome.md`
+14. `docs/ecosystem/contribute.md`
+15. `docs/launch/README.md`
 
 ## Development
 

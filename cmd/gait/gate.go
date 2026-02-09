@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/davidahmann/gait/core/credential"
 	"github.com/davidahmann/gait/core/gate"
+	"github.com/davidahmann/gait/core/projectconfig"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 	"github.com/davidahmann/gait/core/sign"
 )
@@ -102,6 +104,8 @@ func runGateEval(arguments []string) int {
 	var credentialCommand string
 	var credentialCommandArgsCSV string
 	var credentialEvidencePath string
+	var configPath string
+	var disableConfig bool
 	var simulate bool
 	var jsonOutput bool
 	var helpFlag bool
@@ -117,18 +121,20 @@ func runGateEval(arguments []string) int {
 	flagSet.StringVar(&approvalPublicKeyEnv, "approval-public-key-env", "", "env var containing base64 approval verify key")
 	flagSet.StringVar(&approvalPrivateKeyPath, "approval-private-key", "", "path to base64 approval private key (derive public)")
 	flagSet.StringVar(&approvalPrivateKeyEnv, "approval-private-key-env", "", "env var containing base64 approval private key (derive public)")
-	flagSet.StringVar(&keyMode, "key-mode", string(sign.ModeDev), "signing key mode: dev or prod")
+	flagSet.StringVar(&keyMode, "key-mode", "", "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
-	flagSet.StringVar(&profile, "profile", string(gateProfileStandard), "runtime profile: standard|oss-prod")
-	flagSet.StringVar(&rateLimitState, "rate-limit-state", ".gait-out/gate_rate_limits.json", "path to persisted rate limit state")
-	flagSet.StringVar(&credentialBroker, "credential-broker", "off", "credential broker: off|stub|env|command")
-	flagSet.StringVar(&credentialEnvPrefix, "credential-env-prefix", "GAIT_BROKER_TOKEN_", "env broker key prefix")
+	flagSet.StringVar(&profile, "profile", "", "runtime profile: standard|oss-prod")
+	flagSet.StringVar(&rateLimitState, "rate-limit-state", "", "path to persisted rate limit state")
+	flagSet.StringVar(&credentialBroker, "credential-broker", "", "credential broker: off|stub|env|command")
+	flagSet.StringVar(&credentialEnvPrefix, "credential-env-prefix", "", "env broker key prefix")
 	flagSet.StringVar(&credentialRef, "credential-ref", "", "credential broker reference override")
 	flagSet.StringVar(&credentialScopesCSV, "credential-scopes", "", "comma-separated broker scopes override")
 	flagSet.StringVar(&credentialCommand, "credential-command", "", "command to execute when --credential-broker=command")
 	flagSet.StringVar(&credentialCommandArgsCSV, "credential-command-args", "", "comma-separated args for --credential-command")
 	flagSet.StringVar(&credentialEvidencePath, "credential-evidence-out", "", "path to emitted broker credential evidence JSON")
+	flagSet.StringVar(&configPath, "config", projectconfig.DefaultPath, "path to project defaults yaml")
+	flagSet.BoolVar(&disableConfig, "no-config", false, "disable project defaults file lookup")
 	flagSet.BoolVar(&simulate, "simulate", false, "non-enforcing simulation mode; report what would have been blocked")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
@@ -142,6 +148,29 @@ func runGateEval(arguments []string) int {
 	}
 	if len(flagSet.Args()) > 0 {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "unexpected positional arguments"}, exitInvalidInput)
+	}
+	if !disableConfig {
+		allowMissing := isDefaultProjectConfigPath(configPath)
+		configuration, err := projectconfig.Load(configPath, allowMissing)
+		if err != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+		}
+		applyGateConfigDefaults(configuration.Gate, &policyPath, &profile, &keyMode, &privateKeyPath, &privateKeyEnv, &approvalPublicKeyPath, &approvalPublicKeyEnv, &approvalPrivateKeyPath, &approvalPrivateKeyEnv, &rateLimitState, &credentialBroker, &credentialEnvPrefix, &credentialRef, &credentialScopesCSV, &credentialCommand, &credentialCommandArgsCSV, &credentialEvidencePath, &tracePath)
+	}
+	if profile == "" {
+		profile = string(gateProfileStandard)
+	}
+	if keyMode == "" {
+		keyMode = string(sign.ModeDev)
+	}
+	if rateLimitState == "" {
+		rateLimitState = ".gait-out/gate_rate_limits.json"
+	}
+	if credentialBroker == "" {
+		credentialBroker = "off"
+	}
+	if credentialEnvPrefix == "" {
+		credentialEnvPrefix = "GAIT_BROKER_TOKEN_" // #nosec G101 -- env var prefix identifier, not credential material.
 	}
 	if policyPath == "" || intentPath == "" {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: "both --policy and --intent are required"}, exitInvalidInput)
@@ -481,6 +510,87 @@ func gatherApprovalTokenPaths(primaryPath, chainCSV string) []string {
 	return mergeUniqueSorted(nil, paths)
 }
 
+func isDefaultProjectConfigPath(path string) bool {
+	return filepath.Clean(strings.TrimSpace(path)) == filepath.Clean(projectconfig.DefaultPath)
+}
+
+func applyGateConfigDefaults(
+	defaults projectconfig.GateDefaults,
+	policyPath *string,
+	profile *string,
+	keyMode *string,
+	privateKeyPath *string,
+	privateKeyEnv *string,
+	approvalPublicKeyPath *string,
+	approvalPublicKeyEnv *string,
+	approvalPrivateKeyPath *string,
+	approvalPrivateKeyEnv *string,
+	rateLimitState *string,
+	credentialBroker *string,
+	credentialEnvPrefix *string,
+	credentialRef *string,
+	credentialScopesCSV *string,
+	credentialCommand *string,
+	credentialCommandArgsCSV *string,
+	credentialEvidencePath *string,
+	tracePath *string,
+) {
+	if strings.TrimSpace(*policyPath) == "" {
+		*policyPath = defaults.Policy
+	}
+	if strings.TrimSpace(*profile) == "" {
+		*profile = defaults.Profile
+	}
+	if strings.TrimSpace(*keyMode) == "" {
+		*keyMode = defaults.KeyMode
+	}
+	if strings.TrimSpace(*privateKeyPath) == "" {
+		*privateKeyPath = defaults.PrivateKey
+	}
+	if strings.TrimSpace(*privateKeyEnv) == "" {
+		*privateKeyEnv = defaults.PrivateKeyEnv
+	}
+	if strings.TrimSpace(*approvalPublicKeyPath) == "" {
+		*approvalPublicKeyPath = defaults.ApprovalPublicKey
+	}
+	if strings.TrimSpace(*approvalPublicKeyEnv) == "" {
+		*approvalPublicKeyEnv = defaults.ApprovalPublicKeyEnv
+	}
+	if strings.TrimSpace(*approvalPrivateKeyPath) == "" {
+		*approvalPrivateKeyPath = defaults.ApprovalPrivateKey
+	}
+	if strings.TrimSpace(*approvalPrivateKeyEnv) == "" {
+		*approvalPrivateKeyEnv = defaults.ApprovalPrivateKeyEnv
+	}
+	if strings.TrimSpace(*rateLimitState) == "" {
+		*rateLimitState = defaults.RateLimitState
+	}
+	if strings.TrimSpace(*credentialBroker) == "" {
+		*credentialBroker = defaults.CredentialBroker
+	}
+	if strings.TrimSpace(*credentialEnvPrefix) == "" {
+		*credentialEnvPrefix = defaults.CredentialEnvPrefix
+	}
+	if strings.TrimSpace(*credentialRef) == "" {
+		*credentialRef = defaults.CredentialRef
+	}
+	if strings.TrimSpace(*credentialScopesCSV) == "" {
+		*credentialScopesCSV = defaults.CredentialScopes
+	}
+	if strings.TrimSpace(*credentialCommand) == "" {
+		*credentialCommand = defaults.CredentialCommand
+	}
+	if strings.TrimSpace(*credentialCommandArgsCSV) == "" {
+		*credentialCommandArgsCSV = defaults.CredentialCommandArgs
+	}
+	if strings.TrimSpace(*credentialEvidencePath) == "" {
+		*credentialEvidencePath = defaults.CredentialEvidencePath
+	}
+	if strings.TrimSpace(*tracePath) == "" {
+		*tracePath = defaults.TracePath
+	}
+}
+
 func readIntentRequest(path string) (schemagate.IntentRequest, error) {
 	// #nosec G304 -- intent path is explicit local user input.
 	content, err := os.ReadFile(path)
@@ -534,12 +644,12 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--approval-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--approval-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func parseGateEvalProfile(value string) (gateEvalProfile, error) {

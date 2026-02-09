@@ -1209,6 +1209,53 @@ func TestGateEvalOSSProdProfile(t *testing.T) {
 	}
 }
 
+func TestGateEvalProjectConfigDefaults(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+	privateKeyPath := filepath.Join(workDir, "private.key")
+	writePrivateKey(t, privateKeyPath)
+	policyPath := filepath.Join(workDir, "policy_allow.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	if err := os.MkdirAll(filepath.Join(workDir, ".gait"), 0o750); err != nil {
+		t.Fatalf("mkdir .gait: %v", err)
+	}
+	mustWriteFile(t, filepath.Join(workDir, ".gait", "config.yaml"), strings.Join([]string{
+		"gate:",
+		"  policy: " + policyPath,
+		"  profile: oss-prod",
+		"  key_mode: prod",
+		"  private_key: " + privateKeyPath,
+		"  credential_broker: stub",
+	}, "\n")+"\n")
+
+	if code := runGateEval([]string{
+		"--intent", intentPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval config defaults: expected %d got %d", exitOK, code)
+	}
+
+	if code := runGateEval([]string{
+		"--intent", intentPath,
+		"--no-config",
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval no-config should require policy: expected %d got %d", exitInvalidInput, code)
+	}
+
+	if code := runGateEval([]string{
+		"--intent", intentPath,
+		"--config", filepath.Join(workDir, "missing.yaml"),
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runGateEval missing explicit config: expected %d got %d", exitInvalidInput, code)
+	}
+}
+
 func TestVerifyChainRunTracePack(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

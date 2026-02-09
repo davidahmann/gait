@@ -2,7 +2,7 @@
 
 This checklist is for application teams integrating Gait at the tool-call boundary.
 
-Target: complete in under 30 minutes.
+Target: complete first integration in 30 to 120 minutes (team and framework dependent).
 
 ## Scope
 
@@ -21,6 +21,10 @@ This checklist verifies that a repository has the minimum integration needed for
 - `gait` is available in `PATH`
 - Python example dependencies are available (`uv`)
 - Repo contains the `examples/` fixtures from this project
+
+Optional for reduced flag repetition:
+
+- `.gait/config.yaml` defaults (see `docs/project_defaults.md`)
 
 ## Step 1: Tool Boundary Registration
 
