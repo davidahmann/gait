@@ -29,6 +29,8 @@ jobs:
         run: |
           go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
       - name: Build release artifacts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           goreleaser release --clean
       - name: Generate SBOM (syft)
