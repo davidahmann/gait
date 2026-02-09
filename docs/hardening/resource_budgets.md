@@ -2,16 +2,32 @@
 
 This document defines minimum resource and latency budgets for critical commands and the benchmark checks that monitor drift.
 
-## Command Budgets (Median, local baseline profile)
+## Runtime SLO Budgets (p50/p95/p99)
 
-| Command | Budget (median) | Notes |
-| --- | --- | --- |
-| `gait verify <run_id> --json` | <= 1200 ms | Demo-sized runpack verification path. |
-| `gait gate eval --policy <p> --intent <i> --json` | <= 1200 ms | Single-intent policy evaluation including trace emit. |
-| `gait regress run --json` | <= 3000 ms | Default fixture set from `run_demo` via `regress init`. |
-| `gait guard pack --run <run_id> --json` | <= 3000 ms | Default evidence pack generation path. |
+Runtime command SLO budgets are defined in:
 
-Command budgets are evaluated in nightly performance workflow with `scripts/check_command_budgets.py`.
+- `perf/runtime_slo_budgets.json`
+
+They are enforced by:
+
+- `scripts/check_command_budgets.py`
+- `make bench-budgets`
+
+Gate runtime SLO coverage includes endpoint classes:
+
+- `fs.read`
+- `fs.write`
+- `fs.delete`
+- `proc.exec`
+- `net.http`
+- `net.dns`
+
+Each command budget enforces:
+
+- p50 latency
+- p95 latency
+- p99 latency
+- max error rate
 
 ## Core Benchmark Budgets
 

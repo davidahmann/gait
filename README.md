@@ -200,6 +200,24 @@ The report includes:
 - ranked `top_issues` with driver attribution (`policy_change`, `tool_result_shape_change`, `reference_set_change`, `configuration_change`)
 - bounded fix suggestions with likely scope
 
+## Runtime SLO and Fail-Closed Guarantees
+
+v1.7 treats runtime overhead and safety posture as enforceable contracts, not best-effort goals.
+
+- Latency budgets are enforced at p50/p95/p99 for Gate endpoint classes (`fs.*`, `proc.exec`, `net.*`).
+- Error budgets are enforced with explicit `max_error_rate` per command.
+- Protected execution remains fail-closed for invalid intent, unsafe high-risk profile config, and broker/verification failures.
+
+Canonical check:
+
+```bash
+make bench-budgets
+```
+
+Contract docs:
+
+- `docs/slo/runtime_slo.md`
+
 ## Integration Model (No Bypass Rule)
 
 The minimum safe integration pattern:

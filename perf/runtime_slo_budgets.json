@@ -1,0 +1,61 @@
+{
+  "schema_id": "gait.perf.runtime_slo_budgets",
+  "schema_version": "1.0.0",
+  "repeats": 7,
+  "commands": {
+    "verify": {
+      "p50_ms": 1000.0,
+      "p95_ms": 1800.0,
+      "p99_ms": 2200.0,
+      "max_error_rate": 0.0
+    },
+    "regress_run": {
+      "p50_ms": 2000.0,
+      "p95_ms": 3000.0,
+      "p99_ms": 3600.0,
+      "max_error_rate": 0.0
+    },
+    "guard_pack": {
+      "p50_ms": 2000.0,
+      "p95_ms": 3000.0,
+      "p99_ms": 3600.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_fs_read": {
+      "p50_ms": 800.0,
+      "p95_ms": 1500.0,
+      "p99_ms": 2100.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_fs_write": {
+      "p50_ms": 800.0,
+      "p95_ms": 1500.0,
+      "p99_ms": 2100.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_fs_delete": {
+      "p50_ms": 800.0,
+      "p95_ms": 1500.0,
+      "p99_ms": 2100.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_proc_exec": {
+      "p50_ms": 800.0,
+      "p95_ms": 1500.0,
+      "p99_ms": 2100.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_net_http": {
+      "p50_ms": 900.0,
+      "p95_ms": 1600.0,
+      "p99_ms": 2200.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_net_dns": {
+      "p50_ms": 900.0,
+      "p95_ms": 1600.0,
+      "p99_ms": 2200.0,
+      "max_error_rate": 0.0
+    }
+  }
+}

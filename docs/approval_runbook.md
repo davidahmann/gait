@@ -6,6 +6,10 @@ This runbook defines how to operate approval-gated tool execution in production.
 
 Use this for policies that return `require_approval` and for audit workflows tied to signed gate traces.
 
+Runtime performance and reliability expectations for this path are defined in:
+
+- `docs/slo/runtime_slo.md`
+
 ## Roles
 
 - Requester: service or operator submitting an approval-required intent.
@@ -113,3 +117,8 @@ gait guard pack --run <run_id_or_path> --template incident_response --json
 - If policy evaluation fails (`exit 6`) or trace verification fails, block execution and open incident.
 - If approval tokens are expired or scope-mismatched, deny execution and re-issue tokens.
 - If approver identity is not authorized, deny token issuance and notify security owner.
+- Validate runtime SLO posture before release with:
+
+```bash
+make bench-budgets
+```

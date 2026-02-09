@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-adoption test-release-smoke test-contracts test-live-connectors test-skill-supply-chain build bench bench-check bench-budgets skills-validate
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-adoption test-release-smoke test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo build bench bench-check bench-budgets skills-validate
 .PHONY: hooks
 
 fmt:
@@ -88,7 +88,9 @@ bench-check: bench
 
 bench-budgets:
 	$(GO) build -o ./gait ./cmd/gait
-	$(PYTHON) scripts/check_command_budgets.py ./gait perf/command_budget_report.json
+	$(PYTHON) scripts/check_command_budgets.py ./gait perf/command_budget_report.json perf/runtime_slo_budgets.json
+
+test-runtime-slo: bench-budgets
 
 hooks:
 	git config core.hooksPath .githooks
