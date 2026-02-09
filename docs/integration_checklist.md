@@ -9,7 +9,7 @@ Target: complete in under 30 minutes.
 This checklist verifies that a repository has the minimum integration needed for deterministic control:
 
 - tool registration boundary control
-- fail-closed wrapper enforcement
+- fail-closed wrapper or sidecar enforcement
 - trace persistence
 - runpack recording and verification
 - CI regression enforcement
@@ -43,6 +43,11 @@ Required outcome:
 - `block`, `require_approval`, invalid decision, and evaluation failure do not execute side effects.
 - `dry_run` does not execute side effects.
 
+Canonical wrapper path:
+
+- Use `sdk/python/gait/adapter.py` (`ToolAdapter.execute`) as the reference behavior.
+- Treat integration-specific examples (`examples/integrations/*`) as adapter-specific usage only.
+
 Validation command:
 
 ```bash
@@ -55,8 +60,30 @@ Evidence to capture:
 - Local test output showing fail-closed cases are covered:
 
 ```bash
-(cd sdk/python && PYTHONPATH=. uv run --python 3.13 --extra dev pytest tests/test_adapter.py -q)
+(cd sdk/python && PYTHONPATH=. uv run --python 3.13 --extra dev pytest tests/test_adapter.py tests/test_client.py -q)
 ```
+
+## Step 2A: Sidecar Enforcement (Non-Python Runtimes)
+
+Required outcome:
+
+- Non-Python runtimes can route tool intents through one sidecar command with fail-closed behavior.
+
+Canonical sidecar path:
+
+- `examples/sidecar/gate_sidecar.py`
+
+Validation commands:
+
+```bash
+python3 examples/sidecar/gate_sidecar.py --policy examples/policy-test/allow.yaml --intent-file core/schema/testdata/gate_intent_request_valid.json --trace-out ./gait-out/trace_sidecar_allow.json
+python3 examples/sidecar/gate_sidecar.py --policy examples/policy-test/block.yaml --intent-file core/schema/testdata/gate_intent_request_valid.json --trace-out ./gait-out/trace_sidecar_block.json
+```
+
+Evidence to capture:
+
+- JSON output includes `gate_result`, `trace_path`, and `exit_code`.
+- Blocked or approval-required decisions are treated as non-executable paths.
 
 ## Step 3: Gate Trace Persistence
 
@@ -97,6 +124,11 @@ Evidence to capture:
 Required outcome:
 
 - At least one deterministic regression fixture runs in CI and can emit JUnit.
+
+Canonical CI path:
+
+- `.github/workflows/adoption-regress-template.yml`
+- `docs/ci_regress_kit.md`
 
 Validation commands:
 

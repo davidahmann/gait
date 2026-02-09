@@ -2,6 +2,10 @@
 
 This kit makes incident-to-regression checks turnkey in CI.
 
+Canonical default path:
+
+- `.github/workflows/adoption-regress-template.yml`
+
 ## GitHub Actions Template
 
 Use `.github/workflows/adoption-regress-template.yml` as the baseline workflow.
@@ -14,7 +18,7 @@ Template flow:
 4. Fail with stable exit codes (`5` for deterministic regression failure).
 5. Upload `regress_result.json`, `junit.xml`, and fixture artifacts.
 
-## Generic Shell CI Snippet
+## Generic Shell CI Snippet (Compatibility Only)
 
 Use this in non-GitHub providers (Jenkins, Buildkite, CircleCI, etc.):
 
@@ -57,3 +61,8 @@ Artifacts to retain:
 - Run regress on pull requests that touch policy, runpack, regress, gate, and fixtures.
 - Require pass (`0`) for merge.
 - Treat `5` as deterministic regression failure requiring either code fix or fixture update with explicit review.
+
+Note:
+
+- Keep this file as the only source for CI snippet variants.
+- Prefer the workflow template above to avoid drift across docs.

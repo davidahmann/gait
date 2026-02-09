@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from gait import (
+    GaitCommandError,
     GateEnforcementError,
     GateEvalResult,
     IntentContext,
@@ -159,3 +160,34 @@ def test_tool_adapter_fails_closed_when_decision_not_ok(
 
     with pytest.raises(GateEnforcementError):
         adapter.execute(intent=intent, executor=lambda _: {"ok": True}, cwd=tmp_path)
+
+
+def test_tool_adapter_propagates_gate_command_failure_without_execution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin="gait")
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+    calls = {"count": 0}
+
+    def _executor(_: object) -> dict[str, bool]:
+        calls["count"] += 1
+        return {"ok": True}
+
+    def _failing_gate_intent(self: ToolAdapter, **_: object) -> GateEvalResult:
+        raise GaitCommandError(
+            "gate eval failed",
+            command=["gait", "gate", "eval"],
+            exit_code=6,
+            stdout='{"ok":false}',
+            stderr="intent parse error",
+        )
+
+    monkeypatch.setattr(ToolAdapter, "gate_intent", _failing_gate_intent)
+
+    with pytest.raises(GaitCommandError):
+        adapter.execute(intent=intent, executor=_executor, cwd=tmp_path)
+    assert calls["count"] == 0

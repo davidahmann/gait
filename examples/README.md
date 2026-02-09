@@ -11,6 +11,7 @@ All examples in this folder run without network, secrets, or cloud accounts.
 - `prompt-injection/`: deterministic prompt-injection style blocking example
 - `scenarios/`: reproducible scenario scripts (incident reproduction, injection block, approval flow)
 - `python/`: thin Python adapter example (calls local `gait` binary)
+- `sidecar/`: canonical non-Python sidecar boundary for `IntentRequest -> gate eval`
 - `integrations/openai_agents/`: wrapped tool path with allow/block + trace outputs
 - `integrations/langchain/`: wrapped tool path with allow/block + trace outputs
 - `integrations/autogen/`: wrapped tool path with allow/block + trace outputs
@@ -26,6 +27,7 @@ All examples in this folder run without network, secrets, or cloud accounts.
 7. `integrations/openai_agents`
 8. `integrations/langchain`
 9. `integrations/autogen`
+10. `sidecar`
 
 ## Contribution Checklist
 

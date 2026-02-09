@@ -81,6 +81,11 @@ What you get:
 - `regress_result.json`
 - optional `junit.xml` for CI test reporting
 
+Canonical CI path:
+
+- `.github/workflows/adoption-regress-template.yml`
+- `docs/ci_regress_kit.md`
+
 Stable exit behavior is CI-friendly:
 
 - `0` success
@@ -148,7 +153,7 @@ The minimum safe integration pattern:
 
 ```text
 agent runtime
-  -> wrapped tool adapter
+  -> wrapper or sidecar boundary
     -> gait gate eval --policy ... --intent ... --json
       -> allow: execute tool once
       -> block / require_approval / dry_run / error: do not execute
@@ -160,7 +165,12 @@ Rules:
 - keep policy logic in Go core, not Python wrappers
 - fail closed when evaluation or validation fails
 
-Use `docs/integration_checklist.md` for the implementation checklist.
+Canonical integration paths:
+
+- Python wrapper: `sdk/python/gait/adapter.py`
+- Non-Python sidecar: `examples/sidecar/gate_sidecar.py`
+
+Use `docs/integration_checklist.md` for the implementation checklist and conformance checks.
 
 ## Core Commands
 
