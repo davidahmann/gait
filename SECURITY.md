@@ -25,3 +25,16 @@ Approval and trace signing keys are operational security assets:
 Operational procedure:
 
 - Follow `docs/approval_runbook.md` for token minting, TTL/scope policy, and incident audit workflow.
+
+## Security Controls In CI
+
+Security checks run in CI and local lint workflows:
+
+- `go vet`, `golangci-lint`, `gosec`, `govulncheck` for Go
+- `ruff`, `mypy`, `bandit`, `pytest` for Python wrapper code
+
+Release integrity is validated with signed checksums, SBOM, and provenance artifacts.
+
+## Demo Key Material
+
+Any key material under `examples/scenarios/keys/` is for local walkthroughs only and must not be used for production key management.

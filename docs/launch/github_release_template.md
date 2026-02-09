@@ -23,7 +23,8 @@ curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/insta
 gait doctor --json
 gait demo
 gait verify run_demo
-gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
 ```
 
 ## Security Boundary Example

@@ -12,7 +12,7 @@ Track these metrics for every launch cycle (day 1, day 7, day 30).
 
 - Install success rate (`install.sh` completion / attempts)
 - Median time from install to first `gait demo` success
-- Median time from install to first `gait regress bootstrap`
+- Median time from install to first `gait regress init`
 
 ## Product Use
 

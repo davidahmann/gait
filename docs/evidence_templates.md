@@ -7,7 +7,7 @@ Conventions:
 - Always include `run_id`.
 - Always include an executable verify command: `gait verify <run_id>`.
 - Prefer immutable digest references from `ticket_footer`.
-- Regenerate footer from artifact when needed: `gait run receipt --from <run_id|path>`.
+- Persist the emitted `ticket_footer` at record time (`gait demo --json` or recorder output).
 
 ## Incident Ticket Template
 

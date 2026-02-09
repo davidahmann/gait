@@ -40,7 +40,8 @@ Full mental model: `docs/concepts/mental_model.md`
 ## Turn That Into A CI Regression (2 Minutes)
 
 ```bash
-gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
 ```
 
 This incident is now a permanent test. If agent behavior drifts, CI fails.
@@ -194,8 +195,7 @@ gait demo                                          # offline first win
 gait verify <run_id|path>                          # offline integrity proof
 gait run replay <run_id|path>                      # deterministic stub replay
 gait run diff <left> <right>                       # artifact diff
-gait run receipt --from <run_id|path>              # regenerate ticket footer
-gait regress bootstrap --from <run_id|path>        # incident to CI test
+gait regress init --from <run_id|path>             # incident fixture bootstrap
 gait regress run [--junit junit.xml]               # run regressions
 gait policy test <policy.yaml> <fixture.json>      # test policy offline
 gait gate eval --policy <p> --intent <i>           # evaluate tool intent
@@ -221,19 +221,22 @@ All commands support `--json`. Most support `--explain`.
 
 ## Docs
 
-1. `docs/concepts/mental_model.md`
-2. `docs/integration_checklist.md`
-3. `docs/project_defaults.md`
-4. `docs/policy_rollout.md`
-5. `docs/approval_runbook.md`
-6. `docs/ci_regress_kit.md`
-7. `docs/contracts/primitive_contract.md`
-8. `docs/evidence_templates.md`
-9. `docs/positioning.md`
-10. `docs/packaging.md`
-11. `docs/install.md`
-12. `docs/ecosystem/awesome.md`
-13. `docs/launch/README.md`
+1. `docs/README.md`
+2. `docs/concepts/mental_model.md`
+3. `docs/architecture.md`
+4. `docs/flows.md`
+5. `docs/integration_checklist.md`
+6. `docs/project_defaults.md`
+7. `docs/policy_rollout.md`
+8. `docs/approval_runbook.md`
+9. `docs/ci_regress_kit.md`
+10. `docs/contracts/primitive_contract.md`
+11. `docs/evidence_templates.md`
+12. `docs/positioning.md`
+13. `docs/packaging.md`
+14. `docs/install.md`
+15. `docs/ecosystem/awesome.md`
+16. `docs/launch/README.md`
 
 ## Development
 

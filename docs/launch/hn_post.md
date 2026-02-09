@@ -26,7 +26,8 @@ Quick first win:
 1) gait doctor --json
 2) gait demo
 3) gait verify run_demo
-4) gait regress bootstrap --from run_demo --json
+4) gait regress init --from run_demo --json
+5) gait regress run --json
 
 Repo: https://github.com/davidahmann/gait
 ```
@@ -44,7 +45,8 @@ Expected:
 
 And here is the incident-to-regress path:
 
-gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
 ```
 
 ## Rules During HN Window (first 12 hours)

@@ -52,4 +52,10 @@ Gait makes agent tool calls controllable by turning execution into four determin
 - Not a hosted dashboard dependency.
 - Not a prompt-only filter.
 
+## Visual References
+
+- System architecture: `docs/architecture.md`
+- Runtime and operational flows: `docs/flows.md`
+- Documentation ownership map: `docs/README.md`
+
 For implementation details and exact integration checks, use `docs/integration_checklist.md`.

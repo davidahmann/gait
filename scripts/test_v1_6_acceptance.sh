@@ -31,7 +31,8 @@ QUICKSTART_OUT="$(GAIT_BIN="$BIN_PATH" bash "$REPO_ROOT/scripts/quickstart.sh")"
 printf '%s\n' "$QUICKSTART_OUT"
 [[ "$QUICKSTART_OUT" == *"==> Running gait demo"* ]]
 [[ "$QUICKSTART_OUT" == *"==> Running gait verify run_demo"* ]]
-[[ "$QUICKSTART_OUT" == *"next: $BIN_PATH regress bootstrap --from run_demo --json"* ]]
+[[ "$QUICKSTART_OUT" == *"next: $BIN_PATH regress init --from run_demo --json"* ]]
+[[ "$QUICKSTART_OUT" == *"then: $BIN_PATH regress run --json --junit ./gait-out/junit.xml"* ]]
 [[ -f "$WORK_DIR/gait-out/runpack_run_demo.zip" ]]
 popd >/dev/null
 

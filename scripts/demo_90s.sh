@@ -48,6 +48,7 @@ if [[ "${policy_exit}" -ne 3 ]]; then
 fi
 
 echo "==> incident to regression"
-"${GAIT_BIN}" regress bootstrap --from run_demo --json --junit "./junit.xml"
+"${GAIT_BIN}" regress init --from run_demo --json
+"${GAIT_BIN}" regress run --json --junit "./junit.xml"
 
 echo "demo_90s: pass"

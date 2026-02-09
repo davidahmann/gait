@@ -51,6 +51,22 @@ make hooks
 
 If it fails, remove tracked generated files with `git rm --cached <path>` and re-run lint.
 
+## Documentation alignment
+
+Use `docs/README.md` as the documentation ownership map to avoid duplication and drift.
+
+When changing docs:
+
+- keep normative behavior in `docs/contracts/*`
+- keep runnable onboarding in `README.md` concise and link runbooks
+- keep architecture and flow diagrams in `docs/architecture.md` and `docs/flows.md`
+
+If a doc includes Mermaid diagrams, validate rendering before opening a PR:
+
+```
+npx -y @mermaid-js/mermaid-cli@11.9.0 -i <diagram.mmd> -o /tmp/diagram.svg
+```
+
 ## Code quality
 
 - Go: `gofmt`, `golangci-lint`, `go vet`, `gosec`, `govulncheck`

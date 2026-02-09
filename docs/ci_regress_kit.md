@@ -13,7 +13,7 @@ Use `.github/workflows/adoption-regress-template.yml` as the baseline workflow.
 Template flow:
 
 1. Build local `gait` binary.
-2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or bootstrap from a run artifact.
+2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or initialize from a run artifact.
 3. Run `gait regress run --json --junit=...`.
 4. Run endpoint policy fixture checks (`allow`, `block`, `require_approval`).
 5. Run skill provenance verification checks.
@@ -32,15 +32,11 @@ mkdir -p gait-out
 
 if [[ ! -f fixtures/run_demo/runpack.zip || ! -f gait.yaml ]]; then
   ./gait demo
-  ./gait regress bootstrap --from run_demo --json --junit=./gait-out/junit.xml
-else
-  ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+  ./gait regress init --from run_demo --json
 fi
 
 set +e
-if [[ ! -f ./gait-out/regress_result.json ]]; then
-  ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
-fi
+./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
 status=$?
 set -e
 

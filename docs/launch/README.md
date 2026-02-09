@@ -18,7 +18,7 @@ Demo asset:
   - install check (`doctor`)
   - first win (`demo`, `verify`)
   - safety boundary (`policy test` block example)
-  - incident-to-regress (`regress bootstrap`)
+  - incident-to-regress (`regress init` + `regress run`)
   - isolated workspace under `gait-out/demo_90s/workspace` to avoid repo-root artifact residue
 
 Suggested launch sequence:
