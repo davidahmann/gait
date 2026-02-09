@@ -64,7 +64,7 @@ jobs:
 
   publish-homebrew-tap:
     needs: release
-    if: ${{ needs.release.result == 'success' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    if: ${{ needs.release.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,6 +75,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
+          if [ -z "${HOMEBREW_TAP_TOKEN:-}" ]; then
+            echo "HOMEBREW_TAP_TOKEN is not set; skipping Homebrew tap publish."
+            exit 0
+          fi
           bash scripts/publish_homebrew_tap.sh \
             --version "${GITHUB_REF_NAME}" \
             --source-repo "${GITHUB_REPOSITORY}" \
