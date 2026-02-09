@@ -116,6 +116,115 @@ if not isinstance(gate.get("reason_codes"), list):
     raise SystemExit("gate reason_codes must be an array")
 PY
 
+echo "==> primitive schema compatibility guard"
+python3 - "$REPO_ROOT" "$WORK_A" <<'PY'
+import json
+import sys
+import zipfile
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+work = Path(sys.argv[2])
+
+expected = {
+    "schemas/v1/gate/intent_request.schema.json": {
+        "schema_id": "gait.gate.intent_request",
+        "schema_version_pattern": r"^1\.0\.0$",
+        "required": [
+            "schema_id",
+            "schema_version",
+            "created_at",
+            "producer_version",
+            "tool_name",
+            "args",
+            "targets",
+            "context",
+        ],
+    },
+    "schemas/v1/gate/gate_result.schema.json": {
+        "schema_id": "gait.gate.result",
+        "schema_version_pattern": r"^1\.0\.0$",
+        "required": [
+            "schema_id",
+            "schema_version",
+            "created_at",
+            "producer_version",
+            "verdict",
+            "reason_codes",
+            "violations",
+        ],
+        "verdict_enum": ["allow", "block", "dry_run", "require_approval"],
+    },
+    "schemas/v1/gate/trace_record.schema.json": {
+        "schema_id": "gait.gate.trace",
+        "schema_version_pattern": r"^1\.0\.0$",
+        "required": [
+            "schema_id",
+            "schema_version",
+            "created_at",
+            "producer_version",
+            "trace_id",
+            "tool_name",
+            "args_digest",
+            "intent_digest",
+            "policy_digest",
+            "verdict",
+        ],
+        "verdict_enum": ["allow", "block", "dry_run", "require_approval"],
+    },
+    "schemas/v1/runpack/manifest.schema.json": {
+        "schema_id": "gait.runpack.manifest",
+        "schema_version_pattern": r"^1\.0\.0$",
+        "required": [
+            "schema_id",
+            "schema_version",
+            "created_at",
+            "producer_version",
+            "run_id",
+            "capture_mode",
+            "files",
+            "manifest_digest",
+        ],
+        "capture_mode_enum": ["reference", "raw"],
+    },
+}
+
+for rel_path, spec in expected.items():
+    schema = json.loads((repo / rel_path).read_text(encoding="utf-8"))
+    required = schema.get("required", [])
+    if sorted(required) != sorted(spec["required"]):
+        raise SystemExit(f"{rel_path} required fields changed: {required}")
+    properties = schema.get("properties", {})
+    if properties.get("schema_id", {}).get("const") != spec["schema_id"]:
+        raise SystemExit(f"{rel_path} schema_id const mismatch")
+    if properties.get("schema_version", {}).get("pattern") != spec["schema_version_pattern"]:
+        raise SystemExit(f"{rel_path} schema_version pattern mismatch")
+    verdict_enum = spec.get("verdict_enum")
+    if verdict_enum is not None:
+        actual = properties.get("verdict", {}).get("enum")
+        if actual != verdict_enum:
+            raise SystemExit(f"{rel_path} verdict enum changed: {actual}")
+    capture_mode_enum = spec.get("capture_mode_enum")
+    if capture_mode_enum is not None:
+        actual = properties.get("capture_mode", {}).get("enum")
+        if actual != capture_mode_enum:
+            raise SystemExit(f"{rel_path} capture_mode enum changed: {actual}")
+
+runpack_path = work / "gait-out" / "runpack_run_demo.zip"
+required_runpack_files = {
+    "manifest.json",
+    "run.json",
+    "intents.jsonl",
+    "results.jsonl",
+    "refs.json",
+}
+with zipfile.ZipFile(runpack_path, "r") as archive:
+    members = set(archive.namelist())
+missing = sorted(required_runpack_files.difference(members))
+if missing:
+    raise SystemExit(f"runpack missing required files: {missing}")
+PY
+
 echo "==> compatibility roundtrip from legacy fixture"
 cp "$REPO_ROOT/internal/integration/testdata/legacy_run_record_v1.json" "$WORK_A/legacy_run_record_v1.json"
 (

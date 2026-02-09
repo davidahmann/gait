@@ -187,6 +187,7 @@ Security posture tips:
 
 ## Contracts You Can Build On
 
+- Canonical primitive contract: `docs/contracts/primitive_contract.md`
 - Determinism: verify, diff, and stub replay are deterministic for identical artifacts
 - Offline-first: core workflows do not require network access
 - Default-safe privacy: reference receipts by default, raw capture is explicit opt-in
@@ -207,11 +208,12 @@ Security posture tips:
 Read in this order:
 
 1. `/Users/davidahmann/Projects/gait/README.md`
-2. `docs/integration_checklist.md`
-3. `docs/policy_rollout.md`
-4. `docs/approval_runbook.md`
-5. `docs/ci_regress_kit.md`
-6. `docs/evidence_templates.md`
+2. `docs/contracts/primitive_contract.md`
+3. `docs/integration_checklist.md`
+4. `docs/policy_rollout.md`
+5. `docs/approval_runbook.md`
+6. `docs/ci_regress_kit.md`
+7. `docs/evidence_templates.md`
 
 ## Development
 
