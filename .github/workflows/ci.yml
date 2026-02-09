@@ -145,6 +145,21 @@ jobs:
         run: |
           make test-release-smoke
 
+  install-smoke:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install script smoke checks
+        shell: bash
+        run: |
+          make test-install
+
   contracts:
     runs-on: ubuntu-latest
     steps:

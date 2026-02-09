@@ -44,27 +44,22 @@ Why artifact-first + execution-boundary-first:
 
 ## Start Here (Single Install Path)
 
-Use one path for first use: build from source.
-
-Prerequisites:
-
-- Go `1.25.x`
-- `git`
+Use one path for first use: install a release binary with checksum verification.
 
 ```bash
-git clone https://github.com/davidahmann/gait.git
-cd gait
-go build -o ./gait ./cmd/gait
-export PATH="$PWD:$PATH"
+curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
 ```
 
 Run the offline first-win loop:
 
 ```bash
+gait doctor --json
 gait demo
 gait verify run_demo
-bash scripts/quickstart.sh
+gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
+
+Install options, pinned versions, and source-build fallback are documented in `docs/install.md`.
 
 Sample `gait demo` output:
 
@@ -292,7 +287,7 @@ Security posture tips:
 
 Read in this order:
 
-1. `/Users/davidahmann/Projects/gait/README.md`
+1. `README.md`
 2. `docs/contracts/primitive_contract.md`
 3. `docs/positioning.md`
 4. `docs/integration_checklist.md`
@@ -300,6 +295,7 @@ Read in this order:
 6. `docs/approval_runbook.md`
 7. `docs/ci_regress_kit.md`
 8. `docs/evidence_templates.md`
+9. `docs/install.md`
 
 ## Development
 
@@ -310,6 +306,7 @@ make test
 make test-e2e
 make test-adoption
 make test-release-smoke
+make test-install
 make test-contracts
 make test-hardening
 make test-hardening-acceptance
