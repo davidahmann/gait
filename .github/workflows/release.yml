@@ -39,7 +39,7 @@ jobs:
           syft packages dir:. -o spdx-json=sbom.spdx.json
       - name: Scan vulnerabilities (grype)
         run: |
-          go install github.com/anchore/grype@${GRYPE_VERSION}
+          go install github.com/anchore/grype/cmd/grype@${GRYPE_VERSION}
           grype dir:. -o json > grype.json
       - name: Sign artifacts (cosign)
         env:
