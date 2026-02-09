@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +34,7 @@ var (
 	allowedRequiredFields = map[string]struct{}{
 		"targets":        {},
 		"arg_provenance": {},
+		"endpoint_class": {},
 	}
 	allowedRateLimitScopes = map[string]struct{}{
 		"tool":          {},
@@ -67,6 +70,7 @@ type PolicyRule struct {
 	Priority                 int             `yaml:"priority"`
 	Effect                   string          `yaml:"effect"`
 	Match                    PolicyMatch     `yaml:"match"`
+	Endpoint                 EndpointPolicy  `yaml:"endpoint"`
 	ReasonCodes              []string        `yaml:"reason_codes"`
 	Violations               []string        `yaml:"violations"`
 	MinApprovals             int             `yaml:"min_approvals"`
@@ -95,11 +99,25 @@ type DataflowPolicy struct {
 	Violation             string   `yaml:"violation"`
 }
 
+type EndpointPolicy struct {
+	Enabled           bool     `yaml:"enabled"`
+	PathAllowlist     []string `yaml:"path_allowlist"`
+	PathDenylist      []string `yaml:"path_denylist"`
+	DomainAllowlist   []string `yaml:"domain_allowlist"`
+	DomainDenylist    []string `yaml:"domain_denylist"`
+	EgressClasses     []string `yaml:"egress_classes"`
+	Action            string   `yaml:"action"`
+	DestructiveAction string   `yaml:"destructive_action"`
+	ReasonCode        string   `yaml:"reason_code"`
+	Violation         string   `yaml:"violation"`
+}
+
 type PolicyMatch struct {
 	ToolNames         []string `yaml:"tool_names"`
 	RiskClasses       []string `yaml:"risk_classes"`
 	TargetKinds       []string `yaml:"target_kinds"`
 	TargetValues      []string `yaml:"target_values"`
+	EndpointClasses   []string `yaml:"endpoint_classes"`
 	DataClasses       []string `yaml:"data_classes"`
 	DestinationKinds  []string `yaml:"destination_kinds"`
 	DestinationValues []string `yaml:"destination_values"`
@@ -200,6 +218,9 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 
 	if shouldFailClosed(normalizedPolicy.FailClosed, normalizedIntent.Context.RiskClass) {
 		reasons, violations := evaluateFailClosedRequiredFields(normalizedPolicy.FailClosed.RequiredFields, normalizedIntent)
+		endpointReasons, endpointViolations := evaluateFailClosedEndpointClasses(normalizedIntent)
+		reasons = mergeUniqueSorted(reasons, endpointReasons)
+		violations = mergeUniqueSorted(violations, endpointViolations)
 		if len(reasons) > 0 {
 			return EvalOutcome{
 				Result: buildGateResult(normalizedPolicy, normalizedIntent, opts, "block", reasons, violations),
@@ -222,6 +243,12 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 			effect = dataflowEffect
 			reasons = mergeUniqueSorted(reasons, dataflowReasons)
 			violations = mergeUniqueSorted(violations, dataflowViolations)
+		}
+		endpointTriggered, endpointEffect, endpointReasons, endpointViolations := evaluateEndpointConstraint(rule.Endpoint, normalizedIntent)
+		if endpointTriggered {
+			effect = mostRestrictiveVerdict(effect, endpointEffect)
+			reasons = mergeUniqueSorted(reasons, endpointReasons)
+			violations = mergeUniqueSorted(violations, endpointViolations)
 		}
 		minApprovals := rule.MinApprovals
 		if effect == "require_approval" && minApprovals == 0 {
@@ -285,6 +312,9 @@ func policyDigestPayload(policy Policy) map[string]any {
 			"Identities":        rule.Match.Identities,
 			"WorkspacePrefixes": rule.Match.WorkspacePrefixes,
 		}
+		if len(rule.Match.EndpointClasses) > 0 {
+			matchPayload["EndpointClasses"] = rule.Match.EndpointClasses
+		}
 		if len(rule.Match.DataClasses) > 0 {
 			matchPayload["DataClasses"] = rule.Match.DataClasses
 		}
@@ -346,6 +376,21 @@ func policyDigestPayload(policy Policy) map[string]any {
 				dataflowPayload["DestinationOperations"] = rule.Dataflow.DestinationOperations
 			}
 			rulePayload["Dataflow"] = dataflowPayload
+		}
+		if rule.Endpoint.Enabled {
+			endpointPayload := map[string]any{
+				"Enabled":           rule.Endpoint.Enabled,
+				"PathAllowlist":     rule.Endpoint.PathAllowlist,
+				"PathDenylist":      rule.Endpoint.PathDenylist,
+				"DomainAllowlist":   rule.Endpoint.DomainAllowlist,
+				"DomainDenylist":    rule.Endpoint.DomainDenylist,
+				"EgressClasses":     rule.Endpoint.EgressClasses,
+				"Action":            rule.Endpoint.Action,
+				"DestructiveAction": rule.Endpoint.DestructiveAction,
+				"ReasonCode":        rule.Endpoint.ReasonCode,
+				"Violation":         rule.Endpoint.Violation,
+			}
+			rulePayload["Endpoint"] = endpointPayload
 		}
 		rules = append(rules, rulePayload)
 	}
@@ -429,6 +474,12 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Match.RiskClasses = normalizeStringListLower(rule.Match.RiskClasses)
 		rule.Match.TargetKinds = normalizeStringListLower(rule.Match.TargetKinds)
 		rule.Match.TargetValues = normalizeStringList(rule.Match.TargetValues)
+		rule.Match.EndpointClasses = normalizeStringListLower(rule.Match.EndpointClasses)
+		for _, endpointClass := range rule.Match.EndpointClasses {
+			if _, ok := allowedEndpointClasses[endpointClass]; !ok {
+				return Policy{}, fmt.Errorf("unsupported match endpoint_class %q for %s", endpointClass, rule.Name)
+			}
+		}
 		rule.Match.DataClasses = normalizeStringListLower(rule.Match.DataClasses)
 		rule.Match.DestinationKinds = normalizeStringListLower(rule.Match.DestinationKinds)
 		rule.Match.DestinationValues = normalizeStringList(rule.Match.DestinationValues)
@@ -494,6 +545,49 @@ func normalizePolicy(input Policy) (Policy, error) {
 				rule.Dataflow.Violation = "tainted_dataflow"
 			}
 		}
+		rule.Endpoint.PathAllowlist = normalizePathPatterns(rule.Endpoint.PathAllowlist)
+		rule.Endpoint.PathDenylist = normalizePathPatterns(rule.Endpoint.PathDenylist)
+		rule.Endpoint.DomainAllowlist = normalizeStringListLower(rule.Endpoint.DomainAllowlist)
+		rule.Endpoint.DomainDenylist = normalizeStringListLower(rule.Endpoint.DomainDenylist)
+		rule.Endpoint.EgressClasses = normalizeStringListLower(rule.Endpoint.EgressClasses)
+		for _, endpointClass := range rule.Endpoint.EgressClasses {
+			if _, ok := allowedEndpointClasses[endpointClass]; !ok {
+				return Policy{}, fmt.Errorf("unsupported endpoint.egress_class %q for %s", endpointClass, rule.Name)
+			}
+			if !strings.HasPrefix(endpointClass, "net.") {
+				return Policy{}, fmt.Errorf("endpoint.egress_class must be network class for %s", rule.Name)
+			}
+		}
+		rule.Endpoint.Action = strings.ToLower(strings.TrimSpace(rule.Endpoint.Action))
+		rule.Endpoint.DestructiveAction = strings.ToLower(strings.TrimSpace(rule.Endpoint.DestructiveAction))
+		rule.Endpoint.ReasonCode = strings.TrimSpace(rule.Endpoint.ReasonCode)
+		rule.Endpoint.Violation = strings.TrimSpace(rule.Endpoint.Violation)
+		if rule.Endpoint.Enabled ||
+			len(rule.Endpoint.PathAllowlist) > 0 ||
+			len(rule.Endpoint.PathDenylist) > 0 ||
+			len(rule.Endpoint.DomainAllowlist) > 0 ||
+			len(rule.Endpoint.DomainDenylist) > 0 ||
+			len(rule.Endpoint.EgressClasses) > 0 ||
+			rule.Endpoint.DestructiveAction != "" {
+			rule.Endpoint.Enabled = true
+			if rule.Endpoint.Action == "" {
+				rule.Endpoint.Action = "block"
+			}
+			if _, ok := allowedDataflowActions[rule.Endpoint.Action]; !ok {
+				return Policy{}, fmt.Errorf("unsupported endpoint.action %q for %s", rule.Endpoint.Action, rule.Name)
+			}
+			if rule.Endpoint.DestructiveAction != "" {
+				if _, ok := allowedDataflowActions[rule.Endpoint.DestructiveAction]; !ok {
+					return Policy{}, fmt.Errorf("unsupported endpoint.destructive_action %q for %s", rule.Endpoint.DestructiveAction, rule.Name)
+				}
+			}
+			if rule.Endpoint.ReasonCode == "" {
+				rule.Endpoint.ReasonCode = "endpoint_constraint_violation"
+			}
+			if rule.Endpoint.Violation == "" {
+				rule.Endpoint.Violation = "endpoint_constraint_violation"
+			}
+		}
 	}
 
 	sort.Slice(output.Rules, func(i, j int) bool {
@@ -548,6 +642,18 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			}
 		}
 		if !targetValueMatched {
+			return false
+		}
+	}
+	if len(match.EndpointClasses) > 0 {
+		endpointClassMatched := false
+		for _, target := range intent.Targets {
+			if contains(match.EndpointClasses, target.EndpointClass) {
+				endpointClassMatched = true
+				break
+			}
+		}
+		if !endpointClassMatched {
 			return false
 		}
 	}
@@ -698,9 +804,177 @@ func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate
 				reasons = append(reasons, "fail_closed_missing_arg_provenance")
 				violations = append(violations, "missing_arg_provenance")
 			}
+		case "endpoint_class":
+			for _, target := range intent.Targets {
+				if strings.TrimSpace(target.EndpointClass) == "" || strings.TrimSpace(target.EndpointClass) == "other" {
+					reasons = append(reasons, "fail_closed_missing_endpoint_class")
+					violations = append(violations, "missing_endpoint_class")
+					break
+				}
+			}
 		}
 	}
 	return uniqueSorted(reasons), uniqueSorted(violations)
+}
+
+func evaluateFailClosedEndpointClasses(intent schemagate.IntentRequest) ([]string, []string) {
+	for _, target := range intent.Targets {
+		if strings.TrimSpace(target.EndpointClass) == "" || strings.TrimSpace(target.EndpointClass) == "other" {
+			return []string{"fail_closed_endpoint_class_unknown"}, []string{"endpoint_class_unknown"}
+		}
+	}
+	return []string{}, []string{}
+}
+
+func evaluateEndpointConstraint(endpoint EndpointPolicy, intent schemagate.IntentRequest) (bool, string, []string, []string) {
+	if !endpoint.Enabled {
+		return false, "", nil, nil
+	}
+	reasons := []string{}
+	violations := []string{}
+
+	for _, target := range intent.Targets {
+		if target.Kind == "path" {
+			normalizedPath := filepath.ToSlash(strings.TrimSpace(target.Value))
+			if len(endpoint.PathDenylist) > 0 && matchesAnyPattern(normalizedPath, endpoint.PathDenylist) {
+				reasons = append(reasons, "endpoint_path_denied")
+				violations = append(violations, "endpoint_path_denied")
+			}
+			if len(endpoint.PathAllowlist) > 0 && !matchesAnyPattern(normalizedPath, endpoint.PathAllowlist) {
+				reasons = append(reasons, "endpoint_path_not_allowlisted")
+				violations = append(violations, "endpoint_path_not_allowlisted")
+			}
+		}
+
+		domain := strings.ToLower(strings.TrimSpace(target.EndpointDomain))
+		if domain != "" {
+			if len(endpoint.DomainDenylist) > 0 && matchesAnyDomain(domain, endpoint.DomainDenylist) {
+				reasons = append(reasons, "endpoint_domain_denied")
+				violations = append(violations, "endpoint_domain_denied")
+			}
+			if len(endpoint.DomainAllowlist) > 0 && !matchesAnyDomain(domain, endpoint.DomainAllowlist) {
+				reasons = append(reasons, "endpoint_domain_not_allowlisted")
+				violations = append(violations, "endpoint_domain_not_allowlisted")
+			}
+		}
+
+		if strings.HasPrefix(target.EndpointClass, "net.") && len(endpoint.EgressClasses) > 0 && !contains(endpoint.EgressClasses, target.EndpointClass) {
+			reasons = append(reasons, "endpoint_egress_class_not_allowed")
+			violations = append(violations, "endpoint_egress_class_not_allowed")
+		}
+	}
+
+	effect := endpoint.Action
+	if effect == "" {
+		effect = "block"
+	}
+	if endpoint.DestructiveAction != "" && intentContainsDestructiveTarget(intent.Targets) {
+		effect = mostRestrictiveVerdict(effect, endpoint.DestructiveAction)
+		reasons = append(reasons, "endpoint_destructive_operation")
+		violations = append(violations, "destructive_operation")
+	}
+
+	if len(reasons) == 0 {
+		return false, "", nil, nil
+	}
+	if endpoint.ReasonCode != "" {
+		reasons = append(reasons, endpoint.ReasonCode)
+	}
+	if endpoint.Violation != "" {
+		violations = append(violations, endpoint.Violation)
+	}
+	return true, effect, uniqueSorted(reasons), uniqueSorted(violations)
+}
+
+func intentContainsDestructiveTarget(targets []schemagate.IntentTarget) bool {
+	for _, target := range targets {
+		if target.Destructive {
+			return true
+		}
+	}
+	return false
+}
+
+func matchesAnyPattern(value string, patterns []string) bool {
+	for _, patternValue := range patterns {
+		if matchPathPattern(value, patternValue) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePathPatterns(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := filepath.ToSlash(strings.TrimSpace(value))
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	return uniqueSorted(out)
+}
+
+func matchPathPattern(value string, patternValue string) bool {
+	if patternValue == "" {
+		return false
+	}
+	normalizedValue := filepath.ToSlash(strings.TrimSpace(value))
+	normalizedPattern := filepath.ToSlash(strings.TrimSpace(patternValue))
+	if normalizedPattern == normalizedValue {
+		return true
+	}
+	if strings.HasSuffix(normalizedPattern, "/**") {
+		prefix := strings.TrimSuffix(normalizedPattern, "/**")
+		if normalizedValue == prefix || strings.HasPrefix(normalizedValue, prefix+"/") {
+			return true
+		}
+	}
+	ok, err := path.Match(normalizedPattern, normalizedValue)
+	return err == nil && ok
+}
+
+func matchesAnyDomain(value string, patterns []string) bool {
+	for _, patternValue := range patterns {
+		patternLower := strings.ToLower(strings.TrimSpace(patternValue))
+		if patternLower == "" {
+			continue
+		}
+		valueLower := strings.ToLower(strings.TrimSpace(value))
+		if valueLower == patternLower {
+			return true
+		}
+		if strings.HasPrefix(patternLower, "*.") && strings.HasSuffix(valueLower, strings.TrimPrefix(patternLower, "*")) {
+			return true
+		}
+		ok, err := path.Match(patternLower, valueLower)
+		if err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func mostRestrictiveVerdict(current string, candidate string) string {
+	priority := map[string]int{
+		"allow":            0,
+		"dry_run":          1,
+		"require_approval": 2,
+		"block":            3,
+	}
+	currentPriority, ok := priority[current]
+	if !ok {
+		currentPriority = 0
+	}
+	candidatePriority, ok := priority[candidate]
+	if !ok {
+		candidatePriority = 0
+	}
+	if candidatePriority > currentPriority {
+		return candidate
+	}
+	return current
 }
 
 func buildGateResult(

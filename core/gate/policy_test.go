@@ -127,6 +127,27 @@ rules:
       action: allow
 `,
 		},
+		{
+			name: "invalid_endpoint_action",
+			yaml: `
+rules:
+  - name: bad-endpoint-action
+    effect: allow
+    endpoint:
+      enabled: true
+      action: dry_run
+`,
+		},
+		{
+			name: "invalid_endpoint_class_match",
+			yaml: `
+rules:
+  - name: bad-endpoint-class
+    effect: allow
+    match:
+      endpoint_classes: [net.invalid]
+`,
+		},
 	}
 
 	for _, testCase := range tests {
@@ -161,7 +182,7 @@ rules:
 	intent.ToolName = "TOOL.WRITE"
 	intent.Context.RiskClass = "HIGH"
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
 	}
 
 	first, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
@@ -220,6 +241,37 @@ fail_closed:
 	expectedReasons := []string{"fail_closed_missing_arg_provenance", "fail_closed_missing_targets"}
 	if !reflect.DeepEqual(result.ReasonCodes, expectedReasons) {
 		t.Fatalf("unexpected fail-closed reasons: got=%#v want=%#v", result.ReasonCodes, expectedReasons)
+	}
+}
+
+func TestEvaluatePolicyFailClosedUnknownEndpointClass(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+fail_closed:
+  enabled: true
+  risk_classes: [high]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.Context.RiskClass = "high"
+	intent.ToolName = "tool.unknown"
+	intent.Targets = []schemagate.IntentTarget{{
+		Kind:  "path",
+		Value: "/tmp/out.txt",
+	}}
+
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if result.Verdict != "block" {
+		t.Fatalf("expected fail-closed block for unknown endpoint class, got %#v", result)
+	}
+	if !reflect.DeepEqual(result.ReasonCodes, []string{"fail_closed_endpoint_class_unknown"}) {
+		t.Fatalf("unexpected reason codes: %#v", result.ReasonCodes)
 	}
 }
 
@@ -330,7 +382,7 @@ rules:
 		{ArgPath: "args.path", Source: "external"},
 	}
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
 	}
 
 	result, err := EvaluatePolicy(policy, intent, EvalOptions{})
@@ -353,7 +405,11 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{ArgPath: "args.path", Source: "external"},
 	}
 	intent.Targets = []schemagate.IntentTarget{
-		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential"},
+		{Kind: "host", Value: "api.external.com", Operation: "write", Sensitivity: "confidential", EndpointClass: "net.http"},
+	}
+	normalizedIntent, err := NormalizeIntent(intent)
+	if err != nil {
+		t.Fatalf("normalize intent: %v", err)
 	}
 
 	matching := PolicyMatch{
@@ -365,11 +421,12 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		DestinationKinds:  []string{"host"},
 		DestinationValues: []string{"api.external.com"},
 		DestinationOps:    []string{"write"},
+		EndpointClasses:   []string{"net.http"},
 		ProvenanceSources: []string{"external"},
 		Identities:        []string{"alice"},
 		WorkspacePrefixes: []string{"/repo"},
 	}
-	if !ruleMatches(matching, intent) {
+	if !ruleMatches(matching, normalizedIntent) {
 		t.Fatalf("expected match to pass")
 	}
 
@@ -382,12 +439,13 @@ func TestRuleMatchesCoverage(t *testing.T) {
 		{DestinationKinds: []string{"bucket"}},
 		{DestinationValues: []string{"internal.local"}},
 		{DestinationOps: []string{"read"}},
+		{EndpointClasses: []string{"fs.delete"}},
 		{ProvenanceSources: []string{"user"}},
 		{Identities: []string{"bob"}},
 		{WorkspacePrefixes: []string{"/other"}},
 	}
 	for _, testCase := range cases {
-		if ruleMatches(testCase, intent) {
+		if ruleMatches(testCase, normalizedIntent) {
 			t.Fatalf("expected non-match for %#v", testCase)
 		}
 	}
@@ -562,6 +620,86 @@ rules:
 	}
 	if !outcome.DataflowTriggered {
 		t.Fatalf("expected dataflow trigger metadata")
+	}
+}
+
+func TestEvaluatePolicyEndpointConstraintPathAndDomain(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: endpoint-guard
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    endpoint:
+      enabled: true
+      path_allowlist: [/tmp/safe/**]
+      path_denylist: [/tmp/safe/blocked/**]
+      domain_allowlist: [api.internal.local]
+      egress_classes: [net.http]
+      action: block
+      reason_code: endpoint_policy_violation
+      violation: endpoint_policy_violation
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/safe/blocked/file.txt", Operation: "write", EndpointClass: "fs.write"},
+		{Kind: "url", Value: "https://api.external.com/export", Operation: "write", EndpointClass: "net.http", EndpointDomain: "api.external.com"},
+	}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy detailed: %v", err)
+	}
+	if outcome.Result.Verdict != "block" {
+		t.Fatalf("expected endpoint constraint block verdict, got %#v", outcome.Result)
+	}
+	for _, reasonCode := range []string{"endpoint_domain_not_allowlisted", "endpoint_path_denied", "endpoint_policy_violation"} {
+		if !contains(outcome.Result.ReasonCodes, reasonCode) {
+			t.Fatalf("expected reason code %q in %#v", reasonCode, outcome.Result.ReasonCodes)
+		}
+	}
+}
+
+func TestEvaluatePolicyEndpointConstraintDestructiveAction(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+rules:
+  - name: endpoint-destructive
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    endpoint:
+      enabled: true
+      destructive_action: require_approval
+      action: block
+      reason_code: endpoint_policy_violation
+      violation: endpoint_policy_violation
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Targets = []schemagate.IntentTarget{
+		{Kind: "path", Value: "/tmp/data.txt", Operation: "delete", EndpointClass: "fs.delete", Destructive: true},
+	}
+
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy detailed: %v", err)
+	}
+	if outcome.Result.Verdict != "block" {
+		t.Fatalf("expected most restrictive endpoint verdict to be block, got %#v", outcome.Result)
+	}
+	if !contains(outcome.Result.ReasonCodes, "endpoint_destructive_operation") {
+		t.Fatalf("expected destructive reason code, got %#v", outcome.Result.ReasonCodes)
 	}
 }
 
@@ -780,10 +918,19 @@ rules:
       violation: tainted_route
     match:
       tool_names: [tool.write]
+      endpoint_classes: [net.http]
       data_classes: [confidential]
       destination_kinds: [host]
       destination_values: [api.external.com]
       destination_operations: [write]
+    endpoint:
+      enabled: true
+      path_allowlist: [/tmp/safe/**]
+      domain_allowlist: [api.internal.local]
+      egress_classes: [net.http]
+      action: block
+      reason_code: endpoint_policy_violation
+      violation: endpoint_policy_violation
 `))
 	if err != nil {
 		t.Fatalf("parse policy: %v", err)
@@ -803,6 +950,9 @@ rules:
 	}
 	if _, ok := ruleAny["Dataflow"]; !ok {
 		t.Fatalf("expected dataflow payload to be present: %#v", ruleAny)
+	}
+	if _, ok := ruleAny["Endpoint"]; !ok {
+		t.Fatalf("expected endpoint payload to be present: %#v", ruleAny)
 	}
 	if _, ok := ruleAny["BrokerScopes"]; !ok {
 		t.Fatalf("expected broker_scopes payload to be present: %#v", ruleAny)

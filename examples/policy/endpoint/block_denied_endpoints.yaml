@@ -1,0 +1,16 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+rules:
+  - name: endpoint-deny
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    endpoint:
+      enabled: true
+      path_denylist: [/etc/**, /var/lib/**]
+      domain_denylist: [*.external.example]
+      action: block
+      reason_code: endpoint_policy_violation
+      violation: endpoint_policy_violation

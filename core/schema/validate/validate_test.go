@@ -69,6 +69,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_invalid.json"),
 		},
 		{
+			name:       "gate_intent_request_endpoint",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "intent_request.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_endpoint_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_intent_request_endpoint_invalid.json"),
+		},
+		{
 			name:       "gate_result",
 			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "gate_result.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_result_valid.json"),

@@ -42,10 +42,13 @@ type IntentRequest struct {
 }
 
 type IntentTarget struct {
-	Kind        string `json:"kind"`
-	Value       string `json:"value"`
-	Operation   string `json:"operation,omitempty"`
-	Sensitivity string `json:"sensitivity,omitempty"`
+	Kind           string `json:"kind"`
+	Value          string `json:"value"`
+	Operation      string `json:"operation,omitempty"`
+	Sensitivity    string `json:"sensitivity,omitempty"`
+	EndpointClass  string `json:"endpoint_class,omitempty"`
+	EndpointDomain string `json:"endpoint_domain,omitempty"`
+	Destructive    bool   `json:"destructive,omitempty"`
 }
 
 type IntentArgProvenance struct {

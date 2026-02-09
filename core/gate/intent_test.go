@@ -114,11 +114,58 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	if normalized.Targets[0].Kind != "host" || normalized.Targets[1].Kind != "path" {
 		t.Fatalf("expected sorted targets, got %#v", normalized.Targets)
 	}
+	if normalized.Targets[0].EndpointClass != "net.http" || normalized.Targets[0].EndpointDomain != "api.internal" {
+		t.Fatalf("expected inferred host endpoint metadata, got %#v", normalized.Targets[0])
+	}
+	if normalized.Targets[1].EndpointClass != "fs.write" {
+		t.Fatalf("expected inferred path endpoint class from tool hint, got %#v", normalized.Targets[1])
+	}
 	if len(normalized.ArgProvenance) != 2 {
 		t.Fatalf("expected de-duplicated provenance entries, got %d", len(normalized.ArgProvenance))
 	}
 	if normalized.ArgProvenance[0].IntegrityDigest != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("expected lowercased integrity digest, got %#v", normalized.ArgProvenance[0])
+	}
+}
+
+func TestNormalizeIntentEndpointClassification(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		ToolName: "tool.exec",
+		Args:     map[string]any{"command": "rm -rf /tmp/demo"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/in.txt", Operation: "read"},
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "delete"},
+			{Kind: "host", Value: "api.internal", Operation: "dns"},
+			{Kind: "url", Value: "https://example.com/path"},
+			{Kind: "other", Value: "shell", Operation: "exec"},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/tmp/work",
+			RiskClass: "high",
+		},
+	}
+
+	normalized, err := NormalizeIntent(intent)
+	if err != nil {
+		t.Fatalf("normalize intent: %v", err)
+	}
+	gotClasses := map[string]bool{}
+	destructiveCount := 0
+	for _, target := range normalized.Targets {
+		gotClasses[target.EndpointClass] = true
+		if target.Destructive {
+			destructiveCount++
+		}
+	}
+	for _, expected := range []string{"fs.read", "fs.write", "fs.delete", "net.dns", "net.http", "proc.exec"} {
+		if !gotClasses[expected] {
+			t.Fatalf("missing inferred endpoint class %s in %#v", expected, normalized.Targets)
+		}
+	}
+	if destructiveCount == 0 {
+		t.Fatalf("expected at least one destructive endpoint target")
 	}
 }
 
@@ -280,11 +327,14 @@ func TestDigestHelperErrors(t *testing.T) {
 }
 
 func TestNormalizeTargetsAndProvenanceErrors(t *testing.T) {
-	if targets, err := normalizeTargets(nil); err != nil || len(targets) != 0 {
+	if targets, err := normalizeTargets("tool.demo", nil); err != nil || len(targets) != 0 {
 		t.Fatalf("expected empty targets, got targets=%#v err=%v", targets, err)
 	}
-	if _, err := normalizeTargets([]schemagate.IntentTarget{{Kind: "path", Value: ""}}); err == nil {
+	if _, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{Kind: "path", Value: ""}}); err == nil {
 		t.Fatalf("expected target with empty value to fail")
+	}
+	if _, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{Kind: "path", Value: "/tmp/out", EndpointClass: "invalid"}}); err == nil {
+		t.Fatalf("expected unsupported endpoint class to fail")
 	}
 
 	if provenance, err := normalizeArgProvenance(nil); err != nil || len(provenance) != 0 {

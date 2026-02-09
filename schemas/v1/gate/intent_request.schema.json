@@ -34,7 +34,24 @@
           },
           "value": { "type": "string", "minLength": 1 },
           "operation": { "type": "string" },
-          "sensitivity": { "type": "string" }
+          "sensitivity": { "type": "string" },
+          "endpoint_class": {
+            "type": "string",
+            "enum": [
+              "fs.read",
+              "fs.write",
+              "fs.delete",
+              "proc.exec",
+              "net.http",
+              "net.dns",
+              "ui.click",
+              "ui.type",
+              "ui.navigate",
+              "other"
+            ]
+          },
+          "endpoint_domain": { "type": "string" },
+          "destructive": { "type": "boolean" }
         },
         "additionalProperties": false
       }

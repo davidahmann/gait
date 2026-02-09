@@ -1,0 +1,21 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-09T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": { "path": "/tmp/safe/output.txt" },
+  "targets": [
+    {
+      "kind": "path",
+      "value": "/tmp/safe/output.txt",
+      "operation": "write",
+      "endpoint_class": "fs.invalid"
+    }
+  ],
+  "context": {
+    "identity": "user",
+    "workspace": "/tmp/work",
+    "risk_class": "high"
+  }
+}

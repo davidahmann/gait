@@ -3,6 +3,8 @@ package gate
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -34,6 +36,18 @@ var (
 		"tool_output": {},
 		"external":    {},
 		"system":      {},
+	}
+	allowedEndpointClasses = map[string]struct{}{
+		"fs.read":     {},
+		"fs.write":    {},
+		"fs.delete":   {},
+		"proc.exec":   {},
+		"net.http":    {},
+		"net.dns":     {},
+		"ui.click":    {},
+		"ui.type":     {},
+		"ui.navigate": {},
+		"other":       {},
 	}
 	hexDigestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 )
@@ -125,7 +139,7 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 		return normalizedIntent{}, fmt.Errorf("args must be a JSON object")
 	}
 
-	targets, err := normalizeTargets(input.Targets)
+	targets, err := normalizeTargets(toolName, input.Targets)
 	if err != nil {
 		return normalizedIntent{}, err
 	}
@@ -147,7 +161,7 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 	}, nil
 }
 
-func normalizeTargets(targets []schemagate.IntentTarget) ([]schemagate.IntentTarget, error) {
+func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]schemagate.IntentTarget, error) {
 	if len(targets) == 0 {
 		return []schemagate.IntentTarget{}, nil
 	}
@@ -158,6 +172,8 @@ func normalizeTargets(targets []schemagate.IntentTarget) ([]schemagate.IntentTar
 		value := strings.TrimSpace(target.Value)
 		operation := strings.ToLower(strings.TrimSpace(target.Operation))
 		sensitivity := strings.ToLower(strings.TrimSpace(target.Sensitivity))
+		endpointClass := strings.ToLower(strings.TrimSpace(target.EndpointClass))
+		endpointDomain := strings.ToLower(strings.TrimSpace(target.EndpointDomain))
 
 		if kind == "" || value == "" {
 			return nil, fmt.Errorf("targets require kind and value")
@@ -165,14 +181,39 @@ func normalizeTargets(targets []schemagate.IntentTarget) ([]schemagate.IntentTar
 		if _, ok := allowedTargetKinds[kind]; !ok {
 			return nil, fmt.Errorf("unsupported target kind: %s", kind)
 		}
+		if endpointClass == "" {
+			endpointClass = inferEndpointClass(kind, operation, toolName)
+		}
+		if _, ok := allowedEndpointClasses[endpointClass]; !ok {
+			return nil, fmt.Errorf("unsupported endpoint class: %s", endpointClass)
+		}
+		if endpointDomain == "" {
+			endpointDomain = inferEndpointDomain(kind, value)
+		}
+		destructive := target.Destructive || inferDestructive(endpointClass, operation)
 
 		normalized := schemagate.IntentTarget{
-			Kind:        kind,
-			Value:       value,
-			Operation:   operation,
-			Sensitivity: sensitivity,
+			Kind:           kind,
+			Value:          value,
+			Operation:      operation,
+			Sensitivity:    sensitivity,
+			EndpointClass:  endpointClass,
+			EndpointDomain: endpointDomain,
+			Destructive:    destructive,
 		}
-		key := strings.Join([]string{normalized.Kind, normalized.Value, normalized.Operation, normalized.Sensitivity}, "\x00")
+		destructiveKey := "0"
+		if destructive {
+			destructiveKey = "1"
+		}
+		key := strings.Join([]string{
+			normalized.Kind,
+			normalized.Value,
+			normalized.Operation,
+			normalized.Sensitivity,
+			normalized.EndpointClass,
+			normalized.EndpointDomain,
+			destructiveKey,
+		}, "\x00")
 		if _, ok := seen[key]; ok {
 			continue
 		}
@@ -189,9 +230,110 @@ func normalizeTargets(targets []schemagate.IntentTarget) ([]schemagate.IntentTar
 		if out[i].Operation != out[j].Operation {
 			return out[i].Operation < out[j].Operation
 		}
-		return out[i].Sensitivity < out[j].Sensitivity
+		if out[i].Sensitivity != out[j].Sensitivity {
+			return out[i].Sensitivity < out[j].Sensitivity
+		}
+		if out[i].EndpointClass != out[j].EndpointClass {
+			return out[i].EndpointClass < out[j].EndpointClass
+		}
+		if out[i].EndpointDomain != out[j].EndpointDomain {
+			return out[i].EndpointDomain < out[j].EndpointDomain
+		}
+		if out[i].Destructive != out[j].Destructive {
+			return !out[i].Destructive && out[j].Destructive
+		}
+		return false
 	})
 	return out, nil
+}
+
+func inferEndpointClass(kind string, operation string, toolName string) string {
+	switch kind {
+	case "path":
+		switch operation {
+		case "read", "get", "list", "open", "cat", "head", "download", "stat":
+			return "fs.read"
+		case "write", "append", "put", "create", "update", "save", "copy", "move", "rename":
+			return "fs.write"
+		case "delete", "remove", "rm", "unlink", "rmdir", "drop", "truncate":
+			return "fs.delete"
+		}
+		if hasToolHint(toolName, "read", "list", "fetch", "search") {
+			return "fs.read"
+		}
+		if hasToolHint(toolName, "write", "update", "save", "create") {
+			return "fs.write"
+		}
+		if hasToolHint(toolName, "delete", "remove", "rm", "drop") {
+			return "fs.delete"
+		}
+		return "other"
+	case "host", "url":
+		switch operation {
+		case "dns", "resolve", "lookup":
+			return "net.dns"
+		default:
+			return "net.http"
+		}
+	case "other":
+		switch operation {
+		case "exec", "spawn", "run", "shell", "command":
+			return "proc.exec"
+		}
+		if hasToolHint(toolName, "exec", "shell", "command", "spawn", "run") {
+			return "proc.exec"
+		}
+		return "other"
+	default:
+		return "other"
+	}
+}
+
+func inferEndpointDomain(kind string, value string) string {
+	switch kind {
+	case "host":
+		host := strings.TrimSpace(value)
+		host = strings.TrimPrefix(host, "http://")
+		host = strings.TrimPrefix(host, "https://")
+		if index := strings.Index(host, "/"); index >= 0 {
+			host = host[:index]
+		}
+		if index := strings.Index(host, ":"); index >= 0 {
+			host = host[:index]
+		}
+		return strings.ToLower(strings.TrimSpace(host))
+	case "url":
+		parsed, err := url.Parse(strings.TrimSpace(value))
+		if err != nil {
+			return ""
+		}
+		return strings.ToLower(strings.TrimSpace(parsed.Hostname()))
+	default:
+		return ""
+	}
+}
+
+func inferDestructive(endpointClass string, operation string) bool {
+	switch endpointClass {
+	case "fs.delete", "proc.exec":
+		return true
+	}
+	switch operation {
+	case "delete", "remove", "rm", "unlink", "rmdir", "drop", "truncate", "exec", "spawn":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasToolHint(toolName string, hints ...string) bool {
+	normalizedName := path.Base(strings.ToLower(strings.TrimSpace(toolName)))
+	for _, hint := range hints {
+		if strings.Contains(normalizedName, hint) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeArgProvenance(provenance []schemagate.IntentArgProvenance) ([]schemagate.IntentArgProvenance, error) {

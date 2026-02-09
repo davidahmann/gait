@@ -1,0 +1,15 @@
+schema_id: gait.gate.policy
+schema_version: 1.0.0
+default_verdict: allow
+rules:
+  - name: endpoint-destructive-approval
+    priority: 10
+    effect: allow
+    match:
+      tool_names: [tool.write]
+    endpoint:
+      enabled: true
+      action: require_approval
+      destructive_action: require_approval
+      reason_code: endpoint_destructive_guard
+      violation: endpoint_destructive_guard
