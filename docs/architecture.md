@@ -46,8 +46,8 @@ flowchart LR
     framework --> py
 
     subgraph artifacts["Artifact Surface (durable contract)"]
-        runpackZip["gait-out/runpack_<run_id>.zip"]
-        traceJson["trace_<id>.json"]
+        runpackZip["gait-out/runpack_{run_id}.zip"]
+        traceJson["trace_{id}.json"]
         regressJson["regress_result.json"]
         junitXml["junit.xml"]
         evidenceZip["Evidence packs (gait guard/incident pack)"]

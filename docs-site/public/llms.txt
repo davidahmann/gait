@@ -24,4 +24,5 @@
 - /llm/product.md
 - /llm/quickstart.md
 - /llm/security.md
+- /llm/faq.md
 - /llm/contracts.md

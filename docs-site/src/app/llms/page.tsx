@@ -13,6 +13,8 @@ const resources = [
   { label: 'LLM Quickstart', href: '/llm/quickstart.md' },
   { label: 'LLM Product Overview', href: '/llm/product.md' },
   { label: 'LLM Security and Safety', href: '/llm/security.md' },
+  { label: 'LLM FAQ', href: '/llm/faq.md' },
+  { label: 'Crawler Policy (robots.txt)', href: '/robots.txt' },
   { label: 'AI Sitemap', href: '/ai-sitemap.xml' },
 ];
 

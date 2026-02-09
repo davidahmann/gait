@@ -27,3 +27,12 @@ Output is written to `docs-site/out/`.
 - `CONTRIBUTING.md`
 
 The site ingests markdown from the repository and renders static docs routes.
+
+## SEO and AEO Assets
+
+- `public/robots.txt`
+- `public/sitemap.xml`
+- `public/ai-sitemap.xml`
+- `public/llms.txt`
+- `public/llm/*.md` assistant context pages
+- JSON-LD on homepage (`SoftwareApplication`, `FAQPage`)

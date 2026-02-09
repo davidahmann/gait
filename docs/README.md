@@ -24,6 +24,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Installer and platform support: `docs/install.md`
 - Homebrew tap publishing path: `docs/homebrew.md`
 - Local UAT and functional testing plan: `docs/uat_functional_plan.md`
+- SEO/AEO checklist for public docs site: `docs/launch/seo_aeo_checklist.md`
 
 ## Overlap Rules
 

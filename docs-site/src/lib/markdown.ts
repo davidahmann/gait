@@ -60,14 +60,15 @@ function rendererForSlug(currentSlug: string) {
 
   renderer.code = function ({ text, lang }) {
     const language = (lang || '').toLowerCase();
-    if (language === 'mermaid') {
-      return `<div class="mermaid">${text}</div>`;
-    }
-
     const escaped = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
+
+    if (language === 'mermaid') {
+      return `<div class="mermaid">${escaped}</div>`;
+    }
+
     return `<pre><code class="language-${language}">${escaped}</code></pre>`;
   };
 

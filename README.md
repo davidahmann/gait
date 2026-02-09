@@ -2,7 +2,7 @@
 
 Your AI agent broke prod. Gait gives you the signed artifact to prove what happened, the regression to make sure it never happens again, and the policy gate to block it at the boundary.
 
-Public docs + marketing site: `https://davidahmann.github.io/gait/`
+Public docs + marketing site: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
 
 ## Install And First Win (60 Seconds)
 

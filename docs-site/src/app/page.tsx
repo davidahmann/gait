@@ -46,9 +46,66 @@ const features = [
   },
 ];
 
+const faqs = [
+  {
+    question: 'What does Gait do that logs do not?',
+    answer:
+      'Gait produces signed runpacks and traces with deterministic verification, so incidents are reproducible evidence rather than best-effort log interpretation.',
+  },
+  {
+    question: 'Does Gait require a hosted service?',
+    answer:
+      'No. Core workflows are offline-first and run locally: capture, verify, diff, policy evaluation, and regressions can run without a network dependency.',
+  },
+  {
+    question: 'How long does integration typically take?',
+    answer:
+      'Most teams can go from demo to first boundary enforcement in 30 to 120 minutes using one wrapper or one sidecar plus policy fixtures.',
+  },
+  {
+    question: 'How does Gait handle prompt-injection style risk?',
+    answer:
+      'Gate evaluates structured tool-call intent at execution time and blocks or requires approval based on policy. Non-allow outcomes do not execute side effects.',
+  },
+];
+
+const softwareApplicationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Gait',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Linux, macOS, Windows',
+  description:
+    'Offline-first CLI for controlling and proving production AI agent actions with runpacks, regressions, and fail-closed policy gates.',
+  url: 'https://davidahmann.github.io/gait/',
+  softwareHelp: 'https://davidahmann.github.io/gait/docs/',
+  codeRepository: 'https://github.com/davidahmann/gait',
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+};
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((entry) => ({
+    '@type': 'Question',
+    name: entry.question,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: entry.answer,
+    },
+  })),
+};
+
 export default function HomePage() {
   return (
     <div className="not-prose">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+
       <div className="text-center py-12 lg:py-20">
         <h1 className="text-4xl lg:text-6xl font-bold text-white mb-6">
           Control and Prove
@@ -123,6 +180,18 @@ export default function HomePage() {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div className="mb-16">
+        <h2 className="text-2xl font-bold text-white mb-6 text-center">Frequently Asked Questions</h2>
+        <div className="grid md:grid-cols-2 gap-4">
+          {faqs.map((entry) => (
+            <div key={entry.question} className="rounded-lg border border-gray-700 bg-gray-900/40 p-5">
+              <h3 className="text-base font-semibold text-gray-100 mb-2">{entry.question}</h3>
+              <p className="text-sm text-gray-300">{entry.answer}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
