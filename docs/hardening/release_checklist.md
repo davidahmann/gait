@@ -41,6 +41,7 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 - [ ] Checksums generated and verified.
 - [ ] Signatures/provenance artifacts generated and verifiable.
 - [ ] Homebrew formula asset rendered from release checksums (`dist/gait.rb`).
+- [ ] `publish-homebrew-tap` workflow job is green (or intentionally skipped with documented reason).
 - [ ] Release workflow integrity verification steps complete successfully.
 
 ## 6) Operational Readiness (RECOMMENDED)

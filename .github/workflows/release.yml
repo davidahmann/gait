@@ -61,6 +61,26 @@ jobs:
             exit "${status}"
           done
           exit 1
+
+  publish-homebrew-tap:
+    needs: release
+    if: ${{ needs.release.result == 'success' && secrets.HOMEBREW_TAP_TOKEN != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish Homebrew tap formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          bash scripts/publish_homebrew_tap.sh \
+            --version "${GITHUB_REF_NAME}" \
+            --source-repo "${GITHUB_REPOSITORY}" \
+            --tap-repo "davidahmann/homebrew-tap" \
+            --formula "gait" \
+            --branch "main"
       - name: Generate SBOM (syft)
         run: |
           go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}

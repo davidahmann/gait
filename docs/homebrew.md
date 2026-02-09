@@ -63,6 +63,23 @@ brew test davidahmann/tap/gait
 gait demo --json
 ```
 
+## Tag-Driven Automation (Current Path)
+
+`release.yml` includes a `publish-homebrew-tap` job that runs on version tags after release artifacts are published.
+
+Required repository secret in `davidahmann/gait`:
+
+- `HOMEBREW_TAP_TOKEN`: fine-grained token with `contents: write` on `davidahmann/homebrew-tap`
+
+Behavior:
+
+- Downloads `checksums.txt` from the tagged release
+- Renders `Formula/gait.rb` deterministically
+- Commits and pushes only when formula content changes
+- Retries on transient GitHub API throttling
+
+Manual fallback is still supported via `scripts/publish_homebrew_tap.sh`.
+
 ## Rollback
 
 If a formula release is bad:
