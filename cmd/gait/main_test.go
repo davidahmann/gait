@@ -17,6 +17,7 @@ import (
 	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
 	"github.com/davidahmann/gait/core/sign"
 )
 
@@ -74,6 +75,9 @@ func TestRunDispatch(t *testing.T) {
 	}
 	if code := run([]string{"gait", "scout", "diff", "--help"}); code != exitOK {
 		t.Fatalf("run scout diff help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "scout", "signal", "--help"}); code != exitOK {
+		t.Fatalf("run scout signal help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "guard", "pack", "--help"}); code != exitOK {
 		t.Fatalf("run guard pack help: expected %d got %d", exitOK, code)
@@ -793,6 +797,9 @@ func TestValidationBranches(t *testing.T) {
 	}
 	if code := runScoutSnapshot([]string{"--roots", filepath.Join(workDir, "missing"), "--json"}); code != exitInvalidInput {
 		t.Fatalf("runScoutSnapshot missing root: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runScoutSignal([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runScoutSignal missing runs: expected %d got %d", exitInvalidInput, code)
 	}
 	if code := runGuardPack([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runGuardPack missing run: expected %d got %d", exitInvalidInput, code)
@@ -1626,6 +1633,29 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writeScoutDiffOutput(false, scoutDiffOutput{OK: false, Left: "a", Right: "b"}, exitVerifyFailed); code != exitVerifyFailed {
 		t.Fatalf("writeScoutDiffOutput text changed: expected %d got %d", exitVerifyFailed, code)
 	}
+	if code := writeScoutSignalOutput(true, scoutSignalOutput{OK: true, OutputPath: "signal.json"}, exitOK); code != exitOK {
+		t.Fatalf("writeScoutSignalOutput json: expected %d got %d", exitOK, code)
+	}
+	if code := writeScoutSignalOutput(false, scoutSignalOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeScoutSignalOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeScoutSignalOutput(false, scoutSignalOutput{
+		OK:          true,
+		OutputPath:  "signal.json",
+		RunCount:    2,
+		FamilyCount: 1,
+		TopIssues:   1,
+		Report: &schemascout.SignalReport{
+			TopIssues: []schemascout.SignalIssue{{
+				FamilyID:         "fam_123",
+				SeverityLevel:    "high",
+				SeverityScore:    120,
+				TopFailureReason: "unexpected_diff",
+			}},
+		},
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeScoutSignalOutput text ok: expected %d got %d", exitOK, code)
+	}
 
 	printUsage()
 	printApproveUsage()
@@ -1649,6 +1679,7 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printMigrateUsage()
 	printVerifyUsage()
 	printVerifyChainUsage()
+	printScoutSignalUsage()
 }
 
 func TestTicketFooterContract(t *testing.T) {

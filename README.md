@@ -165,6 +165,21 @@ Expected result contains:
 - `reason_codes: ["blocked_prompt_injection"]`
 - `violations: ["prompt_injection_egress_attempt"]`
 
+## Local Signal Engine (Offline)
+
+Cluster incident families and rank top issues locally, with no hosted dependency:
+
+```bash
+gait scout signal --runs ./gait-out/runpack_run_demo.zip --regress ./gait-out/regress_result.json --json
+```
+
+The report includes:
+
+- deterministic `fingerprints` for incident-family clustering
+- `families` with canonical run, count, and artifact pointers
+- ranked `top_issues` with driver attribution (`policy_change`, `tool_result_shape_change`, `reference_set_change`, `configuration_change`)
+- bounded fix suggestions with likely scope
+
 ## Integration Model (No Bypass Rule)
 
 The minimum safe integration pattern:
@@ -201,6 +216,7 @@ gait run receipt --from <run_id|path>
 gait regress init --from <run_id|path>
 gait regress bootstrap --from <run_id|path> [--junit junit.xml]
 gait regress run [--junit junit.xml]
+gait scout signal --runs <csv>
 gait policy test <policy.yaml> <intent_fixture.json>
 gait gate eval --policy <policy.yaml> --intent <intent.json>
 gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code>

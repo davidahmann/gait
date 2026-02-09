@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/scout/signal_report.schema.json",
+  "title": "Scout Signal Report",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_count",
+    "family_count",
+    "fingerprints",
+    "families",
+    "top_issues"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.scout.signal_report" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string", "minLength": 1 },
+    "run_count": { "type": "integer", "minimum": 0 },
+    "family_count": { "type": "integer", "minimum": 0 },
+    "fingerprints": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/signal_run_fingerprint" }
+    },
+    "families": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/signal_family" }
+    },
+    "top_issues": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/signal_issue" }
+    }
+  },
+  "$defs": {
+    "signal_run_fingerprint": {
+      "type": "object",
+      "required": [
+        "schema_id",
+        "schema_version",
+        "created_at",
+        "producer_version",
+        "run_id",
+        "fingerprint",
+        "action_sequence",
+        "tool_classes",
+        "target_systems",
+        "reason_code_vector",
+        "ref_receipt_digests"
+      ],
+      "properties": {
+        "schema_id": { "type": "string", "const": "gait.scout.run_fingerprint" },
+        "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "producer_version": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "action_sequence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "tool_classes": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "target_systems": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "reason_code_vector": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "ref_receipt_digests": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+        },
+        "source_runpack": { "type": "string" },
+        "trace_count": { "type": "integer", "minimum": 0 },
+        "regress_evidence_seen": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "signal_fix_suggestion": {
+      "type": "object",
+      "required": ["kind", "summary", "likely_scope"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "likely_scope": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "signal_family": {
+      "type": "object",
+      "required": [
+        "family_id",
+        "fingerprint",
+        "count",
+        "run_ids",
+        "canonical_run_id",
+        "severity_score",
+        "severity_level"
+      ],
+      "properties": {
+        "family_id": { "type": "string", "minLength": 1 },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "count": { "type": "integer", "minimum": 1 },
+        "run_ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "canonical_run_id": { "type": "string", "minLength": 1 },
+        "top_failure_reason": { "type": "string" },
+        "drivers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "policy_change",
+              "tool_result_shape_change",
+              "reference_set_change",
+              "configuration_change"
+            ]
+          }
+        },
+        "severity_score": { "type": "integer", "minimum": 0 },
+        "severity_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "artifact_pointers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "suggestions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal_fix_suggestion" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "signal_issue": {
+      "type": "object",
+      "required": [
+        "rank",
+        "family_id",
+        "fingerprint",
+        "count",
+        "canonical_run_id",
+        "severity_score",
+        "severity_level"
+      ],
+      "properties": {
+        "rank": { "type": "integer", "minimum": 1 },
+        "family_id": { "type": "string", "minLength": 1 },
+        "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "count": { "type": "integer", "minimum": 1 },
+        "canonical_run_id": { "type": "string", "minLength": 1 },
+        "top_failure_reason": { "type": "string" },
+        "drivers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "policy_change",
+              "tool_result_shape_change",
+              "reference_set_change",
+              "configuration_change"
+            ]
+          }
+        },
+        "severity_score": { "type": "integer", "minimum": 0 },
+        "severity_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "suggestions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal_fix_suggestion" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/scout/run_fingerprint.schema.json",
+  "title": "Scout Run Fingerprint",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "run_id",
+    "fingerprint",
+    "action_sequence",
+    "tool_classes",
+    "target_systems",
+    "reason_code_vector",
+    "ref_receipt_digests"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.scout.run_fingerprint" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string", "minLength": 1 },
+    "run_id": { "type": "string", "minLength": 1 },
+    "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "action_sequence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tool_classes": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "target_systems": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reason_code_vector": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "ref_receipt_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+    },
+    "source_runpack": { "type": "string" },
+    "trace_count": { "type": "integer", "minimum": 0 },
+    "regress_evidence_seen": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

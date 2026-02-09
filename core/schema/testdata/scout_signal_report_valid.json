@@ -1,0 +1,64 @@
+{
+  "schema_id": "gait.scout.signal_report",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-09T00:00:00Z",
+  "producer_version": "test",
+  "run_count": 1,
+  "family_count": 1,
+  "fingerprints": [
+    {
+      "schema_id": "gait.scout.run_fingerprint",
+      "schema_version": "1.0.0",
+      "created_at": "2026-02-09T00:00:00Z",
+      "producer_version": "test",
+      "run_id": "run_demo",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "action_sequence": ["tool.delete_user"],
+      "tool_classes": ["destructive"],
+      "target_systems": ["database:prod_customer_db"],
+      "reason_code_vector": ["blocked_prompt_injection"],
+      "ref_receipt_digests": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]
+    }
+  ],
+  "families": [
+    {
+      "family_id": "fam_aaaaaaaaaaaa",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 1,
+      "run_ids": ["run_demo"],
+      "canonical_run_id": "run_demo",
+      "top_failure_reason": "blocked_prompt_injection",
+      "drivers": ["policy_change"],
+      "severity_score": 160,
+      "severity_level": "critical",
+      "artifact_pointers": ["gait-out/runpack_run_demo.zip"],
+      "suggestions": [
+        {
+          "kind": "policy_fixture",
+          "summary": "Add policy fixture and verify.",
+          "likely_scope": "policy/*.yaml + intents"
+        }
+      ]
+    }
+  ],
+  "top_issues": [
+    {
+      "rank": 1,
+      "family_id": "fam_aaaaaaaaaaaa",
+      "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "count": 1,
+      "canonical_run_id": "run_demo",
+      "top_failure_reason": "blocked_prompt_injection",
+      "drivers": ["policy_change"],
+      "severity_score": 160,
+      "severity_level": "critical",
+      "suggestions": [
+        {
+          "kind": "policy_fixture",
+          "summary": "Add policy fixture and verify.",
+          "likely_scope": "policy/*.yaml + intents"
+        }
+      ]
+    }
+  ]
+}

@@ -54,3 +54,65 @@ type OperationalEvent struct {
 	ElapsedMS       int64              `json:"elapsed_ms"`
 	Environment     AdoptionEnvContext `json:"environment"`
 }
+
+type RunFingerprint struct {
+	SchemaID            string    `json:"schema_id"`
+	SchemaVersion       string    `json:"schema_version"`
+	CreatedAt           time.Time `json:"created_at"`
+	ProducerVersion     string    `json:"producer_version"`
+	RunID               string    `json:"run_id"`
+	Fingerprint         string    `json:"fingerprint"`
+	ActionSequence      []string  `json:"action_sequence"`
+	ToolClasses         []string  `json:"tool_classes"`
+	TargetSystems       []string  `json:"target_systems"`
+	ReasonCodeVector    []string  `json:"reason_code_vector"`
+	RefReceiptDigests   []string  `json:"ref_receipt_digests"`
+	SourceRunpack       string    `json:"source_runpack,omitempty"`
+	TraceCount          int       `json:"trace_count,omitempty"`
+	RegressEvidenceSeen bool      `json:"regress_evidence_seen,omitempty"`
+}
+
+type SignalFixSuggestion struct {
+	Kind        string `json:"kind"`
+	Summary     string `json:"summary"`
+	LikelyScope string `json:"likely_scope"`
+}
+
+type SignalIssue struct {
+	Rank             int                   `json:"rank"`
+	FamilyID         string                `json:"family_id"`
+	Fingerprint      string                `json:"fingerprint"`
+	Count            int                   `json:"count"`
+	CanonicalRunID   string                `json:"canonical_run_id"`
+	TopFailureReason string                `json:"top_failure_reason,omitempty"`
+	Drivers          []string              `json:"drivers,omitempty"`
+	SeverityScore    int                   `json:"severity_score"`
+	SeverityLevel    string                `json:"severity_level"`
+	Suggestions      []SignalFixSuggestion `json:"suggestions,omitempty"`
+}
+
+type SignalFamily struct {
+	FamilyID         string                `json:"family_id"`
+	Fingerprint      string                `json:"fingerprint"`
+	Count            int                   `json:"count"`
+	RunIDs           []string              `json:"run_ids"`
+	CanonicalRunID   string                `json:"canonical_run_id"`
+	TopFailureReason string                `json:"top_failure_reason,omitempty"`
+	Drivers          []string              `json:"drivers,omitempty"`
+	SeverityScore    int                   `json:"severity_score"`
+	SeverityLevel    string                `json:"severity_level"`
+	ArtifactPointers []string              `json:"artifact_pointers,omitempty"`
+	Suggestions      []SignalFixSuggestion `json:"suggestions,omitempty"`
+}
+
+type SignalReport struct {
+	SchemaID        string           `json:"schema_id"`
+	SchemaVersion   string           `json:"schema_version"`
+	CreatedAt       time.Time        `json:"created_at"`
+	ProducerVersion string           `json:"producer_version"`
+	RunCount        int              `json:"run_count"`
+	FamilyCount     int              `json:"family_count"`
+	Fingerprints    []RunFingerprint `json:"fingerprints"`
+	Families        []SignalFamily   `json:"families"`
+	TopIssues       []SignalIssue    `json:"top_issues"`
+}

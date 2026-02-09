@@ -33,6 +33,16 @@ type scoutDiffOutput struct {
 	Error      string              `json:"error,omitempty"`
 }
 
+type scoutSignalOutput struct {
+	OK          bool                      `json:"ok"`
+	OutputPath  string                    `json:"output_path,omitempty"`
+	RunCount    int                       `json:"run_count,omitempty"`
+	FamilyCount int                       `json:"family_count,omitempty"`
+	TopIssues   int                       `json:"top_issues,omitempty"`
+	Report      *schemascout.SignalReport `json:"report,omitempty"`
+	Error       string                    `json:"error,omitempty"`
+}
+
 func runScout(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Discover tool inventory coverage, compute policy coverage metrics, and diff snapshots deterministically.")
@@ -46,6 +56,8 @@ func runScout(arguments []string) int {
 		return runScoutSnapshot(arguments[1:])
 	case "diff":
 		return runScoutDiff(arguments[1:])
+	case "signal":
+		return runScoutSignal(arguments[1:])
 	default:
 		printScoutUsage()
 		return exitInvalidInput
@@ -211,6 +223,84 @@ func runScoutDiff(arguments []string) int {
 	}, exitCode)
 }
 
+func runScoutSignal(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Cluster incident families from runpacks and emit deterministic offline drift/risk signals.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"runs":    true,
+		"traces":  true,
+		"regress": true,
+		"out":     true,
+	})
+	flagSet := flag.NewFlagSet("scout-signal", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var runsCSV string
+	var tracesCSV string
+	var regressCSV string
+	var outPath string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&runsCSV, "runs", "", "comma-separated run_id or runpack paths")
+	flagSet.StringVar(&tracesCSV, "traces", "", "comma-separated gate trace paths")
+	flagSet.StringVar(&regressCSV, "regress", "", "comma-separated regress result paths")
+	flagSet.StringVar(&outPath, "out", "", "path to write signal report JSON")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printScoutSignalUsage()
+		return exitOK
+	}
+
+	runSources := parseCSVList(runsCSV)
+	runSources = append(runSources, flagSet.Args()...)
+	if len(runSources) == 0 {
+		return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: "missing required --runs <csv> or positional run sources"}, exitInvalidInput)
+	}
+
+	resolvedRunpacks := make([]string, 0, len(runSources))
+	for _, runSource := range runSources {
+		resolved, err := resolveRunpackPath(runSource)
+		if err != nil {
+			return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+		resolvedRunpacks = append(resolvedRunpacks, resolved)
+	}
+
+	report, err := scout.BuildSignalReport(scout.SignalInput{
+		RunpackPaths: resolvedRunpacks,
+		TracePaths:   parseCSVList(tracesCSV),
+		RegressPaths: parseCSVList(regressCSV),
+	}, scout.SignalOptions{
+		ProducerVersion: version,
+	})
+	if err != nil {
+		return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	if strings.TrimSpace(outPath) == "" {
+		outPath = "./gait-out/scout_signal_report.json"
+	}
+	if err := writeJSONFile(outPath, report); err != nil {
+		return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{
+		OK:          true,
+		OutputPath:  outPath,
+		RunCount:    report.RunCount,
+		FamilyCount: report.FamilyCount,
+		TopIssues:   len(report.TopIssues),
+		Report:      &report,
+	}, exitOK)
+}
+
 func parseCSVList(value string) []string {
 	if strings.TrimSpace(value) == "" {
 		return nil
@@ -290,10 +380,34 @@ func writeScoutDiffOutput(jsonOutput bool, output scoutDiffOutput, exitCode int)
 	return exitCode
 }
 
+func writeScoutSignalOutput(jsonOutput bool, output scoutSignalOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("scout signal ok: runs=%d families=%d top_issues=%d\n", output.RunCount, output.FamilyCount, output.TopIssues)
+		fmt.Printf("output: %s\n", output.OutputPath)
+		if output.Report != nil && len(output.Report.TopIssues) > 0 {
+			issue := output.Report.TopIssues[0]
+			fmt.Printf(
+				"top_issue: family=%s severity=%s score=%d reason=%s\n",
+				issue.FamilyID,
+				issue.SeverityLevel,
+				issue.SeverityScore,
+				issue.TopFailureReason,
+			)
+		}
+		return exitCode
+	}
+	fmt.Printf("scout signal error: %s\n", output.Error)
+	return exitCode
+}
+
 func printScoutUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait scout snapshot [--roots <csv>] [--policy <csv>] [--out <snapshot.json>] [--coverage-out <coverage.json>] [--json] [--explain]")
 	fmt.Println("  gait scout diff <left_snapshot.json> <right_snapshot.json> [--out <diff.json>] [--json] [--explain]")
+	fmt.Println("  gait scout signal --runs <csv> [--traces <csv>] [--regress <csv>] [--out <signal_report.json>] [--json] [--explain]")
 }
 
 func printScoutSnapshotUsage() {
@@ -304,4 +418,9 @@ func printScoutSnapshotUsage() {
 func printScoutDiffUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait scout diff <left_snapshot.json> <right_snapshot.json> [--out <diff.json>] [--json] [--explain]")
+}
+
+func printScoutSignalUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait scout signal --runs <csv> [--traces <csv>] [--regress <csv>] [--out <signal_report.json>] [--json] [--explain]")
 }

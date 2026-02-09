@@ -1,0 +1,16 @@
+{
+  "schema_id": "gait.scout.run_fingerprint",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-09T00:00:00Z",
+  "producer_version": "test",
+  "run_id": "run_demo",
+  "fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "action_sequence": ["tool.delete_user", "tool.read_user"],
+  "tool_classes": ["destructive", "read"],
+  "target_systems": ["database:prod_customer_db"],
+  "reason_code_vector": ["unexpected_diff"],
+  "ref_receipt_digests": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+  "source_runpack": "gait-out/runpack_run_demo.zip",
+  "trace_count": 1,
+  "regress_evidence_seen": true
+}

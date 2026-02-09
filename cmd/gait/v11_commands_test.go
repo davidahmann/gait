@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/davidahmann/gait/core/runpack"
+	schemaregress "github.com/davidahmann/gait/core/schema/v1/regress"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
 )
@@ -164,6 +165,91 @@ func TestGuardRegistryAndReduceWriters(t *testing.T) {
 		t.Fatalf("writeReduceOutput text expected %d got %d", exitInvalidInput, code)
 	}
 	printReduceUsage()
+}
+
+func TestScoutSignalCommand(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	runpackPath := filepath.Join(workDir, "runpack_run_signal.zip")
+	_, err := runpack.WriteRunpack(runpackPath, runpack.RecordOptions{
+		Run: schemarunpack.Run{
+			RunID:           "run_signal",
+			CreatedAt:       time.Date(2026, time.February, 9, 0, 0, 0, 0, time.UTC),
+			ProducerVersion: "0.0.0-dev",
+		},
+		Intents: []schemarunpack.IntentRecord{{
+			IntentID:   "intent_1",
+			RunID:      "run_signal",
+			ToolName:   "tool.delete_user",
+			ArgsDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		}},
+		Results: []schemarunpack.ResultRecord{{
+			IntentID:     "intent_1",
+			RunID:        "run_signal",
+			Status:       "blocked",
+			ResultDigest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		}},
+		Refs: schemarunpack.Refs{
+			RunID: "run_signal",
+			Receipts: []schemarunpack.RefReceipt{{
+				RefID:         "ref_1",
+				SourceType:    "database",
+				SourceLocator: "prod/customer-db",
+				QueryDigest:   "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+				ContentDigest: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+				RetrievedAt:   time.Date(2026, time.February, 9, 0, 0, 0, 0, time.UTC),
+				RedactionMode: "reference",
+			}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("write runpack: %v", err)
+	}
+
+	regressPath := filepath.Join(workDir, "regress.json")
+	mustWriteJSONFile(t, regressPath, schemaregress.RegressResult{
+		SchemaID:        "gait.regress.result",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 9, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "0.0.0-dev",
+		FixtureSet:      "default",
+		Status:          "fail",
+		Graders: []schemaregress.GraderResult{{
+			Name:        "run_signal/diff",
+			Status:      "fail",
+			ReasonCodes: []string{"unexpected_diff"},
+			Details: map[string]any{
+				"run_id": "run_signal",
+			},
+		}},
+	})
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runScoutSignal([]string{
+			"--runs", runpackPath,
+			"--regress", regressPath,
+			"--json",
+		})
+	})
+	if code != exitOK {
+		t.Fatalf("runScoutSignal expected %d got %d", exitOK, code)
+	}
+
+	var output scoutSignalOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("unmarshal scout signal output: %v", err)
+	}
+	if !output.OK {
+		t.Fatalf("expected scout signal output ok=true")
+	}
+	if output.FamilyCount == 0 {
+		t.Fatalf("expected at least one incident family")
+	}
+	if output.Report == nil || len(output.Report.TopIssues) == 0 {
+		t.Fatalf("expected top issues in signal report")
+	}
 }
 
 func mustWriteJSONFile(t *testing.T, path string, value any) {
