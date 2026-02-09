@@ -119,6 +119,14 @@ jobs:
         run: |
           python scripts/render_ecosystem_release_notes.py docs/ecosystem/community_index.json gait-out/ecosystem_release_notes.md
           test -s gait-out/ecosystem_release_notes.md
+      - name: Render Homebrew formula asset
+        run: |
+          bash scripts/render_homebrew_formula.sh \
+            --repo "${GITHUB_REPOSITORY}" \
+            --version "${GITHUB_REF_NAME}" \
+            --checksums dist/checksums.txt \
+            --out dist/gait.rb
+          test -s dist/gait.rb
       - name: Upload integrity artifacts to release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -128,6 +136,7 @@ jobs:
             grype.json \
             provenance.json \
             gait-out/ecosystem_release_notes.md \
+            dist/gait.rb \
             dist/checksums.txt.pem \
             dist/checksums.txt.sig \
             dist/checksums.txt.intoto.jsonl \

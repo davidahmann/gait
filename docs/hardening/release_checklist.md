@@ -40,6 +40,7 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 - [ ] Release workflow tool versions are pinned.
 - [ ] Checksums generated and verified.
 - [ ] Signatures/provenance artifacts generated and verifiable.
+- [ ] Homebrew formula asset rendered from release checksums (`dist/gait.rb`).
 - [ ] Release workflow integrity verification steps complete successfully.
 
 ## 6) Operational Readiness (RECOMMENDED)

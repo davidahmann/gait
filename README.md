@@ -9,6 +9,7 @@ curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/insta
 ```
 
 Linux and macOS. Windows: see `docs/install.md`.
+Homebrew path (tap-first strategy): `docs/homebrew.md`.
 
 ```bash
 gait demo
@@ -237,6 +238,7 @@ All commands support `--json`. Most support `--explain`.
 14. `docs/install.md`
 15. `docs/ecosystem/awesome.md`
 16. `docs/launch/README.md`
+17. `docs/homebrew.md`
 
 ## Development
 

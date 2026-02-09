@@ -20,6 +20,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Evidence templates: `docs/evidence_templates.md`
 - Packaging boundary (OSS vs Enterprise): `docs/packaging.md`
 - Installer and platform support: `docs/install.md`
+- Homebrew tap publishing path: `docs/homebrew.md`
 
 ## Overlap Rules
 
@@ -47,3 +48,4 @@ This index defines documentation ownership so docs stay aligned with code and av
 7. `docs/integration_checklist.md`
 8. `docs/policy_rollout.md`
 9. `docs/approval_runbook.md`
+10. `docs/homebrew.md`

@@ -245,13 +245,18 @@ Gate criteria:
 Formula update workflow:
 
 1. Cut and publish a signed GitHub release tag (`vX.Y.Z`).
-2. Compute the release archive SHA256 used by Homebrew formula.
-3. Update tap formula `url`, `sha256`, and `version`.
+2. Render formula from release checksums:
+   - `bash scripts/render_homebrew_formula.sh --repo davidahmann/gait --version vX.Y.Z --checksums dist/checksums.txt --out Formula/gait.rb`
+3. Update tap formula (`Formula/gait.rb`) in tap repo.
 4. Open PR in tap repo and require CI pass on macOS.
 5. Merge and verify:
    - `brew update`
    - `brew install <tap>/gait`
    - `gait --help`
+
+Reference:
+
+- `docs/homebrew.md`
 
 Rollback process:
 

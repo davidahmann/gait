@@ -96,4 +96,22 @@ if not verify.get("ok"):
     raise SystemExit("guard verify failed")
 PY
 
+echo "==> render Homebrew formula from checksums"
+cat > "$WORK_DIR/checksums.txt" <<'EOF'
+1111111111111111111111111111111111111111111111111111111111111111  gait_v0.0.0_darwin_amd64.tar.gz
+2222222222222222222222222222222222222222222222222222222222222222  gait_v0.0.0_darwin_arm64.tar.gz
+EOF
+
+bash "$REPO_ROOT/scripts/render_homebrew_formula.sh" \
+  --repo "davidahmann/gait" \
+  --version "v0.0.0" \
+  --checksums "$WORK_DIR/checksums.txt" \
+  --out "$WORK_DIR/gait.rb"
+
+grep -q '^class Gait < Formula$' "$WORK_DIR/gait.rb"
+grep -q 'gait_v0.0.0_darwin_amd64.tar.gz' "$WORK_DIR/gait.rb"
+grep -q 'gait_v0.0.0_darwin_arm64.tar.gz' "$WORK_DIR/gait.rb"
+grep -q '1111111111111111111111111111111111111111111111111111111111111111' "$WORK_DIR/gait.rb"
+grep -q '2222222222222222222222222222222222222222222222222222222222222222' "$WORK_DIR/gait.rb"
+
 echo "release smoke: pass"

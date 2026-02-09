@@ -36,3 +36,4 @@ Typical enterprise-only capabilities:
 - Enterprise consumes OSS artifacts and contracts; it does not redefine them.
 - No multi-tenant control-plane dependency is introduced into OSS runtime commands.
 - Vendor neutrality and local verifiability remain first-class OSS properties.
+- Homebrew distribution (when used) is tap-level packaging over signed GitHub release artifacts.

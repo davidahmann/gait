@@ -46,6 +46,7 @@ Expected:
 - `checksums.txt.intoto.jsonl`
 - `sbom.spdx.json`
 - `provenance.json`
+- `gait.rb` (Homebrew formula asset)
 
 ## Upgrade Notes
 

@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula
 .PHONY: hooks
 
 fmt:
@@ -124,3 +124,7 @@ ecosystem-release-notes:
 
 demo-90s: build
 	bash scripts/demo_90s.sh
+
+homebrew-formula:
+	@if [ -z "$(VERSION)" ]; then echo "VERSION is required (example: make homebrew-formula VERSION=v1.7.0)"; exit 2; fi
+	bash scripts/render_homebrew_formula.sh --version "$(VERSION)" --checksums dist/checksums.txt --out dist/gait.rb

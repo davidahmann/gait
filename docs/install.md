@@ -6,6 +6,7 @@ Gait's default install path is the release installer script.
 
 - `scripts/install.sh` currently supports Linux and macOS.
 - Windows is supported through release assets (manual download + PATH setup), not the installer script.
+- Homebrew publishing is tap-first and release-gated; see `docs/homebrew.md`.
 
 ## Recommended Path (Binary + Checksum Verification)
 
