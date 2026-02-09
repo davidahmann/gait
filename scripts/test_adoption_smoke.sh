@@ -32,12 +32,9 @@ echo "==> quickstart smoke"
 bash scripts/quickstart.sh
 
 echo "==> integration adapter smoke"
-python3 examples/integrations/openai_agents/quickstart.py --scenario allow
-python3 examples/integrations/openai_agents/quickstart.py --scenario block
-python3 examples/integrations/langchain/quickstart.py --scenario allow
-python3 examples/integrations/langchain/quickstart.py --scenario block
-python3 examples/integrations/autogen/quickstart.py --scenario allow
-python3 examples/integrations/autogen/quickstart.py --scenario block
+bash scripts/test_adapter_parity.sh
+python3 examples/integrations/template/quickstart.py --scenario allow
+python3 examples/integrations/template/quickstart.py --scenario block
 
 echo "==> sidecar smoke"
 python3 examples/sidecar/gate_sidecar.py \

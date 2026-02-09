@@ -240,6 +240,7 @@ Canonical integration paths:
 
 - Python wrapper: `sdk/python/gait/adapter.py`
 - Non-Python sidecar: `examples/sidecar/gate_sidecar.py`
+- Framework adapter examples: `examples/integrations/openai_agents`, `examples/integrations/langchain`, `examples/integrations/autogen`, `examples/integrations/openclaw`, `examples/integrations/autogpt`
 
 Use `docs/integration_checklist.md` for the implementation checklist and conformance checks.
 

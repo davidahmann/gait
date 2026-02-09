@@ -15,8 +15,10 @@ Template flow:
 1. Build local `gait` binary.
 2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or bootstrap from a run artifact.
 3. Run `gait regress run --json --junit=...`.
-4. Fail with stable exit codes (`5` for deterministic regression failure).
-5. Upload `regress_result.json`, `junit.xml`, and fixture artifacts.
+4. Run endpoint policy fixture checks (`allow`, `block`, `require_approval`).
+5. Run skill provenance verification checks.
+6. Fail with stable exit codes (`5` for deterministic regression failure).
+7. Upload `regress_result.json`, `junit.xml`, and fixture artifacts.
 
 ## Generic Shell CI Snippet (Compatibility Only)
 
@@ -51,6 +53,26 @@ else
   echo "unexpected regress exit code: $status"
   exit "$status"
 fi
+
+# Endpoint policy fixture checks.
+./gait policy test examples/policy/endpoint/allow_safe_endpoints.yaml examples/policy/endpoint/fixtures/intent_allow.json --json
+set +e
+./gait policy test examples/policy/endpoint/block_denied_endpoints.yaml examples/policy/endpoint/fixtures/intent_block.json --json
+block_status=$?
+./gait policy test examples/policy/endpoint/require_approval_destructive.yaml examples/policy/endpoint/fixtures/intent_destructive.json --json
+approval_status=$?
+set -e
+if [[ "$block_status" -ne 3 ]]; then
+  echo "endpoint block fixture exit mismatch: $block_status"
+  exit 1
+fi
+if [[ "$approval_status" -ne 4 ]]; then
+  echo "endpoint approval fixture exit mismatch: $approval_status"
+  exit 1
+fi
+
+# Skill provenance verification path.
+bash scripts/test_skill_supply_chain.sh
 ```
 
 Artifacts to retain:

@@ -34,6 +34,14 @@ def build_autogen_tool_call(scenario: str) -> dict[str, Any]:
     arguments = {
         "path": f"/tmp/gait-{FRAMEWORK}-{scenario}.json",
         "content": {"framework": FRAMEWORK, "scenario": scenario},
+        "skill": {
+            "name": "safe_writer",
+            "version": "1.0.0",
+            "source": "registry",
+            "publisher": "acme",
+            "digest": "a" * 64,
+            "signature_key_id": "acme-dev-key",
+        },
     }
     return {
         "function_call": {
@@ -46,6 +54,7 @@ def build_autogen_tool_call(scenario: str) -> dict[str, Any]:
 def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
     function_call = dict(tool_call["function_call"])
     arguments = json.loads(str(function_call["arguments"]))
+    skill = dict(arguments.pop("skill"))
     path = str(arguments["path"])
     return {
         "schema_id": "gait.gate.intent_request",
@@ -54,8 +63,23 @@ def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
         "producer_version": "0.0.0-example",
         "tool_name": "tool.write",
         "args": arguments,
-        "targets": [{"kind": "path", "value": path}],
+        "targets": [
+            {
+                "kind": "path",
+                "value": path,
+                "operation": "write",
+                "endpoint_class": "fs.write",
+            }
+        ],
         "arg_provenance": [{"arg_path": "$.path", "source": "user"}],
+        "skill_provenance": {
+            "skill_name": str(skill["name"]),
+            "skill_version": str(skill.get("version", "")),
+            "source": str(skill["source"]),
+            "publisher": str(skill["publisher"]),
+            "digest": str(skill.get("digest", "")),
+            "signature_key_id": str(skill.get("signature_key_id", "")),
+        },
         "context": {
             "identity": "autogen-user",
             "workspace": "/tmp/gait-autogen",

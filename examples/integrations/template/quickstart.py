@@ -9,8 +9,8 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import Any
 
-FRAMEWORK = "openai_agents"
-CREATED_AT = "2026-02-06T00:00:00Z"
+FRAMEWORK = "template"
+CREATED_AT = "2026-02-09T00:00:00Z"
 
 
 def resolve_repo_root() -> Path:
@@ -30,27 +30,27 @@ def resolve_gait_bin(repo_root: Path) -> str:
     raise RuntimeError("unable to find gait binary; set GAIT_BIN or build ./gait")
 
 
-def build_openai_tool_call(scenario: str) -> dict[str, Any]:
+def build_template_tool_call(scenario: str) -> dict[str, Any]:
     return {
-        "name": "write_file",
-        "arguments": {
+        "tool": "write_file",
+        "payload": {
             "path": f"/tmp/gait-{FRAMEWORK}-{scenario}.json",
             "content": {"framework": FRAMEWORK, "scenario": scenario},
-            "skill": {
-                "name": "safe_writer",
-                "version": "1.0.0",
-                "source": "registry",
-                "publisher": "acme",
-                "digest": "a" * 64,
-                "signature_key_id": "acme-dev-key",
-            },
+        },
+        "skill": {
+            "name": "safe_writer",
+            "version": "1.0.0",
+            "source": "registry",
+            "publisher": "acme",
+            "digest": "a" * 64,
+            "signature_key_id": "acme-dev-key",
         },
     }
 
 
 def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
-    arguments = dict(tool_call["arguments"])
-    skill = dict(arguments.pop("skill"))
+    arguments = dict(tool_call["payload"])
+    skill = dict(tool_call["skill"])
     path = str(arguments["path"])
     return {
         "schema_id": "gait.gate.intent_request",
@@ -77,8 +77,8 @@ def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
             "signature_key_id": str(skill.get("signature_key_id", "")),
         },
         "context": {
-            "identity": "openai-agent-user",
-            "workspace": "/tmp/gait-openai-agent",
+            "identity": "template-user",
+            "workspace": "/tmp/gait-template",
             "risk_class": "high",
         },
     }
@@ -125,9 +125,7 @@ def execute_wrapped_tool(intent_payload: dict[str, Any], output_path: Path) -> N
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="OpenAI Agents wrapped tool-call quickstart"
-    )
+    parser = argparse.ArgumentParser(description="Template wrapped tool-call quickstart")
     parser.add_argument("--scenario", choices=["allow", "block"], required=True)
     args = parser.parse_args()
 
@@ -141,8 +139,8 @@ def main() -> int:
     trace_path = run_dir / f"trace_{scenario}.json"
     executor_path = run_dir / f"executor_{scenario}.json"
 
-    openai_call = build_openai_tool_call(scenario)
-    intent_payload = to_intent_payload(openai_call)
+    template_call = build_template_tool_call(scenario)
+    intent_payload = to_intent_payload(template_call)
     intent_path.write_text(
         json.dumps(intent_payload, indent=2) + "\n", encoding="utf-8"
     )

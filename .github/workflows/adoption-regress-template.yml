@@ -47,6 +47,30 @@ jobs:
           echo "unexpected regress exit code: $status"
           exit "$status"
 
+      - name: Endpoint policy fixture checks
+        shell: bash
+        run: |
+          ./gait policy test examples/policy/endpoint/allow_safe_endpoints.yaml examples/policy/endpoint/fixtures/intent_allow.json --json
+          set +e
+          ./gait policy test examples/policy/endpoint/block_denied_endpoints.yaml examples/policy/endpoint/fixtures/intent_block.json --json
+          block_status=$?
+          ./gait policy test examples/policy/endpoint/require_approval_destructive.yaml examples/policy/endpoint/fixtures/intent_destructive.json --json
+          approval_status=$?
+          set -e
+          if [[ "$block_status" -ne 3 ]]; then
+            echo "endpoint block fixture exit mismatch: $block_status"
+            exit 1
+          fi
+          if [[ "$approval_status" -ne 4 ]]; then
+            echo "endpoint approval fixture exit mismatch: $approval_status"
+            exit 1
+          fi
+
+      - name: Skill provenance verification checks
+        shell: bash
+        run: |
+          bash scripts/test_skill_supply_chain.sh
+
       - name: Upload regress artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -2,6 +2,15 @@
 
 This directory contains framework adapters that demonstrate the same Gait execution contract across runtimes.
 
+Current adapters:
+
+- `openai_agents`
+- `langchain`
+- `autogen`
+- `openclaw`
+- `autogpt`
+- `template` (canonical copy/paste template)
+
 ## Contract (Must Stay Identical)
 
 Every adapter must implement:
@@ -37,5 +46,6 @@ Run before opening a PR:
 go build -o ./gait ./cmd/gait
 make lint
 make test
+make test-adapter-parity
 make test-adoption
 ```

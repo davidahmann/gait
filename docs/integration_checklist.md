@@ -10,6 +10,8 @@ This checklist verifies that a repository has the minimum integration needed for
 
 - tool registration boundary control
 - fail-closed wrapper or sidecar enforcement
+- endpoint-class intent mapping
+- skill provenance propagation
 - trace persistence
 - runpack recording and verification
 - CI regression enforcement
@@ -42,6 +44,8 @@ Required outcome:
 - Execution occurs only on explicit `allow`.
 - `block`, `require_approval`, invalid decision, and evaluation failure do not execute side effects.
 - `dry_run` does not execute side effects.
+- Intents include explicit endpoint metadata (`operation`, `endpoint_class`) for side-effecting paths.
+- Intents include `skill_provenance` when execution is skill-triggered.
 
 Canonical wrapper path:
 
@@ -62,6 +66,26 @@ Evidence to capture:
 ```bash
 (cd sdk/python && PYTHONPATH=. uv run --python 3.13 --extra dev pytest tests/test_adapter.py tests/test_client.py -q)
 ```
+
+## Step 2B: Framework Adapter Parity
+
+Required outcome:
+
+- Framework adapters produce the same contract behavior (`verdict`, `executed`, trace paths, fail-closed semantics).
+
+Validation command:
+
+```bash
+bash scripts/test_adapter_parity.sh
+```
+
+Covered adapters:
+
+- `openai_agents`
+- `langchain`
+- `autogen`
+- `openclaw`
+- `autogpt`
 
 ## Step 2A: Sidecar Enforcement (Non-Python Runtimes)
 

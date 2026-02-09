@@ -1,0 +1,29 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-09T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "tool_name": "tool.write",
+  "args": {
+    "path": "/etc/hosts"
+  },
+  "targets": [
+    {
+      "kind": "path",
+      "value": "/etc/hosts",
+      "operation": "write",
+      "endpoint_class": "fs.write"
+    }
+  ],
+  "arg_provenance": [
+    {
+      "arg_path": "$.path",
+      "source": "user"
+    }
+  ],
+  "context": {
+    "identity": "ci-user",
+    "workspace": "/tmp/gait",
+    "risk_class": "high"
+  }
+}
