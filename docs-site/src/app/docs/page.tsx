@@ -21,6 +21,7 @@ const tracks = [
     title: 'Track 2: Integration (30-120 Minutes)',
     steps: [
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { label: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { label: 'Project Defaults', href: '/docs/project_defaults' },
       { label: 'CI Regress Kit', href: '/docs/ci_regress_kit' },
     ],

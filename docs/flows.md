@@ -108,3 +108,5 @@ sequenceDiagram
 ```
 
 Rule: default bind is loopback and non-`allow` outcomes remain non-executing at the caller.
+
+Enforcement note: `POST /v1/evaluate` returns a decision payload only. The runtime that called the endpoint must still enforce `if verdict != allow: do not execute side effects`.

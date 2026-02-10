@@ -38,6 +38,23 @@ python3 ~/.openclaw/skills/gait-gate/gait_openclaw_gate.py \
 
 Non-`allow` outcomes must not execute side effects.
 
+### Hook Point In OpenClaw Runtime
+
+Enforcement is implemented at the tool-dispatch chokepoint, not inside the model.
+
+- Route each tool envelope through `gait_openclaw_gate.py`.
+- Execute the real tool only when returned `verdict` is `allow`.
+- Treat `block`, `require_approval`, and evaluation errors as non-executable.
+
+Reference implementation:
+
+- `examples/integrations/openclaw/skill/gait_openclaw_gate.py`
+
+Behavior contract:
+
+- `executed=true` only when `verdict=allow`.
+- `executed=false` for all non-`allow` outcomes.
+
 ## 4) Require Provenance For Skill-Driven Calls
 
 Ensure intents include `skill_provenance` fields:

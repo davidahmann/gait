@@ -41,6 +41,39 @@ Evidence to capture:
 
 - Link to adapter or tool registry file in your repo.
 
+## Step 1B: Enforce At The Dispatch Chokepoint
+
+Required outcome:
+
+- The exact code path that executes side effects performs a Gate decision check first.
+- The real tool executor is unreachable unless verdict is `allow`.
+
+Implementation guidance:
+
+- Identify the concrete dispatch method/function in your runtime (for example `ToolAdapter.execute`, `dispatch_tool`, worker action handler).
+- Insert one pre-execution guard that evaluates intent through Gait (`gait gate eval`, `gait mcp proxy`, or `gait mcp serve`).
+- Return non-executable output for `block`, `require_approval`, `dry_run`, invalid payloads, or evaluation failures.
+
+Minimal pattern:
+
+```python
+decision = gait_evaluate(tool_call)
+if decision["verdict"] != "allow":
+    return {"executed": False, "verdict": decision["verdict"]}
+return execute_real_tool(tool_call)
+```
+
+Validation:
+
+- Unit test: dispatcher does not call executor when verdict is `block`.
+- Unit test: dispatcher does not call executor when verdict is `require_approval`.
+- Unit test: dispatcher does not call executor when Gate evaluation errors.
+
+Evidence to capture:
+
+- Exact path and line for chokepoint guard insertion (for example `src/agent/dispatch.py:87`).
+- Test output proving executor is not reachable on non-`allow` decisions.
+
 ## Step 2: Wrapper Enforcement Semantics
 
 Required outcome:
@@ -69,6 +102,7 @@ uv run --python 3.13 --directory sdk/python python ../../examples/python/referen
 Evidence to capture:
 
 - Command output showing `gate verdict=allow executed=True` for allow flow.
+- File and line reference where non-`allow` verdicts return non-executable responses.
 - Local test output showing fail-closed cases are covered:
 
 ```bash

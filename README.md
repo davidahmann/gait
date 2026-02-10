@@ -147,6 +147,27 @@ Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`
 
 Gate evaluates structured tool-call intent, not prompt text. If verdict is not `allow`, execution does not run.
 
+## Where Enforcement Lives In Your Code
+
+Gait does not automatically intercept tools. Your runtime must call Gait at the tool-dispatch chokepoint and enforce the verdict before any side effects execute.
+
+Minimal insertion pattern:
+
+```python
+def dispatch_tool(tool_call):
+    decision = gait_evaluate(tool_call)  # gate eval / mcp proxy / POST /v1/evaluate
+    if decision["verdict"] != "allow":
+        return {
+            "executed": False,
+            "verdict": decision["verdict"],
+            "reason_codes": decision.get("reason_codes", []),
+        }
+    result = execute_real_tool(tool_call)
+    return {"executed": True, "result": result}
+```
+
+If you run `gait mcp serve`, the service still returns a decision only. The caller must enforce non-`allow` outcomes as non-executable.
+
 ## Integrate With Your Framework
 
 **OpenClaw** — install the official boundary package in one command:

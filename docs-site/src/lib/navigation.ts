@@ -20,6 +20,7 @@ export const navigation: NavItem[] = [
     href: '/docs/integration_checklist',
     children: [
       { title: 'Integration Checklist', href: '/docs/integration_checklist' },
+      { title: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
       { title: 'Policy Rollout', href: '/docs/policy_rollout' },
       { title: 'Approval Runbook', href: '/docs/approval_runbook' },
       { title: 'Project Defaults', href: '/docs/project_defaults' },
