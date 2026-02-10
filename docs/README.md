@@ -25,6 +25,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Homebrew tap publishing path: `docs/homebrew.md`
 - Local UAT and functional testing plan: `docs/uat_functional_plan.md`
 - SEO/AEO checklist for public docs site: `docs/launch/seo_aeo_checklist.md`
+- Wiki playbook source pages: `docs/wiki/` (published via `scripts/publish_wiki.sh`)
 
 ## Overlap Rules
 
@@ -33,6 +34,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - `docs/contracts/*` are normative. If another doc conflicts, contracts win.
 - `docs/architecture.md` and `docs/flows.md` are the canonical visual references.
 - Operational procedures live in dedicated runbooks (`approval_runbook`, `policy_rollout`, `ci_regress_kit`).
+- Wiki is a convenience layer for adoption playbooks; contracts and runbooks in `docs/` remain authoritative.
 
 ## Current Alignment Notes
 

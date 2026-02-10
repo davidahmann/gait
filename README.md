@@ -3,6 +3,7 @@
 Your AI agent broke prod. Gait gives you the signed artifact to prove what happened, the regression to make sure it never happens again, and the policy gate to block it at the boundary.
 
 Public docs + marketing site: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
+Operational wiki (playbooks and troubleshooting): [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
 Changelog: `CHANGELOG.md`
 
 ## Install And First Win (60 Seconds)
@@ -249,6 +250,7 @@ All commands support `--json`. Most support `--explain`.
 15. `docs/ecosystem/awesome.md`
 16. `docs/launch/README.md`
 17. `docs/homebrew.md`
+18. `https://github.com/davidahmann/gait/wiki` (playbook layer synced from `docs/wiki/`)
 
 ## Development
 
