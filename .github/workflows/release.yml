@@ -95,6 +95,22 @@ jobs:
             --tap-repo "davidahmann/homebrew-tap" \
             --formula "gait" \
             --branch "main"
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          attempts=5
+          for attempt in $(seq 1 "${attempts}"); do
+            if gh release download "${GITHUB_REF_NAME}" --dir dist --clobber >/dev/null 2>&1 && test -s dist/checksums.txt; then
+              exit 0
+            fi
+            if [ "${attempt}" -eq "${attempts}" ]; then
+              echo "failed to download release assets for ${GITHUB_REF_NAME}"
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
       - name: Generate SBOM (syft)
         run: |
           go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}

@@ -220,6 +220,25 @@ func TestWithRateLimitLockTimeoutCategory(t *testing.T) {
 	}
 }
 
+func TestIsRateLimitLockContentionPermissionWithExistingLock(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "rate_state.json.lock")
+	if err := os.WriteFile(lockPath, []byte("{}\n"), 0o600); err != nil {
+		t.Fatalf("write lock file: %v", err)
+	}
+	err := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+	if !isRateLimitLockContention(err, lockPath) {
+		t.Fatalf("expected permission error with existing lock file to count as contention")
+	}
+}
+
+func TestIsRateLimitLockContentionPermissionWithoutExistingLock(t *testing.T) {
+	lockPath := filepath.Join(t.TempDir(), "rate_state.json.lock")
+	err := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+	if isRateLimitLockContention(err, lockPath) {
+		t.Fatalf("expected permission error without lock file to be treated as io failure")
+	}
+}
+
 func rateLimitTestIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

@@ -252,7 +252,7 @@ func withRateLimitLock(statePath string, fn func() (RateLimitDecision, error)) (
 			}()
 			return fn()
 		}
-		if !os.IsExist(err) {
+		if !isRateLimitLockContention(err, lockPath) {
 			return RateLimitDecision{}, coreerrors.Wrap(
 				fmt.Errorf("acquire rate limit lock: %w", err),
 				coreerrors.CategoryIOFailure,
@@ -277,6 +277,17 @@ func withRateLimitLock(statePath string, fn func() (RateLimitDecision, error)) (
 		}
 		time.Sleep(rateLimitLockRetry)
 	}
+}
+
+func isRateLimitLockContention(acquireErr error, lockPath string) bool {
+	if os.IsExist(acquireErr) {
+		return true
+	}
+	if !os.IsPermission(acquireErr) {
+		return false
+	}
+	_, statErr := os.Stat(lockPath)
+	return statErr == nil
 }
 
 func writeRateLimitLockMetadata(lockFile *os.File, createdAt time.Time) error {
