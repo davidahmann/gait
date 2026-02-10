@@ -1,10 +1,14 @@
-# Gait
+# Gait — Agent Control Plane
 
-Your AI agent broke prod. Gait gives you the signed artifact to prove what happened, the regression to make sure it never happens again, and the policy gate to block it at the boundary.
+Enforce policy, capture signed proof, and regression-test every AI agent tool call. One CLI, no network required.
 
-Public docs + marketing site: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
-Operational wiki (playbooks and troubleshooting): [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
+Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
+Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
 Changelog: [CHANGELOG.md](CHANGELOG.md)
+
+## The Problem
+
+AI agents execute tool calls — database writes, API calls, file mutations — with real authority and real consequences. When something goes wrong, there is no artifact trail, no regression test, and no policy gate that can block the next one. Guardrails scan prompts. Gait decides whether the action runs, and signs the proof either way.
 
 ## Install And First Win (60 Seconds)
 
@@ -48,6 +52,28 @@ Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the a
 - **ticket_footer** = the one line you paste into tickets so incidents are traceable
 
 Full mental model: `docs/concepts/mental_model.md`
+
+## Why Gait Exists
+
+**What it does:** Gait sits at the tool-call boundary — the point where an agent exercises real authority. It decides `allow`, `block`, `require_approval`, or `dry_run` before side effects execute, and emits a signed trace for every decision. Most runtime governance tools observe and alert after the fact. Gait decides before the action runs and proves what happened.
+
+**What it is:**
+
+- an execution-boundary guard for production agent tool calls
+- a verifiable artifact standard (runpack + trace) for incidents, CI, and audits
+- a vendor-neutral CLI that works across frameworks and model providers
+
+**What it is not:**
+
+- not a hosted dashboard
+- not prompt-only filtering
+- not a replacement for your identity provider, SIEM, or ticketing system
+
+**Works with your existing stack:**
+
+- identity and vault systems (CyberArk, HashiCorp Vault, cloud IAM)
+- AI gateway/guardrail scanners for prompt and output inspection
+- SIEM and observability (Splunk, Datadog, Elastic)
 
 ## Turn That Into A CI Regression (2 Minutes)
 
@@ -121,63 +147,27 @@ Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`
 
 Gate evaluates structured tool-call intent, not prompt text. If verdict is not `allow`, execution does not run.
 
-## Why This Matters
+## Integrate With Your Framework
 
-**What Gait is:**
+**OpenClaw** — install the official boundary package in one command:
 
-- an execution-boundary guard for production agent tool calls
-- a verifiable artifact standard (runpack + trace) for incidents, CI, and audits
-- a vendor-neutral CLI that works across frameworks and model providers
+```bash
+bash scripts/install_openclaw_skill.sh
+```
 
-**What Gait is not:**
+**Gas Town** — wire the worker hook to gate eval. Adapter and secure deployment guide:
 
-- not a hosted dashboard
-- not prompt-only filtering
-- not a replacement for your identity provider, SIEM, or ticketing system
+- `examples/integrations/gastown`
+- `docs/launch/secure_deployment_gastown.md`
 
-**Runtime governance vs ACP:**
+**Other frameworks** — adapters ship for OpenAI Agents, LangChain, AutoGen, and AutoGPT:
 
-- Runtime governance usually observes and alerts.
-- Gait ACP decides at execution time (`allow`/`block`/`require_approval`/`dry_run`) and emits signed proof.
-- Guardrails scan content. Gait evaluates structured action intent before side effects execute.
+- `examples/integrations/openai_agents`
+- `examples/integrations/langchain`
+- `examples/integrations/autogen`
+- `examples/integrations/autogpt`
 
-Reference: `docs/zero_trust_stack.md`
-
-**Works with your existing stack:**
-
-- identity and vault systems (for example CyberArk, HashiCorp Vault, cloud IAM)
-- AI gateway/guardrail scanners for prompt and output inspection
-- SIEM and observability systems (for example Splunk, Datadog, Elastic)
-
-Integration references: `docs/zero_trust_stack.md`, `docs/external_tool_registry_policy.md`, `docs/siem_ingestion_recipes.md`
-
-**Why tool-call boundary, not prompt layer:**
-
-Tool calls are where authority is exercised. Portable artifacts are the durable evidence contract. Deterministic regressions turn one incident into a permanent safety test.
-
-**OSS and Enterprise:**
-
-- OSS v1 is the free execution substrate: runpack, regress, gate, doctor, scout, and adapter kits.
-- Enterprise is a separate control-plane layer for fleet governance, consuming OSS artifacts.
-- Artifact contracts remain stable regardless of enterprise adoption.
-
-Details: `docs/packaging.md`
-
-## Demo To Production (30 to 120 Minutes)
-
-1. Walk through `docs/integration_checklist.md` once.
-2. Pick the framework adapter closest to your stack:
-   - `examples/integrations/openai_agents`
-   - `examples/integrations/langchain`
-   - `examples/integrations/autogen`
-   - `examples/integrations/openclaw`
-   - `examples/integrations/autogpt`
-   - `examples/integrations/gastown`
-3. If you use OpenClaw, install the official boundary package:
-   - `bash scripts/install_openclaw_skill.sh`
-4. Wire the boundary: wrapper or sidecar -> `gait gate eval` -> execute only on `allow`.
-5. Add a regress fixture and JUnit output in CI before enabling privileged tools.
-
+Full integration walkthrough: `docs/integration_checklist.md`
 Reduce repeated flags with a project config: `docs/project_defaults.md`
 
 For long-running MCP interception instead of one-shot calls:
@@ -213,7 +203,7 @@ gait gate eval \
   --simulate --json
 ```
 
-References: `docs/approval_runbook.md`, `docs/policy_rollout.md`, `docs/project_defaults.md`
+References: `docs/approval_runbook.md`, `docs/policy_rollout.md`
 
 ## Local Signal Engine
 
@@ -231,13 +221,9 @@ gait scout signal --runs ./gait-out/runpack_run_demo.zip --regress ./gait-out/re
 
 Output includes deterministic fingerprints, family grouping, ranked top issues with driver attribution (`policy_change`, `tool_result_shape_change`, `reference_set_change`, `configuration_change`), and bounded fix suggestions.
 
-## Ecosystem
+## Why Now
 
-- Discovery: `docs/ecosystem/awesome.md`
-- Contribute: `docs/ecosystem/contribute.md`
-- Machine-readable index: `docs/ecosystem/community_index.json`
-- Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
-- Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
+Agent frameworks are shipping tool-use to production faster than security tooling can keep up. OpenClaw's recent RCE advisory and Gas Town's worker-escape disclosure both trace back to unguarded tool-call boundaries — exactly the problem Gait is built to solve. If your agents call tools with real authority, the window between "works in staging" and "incident in production" is closing.
 
 ## Commands
 
@@ -274,50 +260,21 @@ All commands support `--json`. Most support `--explain`.
 - Exit codes: `0` success, `2` verification failed, `3` policy block, `4` approval required, `5` regress failed, `6` invalid input
 - Runtime SLOs: `docs/slo/runtime_slo.md`
 
+## Ecosystem
+
+- Discovery: `docs/ecosystem/awesome.md`
+- Contribute: `docs/ecosystem/contribute.md`
+- Machine-readable index: `docs/ecosystem/community_index.json`
+- Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
+- Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
+
 ## Docs
 
-Start here:
-
-- `docs/README.md`
-- `docs/concepts/mental_model.md`
-- `docs/architecture.md`
-- `docs/flows.md`
-
-Integration and operations:
-
-- `docs/integration_checklist.md`
-- `docs/project_defaults.md`
-- `docs/policy_rollout.md`
-- `docs/approval_runbook.md`
-- `docs/ci_regress_kit.md`
-
-Contracts and compliance:
-
-- `docs/contracts/primitive_contract.md`
-- `docs/evidence_templates.md`
-- `docs/slo/runtime_slo.md`
-
-Positioning and distribution:
-
-- `docs/positioning.md`
-- `docs/packaging.md`
-- `docs/install.md`
-- `docs/homebrew.md`
-
-Ecosystem and launch:
-
-- `docs/ecosystem/awesome.md`
-- `docs/launch/README.md`
-- `docs/launch/rfc_openclaw.md`
-- `docs/launch/rfc_gastown.md`
-- `docs/launch/secure_deployment_openclaw.md`
-- `docs/launch/secure_deployment_gastown.md`
-
-External integration:
-
-- `docs/zero_trust_stack.md`
-- `docs/external_tool_registry_policy.md`
-- `docs/siem_ingestion_recipes.md`
+- Start here: `docs/README.md`
+- Mental model: `docs/concepts/mental_model.md`
+- Architecture: `docs/architecture.md`
+- Integration checklist: `docs/integration_checklist.md`
+- All docs, contracts, and references: `docs/README.md`
 
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki) (playbook layer synced from `docs/wiki/`)
 
@@ -339,13 +296,19 @@ make docs-site-build
 
 Enable required pre-push hook: `make hooks`
 
-## Links
+## Feedback
 
-- `SECURITY.md`
+Something broken, confusing, or wrong? Open an issue or start a discussion. Gait is pre-1.1 and the fastest way to improve it is honest feedback from people trying to use it.
+
+- Issues: [https://github.com/davidahmann/gait/issues](https://github.com/davidahmann/gait/issues)
+- `SECURITY.md` for vulnerability reports
 - `CONTRIBUTING.md`
 - `CODE_OF_CONDUCT.md`
-- `docs/hardening/contracts.md`
-- `docs/hardening/release_checklist.md`
-- `docs/uat_functional_plan.md`
-- `product/PRD.md`
-- `product/ROADMAP.md`
+
+## OSS and Enterprise
+
+- OSS v1 is the free execution substrate: runpack, regress, gate, doctor, scout, and adapter kits.
+- Enterprise is a separate control-plane layer for fleet governance, consuming OSS artifacts.
+- Artifact contracts remain stable regardless of enterprise adoption.
+
+Details: `docs/packaging.md`
