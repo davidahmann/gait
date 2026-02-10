@@ -1,0 +1,63 @@
+name: Release note / changelog entry
+description: Propose a user-facing changelog entry for an upcoming release
+title: "[release-note] "
+body:
+  - type: dropdown
+    id: change_type
+    attributes:
+      label: Change type
+      options:
+        - Added
+        - Changed
+        - Fixed
+        - Deprecated
+        - Removed
+        - Security
+    validations:
+      required: true
+  - type: input
+    id: area
+    attributes:
+      label: Product area
+      description: Command, package, or docs area impacted (for example `gate`, `regress`, `docs/install`)
+      placeholder: gate
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: User-facing summary
+      description: One concise sentence suitable for `CHANGELOG.md`.
+      placeholder: "Gate now fails closed when broker credentials are unavailable for high-risk rules."
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and migration notes
+      description: Include breaking-change, compatibility, or upgrade notes. Use `none` if not applicable.
+      placeholder: none
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation evidence
+      description: List exact commands/checks you ran.
+      placeholder: |
+        make lint
+        make test
+        gait demo
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness checklist
+      options:
+        - label: I confirmed this is user-visible (or explicitly noted why it is internal-only).
+          required: true
+        - label: I checked docs and examples for required updates.
+          required: true
+        - label: I included migration notes if behavior or contract changed.
+          required: true
