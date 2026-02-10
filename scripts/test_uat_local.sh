@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 OUTPUT_DIR="${REPO_ROOT}/gait-out/uat_local"
-RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-v1.0.0}"
+RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-}"
 SKIP_BREW="false"
 FULL_CONTRACTS_ALL_PATHS="false"
 
@@ -18,7 +18,7 @@ Usage:
 
 Options:
   --output-dir <path>      UAT artifacts directory (default: gait-out/uat_local)
-  --release-version <tag>  GitHub release tag for installer path (default: v1.0.0)
+  --release-version <tag>  GitHub release tag for installer path (default: latest published release)
   --skip-brew              Skip Homebrew install path checks
   --full-contracts-all-paths
                             Run v1.8 + extended checks on release and brew binaries too
@@ -57,6 +57,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+resolve_release_version() {
+  if [[ -n "${RELEASE_VERSION}" ]]; then
+    return 0
+  fi
+
+  RELEASE_VERSION="$(gh release view --repo davidahmann/gait --json tagName --jq '.tagName' 2>/dev/null || true)"
+  if [[ -z "${RELEASE_VERSION}" ]]; then
+    echo "error: unable to resolve latest release tag; pass --release-version explicitly" >&2
+    exit 2
+  fi
+}
 
 mkdir -p "${OUTPUT_DIR}/logs"
 SUMMARY_PATH="${OUTPUT_DIR}/summary.txt"
@@ -108,9 +120,6 @@ run_binary_contract_suite() {
   fi
 }
 
-log "UAT output dir: ${OUTPUT_DIR}"
-log "Release version: ${RELEASE_VERSION}"
-
 require_cmd go
 require_cmd python3
 require_cmd uv
@@ -119,6 +128,11 @@ require_cmd gh
 if [[ "${SKIP_BREW}" != "true" ]]; then
   require_cmd brew
 fi
+
+resolve_release_version
+
+log "UAT output dir: ${OUTPUT_DIR}"
+log "Release version: ${RELEASE_VERSION}"
 
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
 run_step "quality_test" make -C "${REPO_ROOT}" test
