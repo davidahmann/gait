@@ -209,3 +209,47 @@ func TestTraceHelpersAndErrors(t *testing.T) {
 		t.Fatalf("expected re-read trace JSON to be non-empty")
 	}
 }
+
+func TestWriteTraceRecordRejectsParentTraversal(t *testing.T) {
+	minimal := schemagate.TraceRecord{
+		SchemaID:        "gait.gate.trace",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		TraceID:         "trace_invalid",
+		ToolName:        "tool.demo",
+		ArgsDigest:      "2222222222222222222222222222222222222222222222222222222222222222",
+		IntentDigest:    "1111111111111111111111111111111111111111111111111111111111111111",
+		PolicyDigest:    "3333333333333333333333333333333333333333333333333333333333333333",
+		Verdict:         "allow",
+	}
+	if err := WriteTraceRecord("../trace.json", minimal); err == nil {
+		t.Fatalf("expected parent traversal trace path to fail")
+	}
+}
+
+func TestNormalizeTracePath(t *testing.T) {
+	absoluteInput := filepath.Join(t.TempDir(), "nested", "trace.json")
+	absolutePath, err := normalizeTracePath(absoluteInput)
+	if err != nil {
+		t.Fatalf("normalize absolute trace path: %v", err)
+	}
+	if absolutePath != filepath.Clean(absoluteInput) {
+		t.Fatalf("unexpected absolute trace path: %s", absolutePath)
+	}
+
+	relativePath, err := normalizeTracePath("./gait-out/trace.json")
+	if err != nil {
+		t.Fatalf("normalize relative trace path: %v", err)
+	}
+	if relativePath != filepath.Clean("./gait-out/trace.json") {
+		t.Fatalf("unexpected relative trace path: %s", relativePath)
+	}
+
+	if _, err := normalizeTracePath(""); err == nil {
+		t.Fatalf("expected empty trace path to fail")
+	}
+	if _, err := normalizeTracePath("../gait-out/trace.json"); err == nil {
+		t.Fatalf("expected parent traversal trace path to fail")
+	}
+}

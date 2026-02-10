@@ -1070,8 +1070,7 @@ func uniqueSorted(values []string) []string {
 }
 
 func mergeUniqueSorted(values []string, extra []string) []string {
-	merged := make([]string, 0, len(values)+len(extra))
-	merged = append(merged, values...)
+	merged := append([]string{}, values...)
 	merged = append(merged, extra...)
 	return uniqueSorted(merged)
 }

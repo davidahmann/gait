@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 	"github.com/davidahmann/gait/core/sign"
 )
@@ -118,7 +119,12 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 }
 
 func WriteTraceRecord(path string, trace schemagate.TraceRecord) error {
-	dir := filepath.Dir(path)
+	normalizedPath, err := normalizeTracePath(path)
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Dir(normalizedPath)
 	if dir != "." && dir != "" {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("create trace directory: %w", err)
@@ -129,7 +135,7 @@ func WriteTraceRecord(path string, trace schemagate.TraceRecord) error {
 		return fmt.Errorf("marshal trace record: %w", err)
 	}
 	encoded = append(encoded, '\n')
-	if err := os.WriteFile(path, encoded, 0o600); err != nil {
+	if err := fsx.WriteFileAtomic(normalizedPath, encoded, 0o600); err != nil {
 		return fmt.Errorf("write trace record: %w", err)
 	}
 	return nil
@@ -177,4 +183,23 @@ func clampLatency(value float64) float64 {
 		return 0
 	}
 	return value
+}
+
+func normalizeTracePath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("trace path is required")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == string(filepath.Separator) {
+		return "", fmt.Errorf("trace path is required")
+	}
+	if !filepath.IsAbs(cleaned) {
+		for _, segment := range strings.Split(filepath.ToSlash(cleaned), "/") {
+			if segment == ".." {
+				return "", fmt.Errorf("relative trace path must not traverse parent directories")
+			}
+		}
+	}
+	return cleaned, nil
 }

@@ -275,6 +275,11 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 }
 
 func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, traceID string) error {
+	normalizedPath, err := sanitizeRunpackOutputPath(path)
+	if err != nil {
+		return err
+	}
+
 	now := evalResult.Outcome.Result.CreatedAt.UTC()
 	if now.IsZero() {
 		now = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -294,10 +299,13 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 		resultStatus = "error"
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
-		return fmt.Errorf("create runpack directory: %w", err)
+	dir := filepath.Dir(normalizedPath)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return fmt.Errorf("create runpack directory: %w", err)
+		}
 	}
-	_, err = runpack.WriteRunpack(path, runpack.RecordOptions{
+	_, err = runpack.WriteRunpack(normalizedPath, runpack.RecordOptions{
 		Run: schemarunpack.Run{
 			SchemaID:        "gait.runpack.run",
 			SchemaVersion:   "1.0.0",
@@ -345,6 +353,25 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 		return fmt.Errorf("write proxy runpack: %w", err)
 	}
 	return nil
+}
+
+func sanitizeRunpackOutputPath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("runpack output path is required")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == string(filepath.Separator) {
+		return "", fmt.Errorf("runpack output path is required")
+	}
+	if !filepath.IsAbs(cleaned) {
+		for _, segment := range strings.Split(filepath.ToSlash(cleaned), "/") {
+			if segment == ".." {
+				return "", fmt.Errorf("relative runpack output path must not traverse parent directories")
+			}
+		}
+	}
+	return cleaned, nil
 }
 
 var runIDSanitizer = regexp.MustCompile(`[^A-Za-z0-9_-]+`)

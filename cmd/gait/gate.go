@@ -670,8 +670,7 @@ func joinCSV(values []string) string {
 }
 
 func mergeUniqueSorted(current []string, extra []string) []string {
-	merged := make([]string, 0, len(current)+len(extra))
-	merged = append(merged, current...)
+	merged := append([]string{}, current...)
 	merged = append(merged, extra...)
 	seen := make(map[string]struct{}, len(merged))
 	out := make([]string, 0, len(merged))

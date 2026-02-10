@@ -363,6 +363,45 @@ func TestWriteRunpack(test *testing.T) {
 	}
 }
 
+func TestWriteRunpackRejectsParentTraversal(test *testing.T) {
+	run := schemarunpack.Run{
+		RunID: "run_write_invalid_path",
+		Env:   schemarunpack.RunEnv{OS: "linux", Arch: "amd64", Runtime: "go"},
+		Timeline: []schemarunpack.TimelineEvt{
+			{Event: "start", TS: time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC)},
+		},
+	}
+	if _, err := WriteRunpack("../runpack.zip", RecordOptions{Run: run}); err == nil {
+		test.Fatalf("expected relative parent traversal path to fail")
+	}
+}
+
+func TestNormalizeOutputPath(test *testing.T) {
+	absoluteInput := filepath.Join(test.TempDir(), "nested", "runpack.zip")
+	absolutePath, err := normalizeOutputPath(absoluteInput)
+	if err != nil {
+		test.Fatalf("normalize absolute path: %v", err)
+	}
+	if absolutePath != filepath.Clean(absoluteInput) {
+		test.Fatalf("unexpected absolute path: %s", absolutePath)
+	}
+
+	relativePath, err := normalizeOutputPath("./gait-out/runpack.zip")
+	if err != nil {
+		test.Fatalf("normalize relative path: %v", err)
+	}
+	if relativePath != filepath.Clean("./gait-out/runpack.zip") {
+		test.Fatalf("unexpected relative path: %s", relativePath)
+	}
+
+	if _, err := normalizeOutputPath(""); err == nil {
+		test.Fatalf("expected empty output path to fail")
+	}
+	if _, err := normalizeOutputPath("../gait-out/runpack.zip"); err == nil {
+		test.Fatalf("expected parent traversal output path to fail")
+	}
+}
+
 func validateSchemaFiles(test *testing.T, files map[string][]byte) {
 	test.Helper()
 	root := repoRoot(test)

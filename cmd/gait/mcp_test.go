@@ -238,3 +238,29 @@ func TestReadMCPPayloadAndRunIDHelpers(t *testing.T) {
 		t.Fatalf("unexpected pre-normalized run id: %s", normalized)
 	}
 }
+
+func TestSanitizeRunpackOutputPath(t *testing.T) {
+	absoluteInput := filepath.Join(t.TempDir(), "nested", "runpack.zip")
+	absolutePath, err := sanitizeRunpackOutputPath(absoluteInput)
+	if err != nil {
+		t.Fatalf("sanitize absolute runpack path: %v", err)
+	}
+	if absolutePath != filepath.Clean(absoluteInput) {
+		t.Fatalf("unexpected absolute runpack path: %s", absolutePath)
+	}
+
+	relativePath, err := sanitizeRunpackOutputPath("./gait-out/runpack.zip")
+	if err != nil {
+		t.Fatalf("sanitize relative runpack path: %v", err)
+	}
+	if relativePath != filepath.Clean("./gait-out/runpack.zip") {
+		t.Fatalf("unexpected relative runpack path: %s", relativePath)
+	}
+
+	if _, err := sanitizeRunpackOutputPath(""); err == nil {
+		t.Fatalf("expected empty runpack path to fail")
+	}
+	if _, err := sanitizeRunpackOutputPath("../gait-out/runpack.zip"); err == nil {
+		t.Fatalf("expected parent traversal runpack path to fail")
+	}
+}

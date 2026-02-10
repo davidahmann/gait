@@ -8,10 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/jcs"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
 	"github.com/davidahmann/gait/core/sign"
@@ -136,14 +139,46 @@ func RecordRun(options RecordOptions) (RecordResult, error) {
 }
 
 func WriteRunpack(path string, options RecordOptions) (RecordResult, error) {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return RecordResult{}, err
+	}
+
 	result, err := RecordRun(options)
 	if err != nil {
 		return RecordResult{}, err
 	}
-	if err := os.WriteFile(path, result.ZipBytes, 0o600); err != nil {
+
+	dir := filepath.Dir(normalizedPath)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
+			return RecordResult{}, fmt.Errorf("create runpack directory: %w", err)
+		}
+	}
+	if err := fsx.WriteFileAtomic(normalizedPath, result.ZipBytes, 0o600); err != nil {
 		return RecordResult{}, fmt.Errorf("write runpack: %w", err)
 	}
 	return result, nil
+}
+
+func normalizeOutputPath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("runpack output path is required")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == string(filepath.Separator) {
+		return "", fmt.Errorf("runpack output path is required")
+	}
+	if !filepath.IsAbs(cleaned) {
+		segments := strings.Split(filepath.ToSlash(cleaned), "/")
+		for _, segment := range segments {
+			if segment == ".." {
+				return "", fmt.Errorf("relative runpack output path must not traverse parent directories")
+			}
+		}
+	}
+	return cleaned, nil
 }
 
 func canonicalJSON(value any) ([]byte, error) {
