@@ -28,6 +28,26 @@ export const navigation: NavItem[] = [
     ],
   },
   {
+    title: 'Governance',
+    href: '/docs/zero_trust_stack',
+    children: [
+      { title: 'Zero Trust Stack', href: '/docs/zero_trust_stack' },
+      { title: 'External Tool Registry Policy', href: '/docs/external_tool_registry_policy' },
+      { title: 'SIEM Ingestion Recipes', href: '/docs/siem_ingestion_recipes' },
+      { title: 'Positioning', href: '/docs/positioning' },
+      { title: 'Evidence Templates', href: '/docs/evidence_templates' },
+    ],
+  },
+  {
+    title: 'Launch',
+    href: '/docs/launch/readme',
+    children: [
+      { title: 'Launch Kit', href: '/docs/launch/readme' },
+      { title: 'Secure Deploy OpenClaw', href: '/docs/launch/secure_deployment_openclaw' },
+      { title: 'Secure Deploy Gas Town', href: '/docs/launch/secure_deployment_gastown' },
+    ],
+  },
+  {
     title: 'Contracts',
     href: '/docs/contracts/primitive_contract',
     children: [

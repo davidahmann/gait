@@ -27,6 +27,16 @@ Reference: `docs/ecosystem/contribute.md`
 Community entries are rendered into deterministic release notes from:
 - `docs/ecosystem/community_index.json`
 
+## Incident Triage Pattern (Beads Bridge)
+
+When a trace is blocked or approval-required, convert it into a deterministic work item:
+
+```bash
+bash scripts/bridge_trace_to_beads.sh --trace <trace.json> --dry-run --json
+```
+
+Use `--live` only when your local `bd` workflow is configured and write access is desired.
+
 Validation:
 ```bash
 python3 scripts/validate_community_index.py

@@ -1,0 +1,7 @@
+{
+  "type": "function",
+  "function": {
+    "name": "tool.search",
+    "arguments": "{\"query\":\"gait\"}"
+  }
+}

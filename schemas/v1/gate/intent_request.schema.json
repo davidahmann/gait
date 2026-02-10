@@ -91,7 +91,16 @@
         "workspace": { "type": "string", "minLength": 1 },
         "risk_class": { "type": "string", "minLength": 1 },
         "session_id": { "type": "string" },
-        "request_id": { "type": "string" }
+        "request_id": { "type": "string" },
+        "auth_context": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "credential_scopes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "environment_fingerprint": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": true
     }

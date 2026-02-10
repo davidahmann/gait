@@ -39,6 +39,10 @@ Producer obligations:
 - MUST normalize and canonicalize values before computing digests.
 - MUST provide a non-empty `tool_name`.
 - MUST provide `context.identity`, `context.workspace`, and `context.risk_class`.
+- MAY include enterprise passthrough context when available:
+  - `context.auth_context` (object)
+  - `context.credential_scopes` (string array)
+  - `context.environment_fingerprint` (string)
 - SHOULD provide `args_digest` and `intent_digest` when available.
 - SHOULD provide `skill_provenance` when execution originates from a packaged skill.
 

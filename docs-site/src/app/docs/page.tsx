@@ -34,6 +34,24 @@ const tracks = [
       { label: 'Runtime SLO', href: '/docs/slo/runtime_slo' },
     ],
   },
+  {
+    title: 'Track 4: Governance and Enterprise Fit',
+    steps: [
+      { label: 'Zero Trust Stack', href: '/docs/zero_trust_stack' },
+      { label: 'External Tool Registry Policy', href: '/docs/external_tool_registry_policy' },
+      { label: 'SIEM Ingestion Recipes', href: '/docs/siem_ingestion_recipes' },
+      { label: 'Positioning', href: '/docs/positioning' },
+      { label: 'Evidence Templates', href: '/docs/evidence_templates' },
+    ],
+  },
+  {
+    title: 'Track 5: Ecosystem Distribution',
+    steps: [
+      { label: 'Launch Kit', href: '/docs/launch/readme' },
+      { label: 'Secure Deploy OpenClaw', href: '/docs/launch/secure_deployment_openclaw' },
+      { label: 'Secure Deploy Gas Town', href: '/docs/launch/secure_deployment_gastown' },
+    ],
+  },
 ];
 
 export default function DocsHomePage() {

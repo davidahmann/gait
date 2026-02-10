@@ -17,7 +17,9 @@ Validation:
 - LangChain: `examples/integrations/langchain/`
 - AutoGen: `examples/integrations/autogen/`
 - OpenClaw: `examples/integrations/openclaw/`
+- OpenClaw installable skill package: `examples/integrations/openclaw/skill/`
 - AutoGPT: `examples/integrations/autogpt/`
+- Gas Town: `examples/integrations/gastown/`
 
 ## Official Skills
 

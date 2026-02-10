@@ -112,6 +112,12 @@ gait guard pack --run <run_id_or_path> --template incident_response --json
 
 4. Attach evidence pack and trace verification output to incident ticket.
 
+Optional deterministic triage item creation:
+
+```bash
+bash scripts/bridge_trace_to_beads.sh --trace ./gait-out/trace_post_approval.json --dry-run --json
+```
+
 ## Operational Guardrails
 
 - If policy evaluation fails (`exit 6`) or trace verification fails, block execution and open incident.

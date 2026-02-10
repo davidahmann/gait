@@ -39,11 +39,13 @@ flowchart LR
         py["Python SDK (sdk/python)"]
         sidecar["Sidecar patterns (examples/sidecar)"]
         framework["Framework adapters (examples/integrations/*)"]
+        mcpserve["Local MCP interception service (gait mcp serve)"]
     end
 
     py --> cli
     sidecar --> cli
     framework --> py
+    mcpserve --> gate
 
     subgraph artifacts["Artifact Surface (durable contract)"]
         runpackZip["gait-out/runpack_{run_id}.zip"]
@@ -69,6 +71,7 @@ flowchart LR
 ## State And Persistence
 
 - Working artifacts: `./gait-out/`
+- MCP serve runtime traces: `./gait-out/mcp-serve/traces`
 - Regress fixtures/config: `fixtures/` and `gait.yaml`
 - Optional local caches: `~/.gait/runpacks`, `~/.gait/registry`
 - Schema contracts: `schemas/v1/*` with matching Go types/validators under `core/schema/*`

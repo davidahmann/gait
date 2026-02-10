@@ -90,3 +90,21 @@ sequenceDiagram
 ```
 
 Outcome: high-risk actions require explicit, auditable approval and credential proof.
+
+## 5) MCP Runtime Interception Service
+
+```mermaid
+sequenceDiagram
+    participant Runtime as Agent Runtime
+    participant Service as gait mcp serve
+    participant Gate as Gate Evaluator
+    participant FS as Local Filesystem
+
+    Runtime->>Service: POST /v1/evaluate (adapter + call payload)
+    Service->>Gate: decode + evaluate intent
+    Gate-->>Service: verdict + reasons + trace metadata
+    Service->>FS: emit signed trace (and optional runpack)
+    Service-->>Runtime: deterministic JSON response (exit_code + verdict)
+```
+
+Rule: default bind is loopback and non-`allow` outcomes remain non-executing at the caller.

@@ -1,7 +1,7 @@
 {
   "schema_id": "gait.registry.ecosystem_index",
   "schema_version": "1.0.0",
-  "updated_at": "2026-02-09T00:00:00Z",
+  "updated_at": "2026-02-10T00:00:00Z",
   "entries": [
     {
       "id": "adapter-autogen-official",
@@ -22,6 +22,16 @@
       "source": "official",
       "status": "stable",
       "integration": "autogpt"
+    },
+    {
+      "id": "adapter-gastown-official",
+      "kind": "adapter",
+      "name": "Gas Town Adapter Example",
+      "summary": "Reference integration for Gas Town worker hooks with deterministic traces and fail-closed controls.",
+      "repo": "https://github.com/davidahmann/gait",
+      "source": "official",
+      "status": "stable",
+      "integration": "gastown"
     },
     {
       "id": "adapter-langchain-official",

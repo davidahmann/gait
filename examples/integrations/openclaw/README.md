@@ -22,6 +22,23 @@ python3 examples/integrations/openclaw/quickstart.py --scenario allow
 python3 examples/integrations/openclaw/quickstart.py --scenario block
 ```
 
+## Official Installable Skill Package
+
+Install the official OpenClaw boundary package in one command:
+
+```bash
+bash scripts/install_openclaw_skill.sh
+```
+
+Then invoke the installed entrypoint against OpenClaw tool-call envelopes:
+
+```bash
+python3 ~/.openclaw/skills/gait-gate/gait_openclaw_gate.py \
+  --policy examples/policy/base_high_risk.yaml \
+  --call /path/to/openclaw_tool_call.json \
+  --json
+```
+
 Expected allow output:
 
 ```text

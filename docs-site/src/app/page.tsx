@@ -122,9 +122,6 @@ export default function HomePage() {
           <Link href="/docs/integration_checklist" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
             Integrate in 30-120 Minutes
           </Link>
-          <Link href="/llms" className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-gray-100 font-semibold rounded-lg border border-gray-700 transition-colors">
-            LLM Context
-          </Link>
         </div>
       </div>
 
@@ -200,6 +197,13 @@ export default function HomePage() {
         <Link href="/docs/install" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Install Guide
         </Link>
+        <p className="text-sm text-gray-500 mt-5">
+          For assistant and crawler discovery resources, use{' '}
+          <Link href="/llms" className="text-cyan-300 hover:text-cyan-200">
+            LLM Context
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

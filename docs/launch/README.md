@@ -11,6 +11,11 @@ Contents:
 - `github_release_template.md`: release page structure and copy
 - `faq_objections.md`: short objection handling for common buyer/developer concerns
 - `kpi_scorecard.md`: launch metrics and thresholds
+- `rfc_openclaw.md`: framework-specific RFC draft for OpenClaw integration
+- `rfc_gastown.md`: framework-specific RFC draft for Gas Town integration
+- `rfc_agent_framework_template.md`: reusable framework RFC skeleton
+- `secure_deployment_openclaw.md`: safe deployment runbook for OpenClaw users
+- `secure_deployment_gastown.md`: safe deployment runbook for Gas Town users
 
 Demo asset:
 

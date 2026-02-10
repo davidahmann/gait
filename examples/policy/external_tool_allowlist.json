@@ -1,0 +1,6 @@
+{
+  "tools": [
+    "tool.read",
+    "tool.write"
+  ]
+}

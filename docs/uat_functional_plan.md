@@ -25,7 +25,10 @@ Windows is included in CI matrix validation, but this local script focuses on Li
 - `scripts/test_v1_acceptance.sh` (v1 baseline command contract)
 - `scripts/test_v1_6_acceptance.sh` (v1.6 wedge/flow checks)
 - `scripts/test_v1_7_acceptance.sh` (v1.7 endpoint/provenance/fail-closed checks)
+- `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
 - `scripts/test_release_smoke.sh` (release artifact + core smoke checks)
+- `scripts/test_openclaw_skill_install.sh` (OpenClaw package install path)
+- `scripts/test_beads_bridge.sh` (trace-to-beads deterministic bridge)
 - `scripts/install.sh` (release installer path)
 
 ## Command Coverage (Functional)
@@ -39,7 +42,11 @@ The acceptance suites together exercise command families including:
 - `scout signal`
 - `guard pack`, `guard verify`, `incident pack`
 - `registry install`, `registry verify`
-- `mcp bridge/proxy` coverage through adapter and contract suites
+- `mcp bridge/proxy/serve` coverage through adapter and acceptance suites
+- OpenClaw installable skill package path
+- Gas Town adapter parity path
+- Beads bridge dry-run/live simulation path
+- External allowlist-to-policy generation path
 
 ## Preconditions
 
@@ -64,6 +71,13 @@ GAIT_UAT_RELEASE_VERSION=v1.0.0 bash scripts/test_uat_local.sh --output-dir ./ga
 bash scripts/test_uat_local.sh --skip-brew
 ```
 
+Full-contract run across all install paths (use only when release/brew tag includes current epics):
+
+```bash
+GAIT_UAT_RELEASE_VERSION=<released-tag-with-v1.8> \
+bash scripts/test_uat_local.sh --full-contracts-all-paths
+```
+
 ## Outputs
 
 - Human-readable logs: `gait-out/uat_local/logs/*.log`
@@ -72,10 +86,16 @@ bash scripts/test_uat_local.sh --skip-brew
 ## Pass Criteria
 
 - All quality gates pass: `make lint`, `make test`, `make test-e2e`, `make test-adoption`, `make test-contracts`, `make test-hardening-acceptance`
+- Runtime SLO budget check passes: `make test-runtime-slo`
 - All install-path command suites pass for:
   - source binary
   - release-installer binary
   - Homebrew binary (unless explicitly skipped)
+- Source binary must pass extended suite:
+  - `v1.8` acceptance
+  - OpenClaw install skill checks
+  - Beads bridge checks
+- If `--full-contracts-all-paths` is enabled, release-installer and Homebrew binaries must also pass the extended suite.
 - Final summary reports no `FAIL` entries
 
 ## Failure Handling

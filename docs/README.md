@@ -15,6 +15,9 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Endpoint action taxonomy contract: `docs/contracts/endpoint_action_model.md`
 - Skill provenance contract: `docs/contracts/skill_provenance.md`
 - Integration steps and acceptance checklist: `docs/integration_checklist.md`
+- Zero Trust stack fit and boundaries: `docs/zero_trust_stack.md`
+- External registry allowlist to policy recipe: `docs/external_tool_registry_policy.md`
+- SIEM export ingestion recipes: `docs/siem_ingestion_recipes.md`
 - Runtime defaults and repeated-flag reduction: `docs/project_defaults.md`
 - Policy rollout stages: `docs/policy_rollout.md`
 - Approval workflow and operations: `docs/approval_runbook.md`
@@ -24,6 +27,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - Installer and platform support: `docs/install.md`
 - Homebrew tap publishing path: `docs/homebrew.md`
 - Local UAT and functional testing plan: `docs/uat_functional_plan.md`
+- Launch and distribution playbooks: `docs/launch/README.md`
 - SEO/AEO checklist for public docs site: `docs/launch/seo_aeo_checklist.md`
 - Wiki playbook source pages: `docs/wiki/` (published via `scripts/publish_wiki.sh`)
 
@@ -56,3 +60,6 @@ This index defines documentation ownership so docs stay aligned with code and av
 8. `docs/policy_rollout.md`
 9. `docs/approval_runbook.md`
 10. `docs/homebrew.md`
+11. `docs/zero_trust_stack.md`
+12. `docs/external_tool_registry_policy.md`
+13. `docs/siem_ingestion_recipes.md`

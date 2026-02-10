@@ -6,6 +6,8 @@ Use this file when writing website copy, docs, release notes, talks, or sales ma
 
 Gait is an artifact-first Agent Control Plane for production tool execution.
 
+Runtime governance is often observational; Gait is execution-time decision and proof.
+
 It combines:
 
 - execution-boundary policy enforcement (`gate`)
@@ -35,12 +37,19 @@ Prefer:
 - "verifiable receipts"
 - "deterministic regressions"
 - "incident to regression in one path"
+- "camera vs gate: monitor plus enforce"
 
 Avoid:
 
 - "single pane of glass"
 - "AI governance suite"
 - "black-box risk scoring"
+
+## Adjacent Stack Language
+
+- "Gait integrates with your existing identity, vault, gateway, and SIEM stack."
+- "Guardrails scan content. Gait evaluates structured action intent and enforces policy before execution."
+- "Gait produces the evidence your monitoring stack consumes."
 
 ## Adapter Neutrality Language
 

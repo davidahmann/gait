@@ -35,6 +35,18 @@ type mcpProxyOutput struct {
 	Error        string   `json:"error,omitempty"`
 }
 
+type mcpProxyEvalOptions struct {
+	Adapter       string
+	RunID         string
+	TracePath     string
+	RunpackOut    string
+	LogExportPath string
+	OTelExport    string
+	KeyMode       string
+	PrivateKey    string
+	PrivateKeyEnv string
+}
+
 func runMCP(arguments []string) int {
 	if hasExplainFlag(arguments) {
 		return writeExplain("Proxy tool-call protocol payloads through Gate policy evaluation and emit signed traces with optional exports.")
@@ -48,6 +60,8 @@ func runMCP(arguments []string) int {
 		return runMCPProxy(arguments[1:])
 	case "bridge":
 		return runMCPProxy(arguments[1:])
+	case "serve":
+		return runMCPServe(arguments[1:])
 	default:
 		printMCPUsage()
 		return exitInvalidInput
@@ -126,104 +140,21 @@ func runMCPProxy(arguments []string) int {
 	if err != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	call, err := mcp.DecodeToolCall(adapter, payload)
-	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-	}
-
-	policy, err := gate.LoadPolicyFile(policyPath)
-	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-	}
-
-	evalResult, err := mcp.EvaluateToolCall(policy, call, gate.EvalOptions{ProducerVersion: version})
-	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-	}
-
-	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
-		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(keyMode))),
-		PrivateKeyPath: privateKeyPath,
-		PrivateKeyEnv:  privateKeyEnv,
+	output, exitCode, err := evaluateMCPProxyPayload(policyPath, payload, mcpProxyEvalOptions{
+		Adapter:       adapter,
+		RunID:         runID,
+		TracePath:     tracePath,
+		RunpackOut:    runpackOut,
+		LogExportPath: logExportPath,
+		OTelExport:    otelExportPath,
+		KeyMode:       keyMode,
+		PrivateKey:    privateKeyPath,
+		PrivateKeyEnv: privateKeyEnv,
 	})
 	if err != nil {
 		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
-		ProducerVersion:   version,
-		SigningPrivateKey: keyPair.Private,
-		TracePath:         tracePath,
-	})
-	if err != nil {
-		return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-	}
-
-	resolvedRunID := normalizeRunID(runID)
-	if resolvedRunID == "" {
-		resolvedRunID = normalizeRunID(call.Context.RunID)
-	}
-	if resolvedRunID == "" {
-		resolvedRunID = "run_mcp_" + evalResult.Intent.IntentDigest[:12]
-	}
-
-	resolvedRunpackPath := ""
-	if strings.TrimSpace(runpackOut) != "" {
-		resolvedRunpackPath = runpackOut
-		if err := writeMCPRunpack(resolvedRunpackPath, resolvedRunID, evalResult, traceResult.Trace.TraceID); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-		}
-	}
-
-	exportEvent := mcp.ExportEvent{
-		CreatedAt:       evalResult.Outcome.Result.CreatedAt,
-		ProducerVersion: version,
-		RunID:           resolvedRunID,
-		TraceID:         traceResult.Trace.TraceID,
-		TracePath:       traceResult.TracePath,
-		ToolName:        evalResult.Intent.ToolName,
-		Verdict:         evalResult.Outcome.Result.Verdict,
-		ReasonCodes:     evalResult.Outcome.Result.ReasonCodes,
-		PolicyDigest:    traceResult.PolicyDigest,
-		IntentDigest:    traceResult.IntentDigest,
-	}
-	resolvedLogExport := ""
-	if strings.TrimSpace(logExportPath) != "" {
-		resolvedLogExport = strings.TrimSpace(logExportPath)
-		if err := mcp.ExportLogEvent(resolvedLogExport, exportEvent); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-		}
-	}
-	resolvedOTelExport := ""
-	if strings.TrimSpace(otelExportPath) != "" {
-		resolvedOTelExport = strings.TrimSpace(otelExportPath)
-		if err := mcp.ExportOTelEvent(resolvedOTelExport, exportEvent); err != nil {
-			return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-		}
-	}
-
-	exitCode := exitOK
-	switch evalResult.Outcome.Result.Verdict {
-	case "block":
-		exitCode = exitPolicyBlocked
-	case "require_approval":
-		exitCode = exitApprovalRequired
-	}
-	return writeMCPProxyOutput(jsonOutput, mcpProxyOutput{
-		OK:           true,
-		Adapter:      strings.ToLower(strings.TrimSpace(adapter)),
-		RunID:        resolvedRunID,
-		Verdict:      evalResult.Outcome.Result.Verdict,
-		ReasonCodes:  evalResult.Outcome.Result.ReasonCodes,
-		Violations:   evalResult.Outcome.Result.Violations,
-		PolicyDigest: traceResult.PolicyDigest,
-		IntentDigest: traceResult.IntentDigest,
-		TraceID:      traceResult.Trace.TraceID,
-		TracePath:    traceResult.TracePath,
-		RunpackPath:  resolvedRunpackPath,
-		LogExport:    resolvedLogExport,
-		OTelExport:   resolvedOTelExport,
-		Warnings:     warnings,
-	}, exitCode)
+	return writeMCPProxyOutput(jsonOutput, output, exitCode)
 }
 
 func readMCPPayload(path string) ([]byte, error) {
@@ -240,6 +171,107 @@ func readMCPPayload(path string) ([]byte, error) {
 		return nil, fmt.Errorf("read call payload: %w", err)
 	}
 	return raw, nil
+}
+
+func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxyEvalOptions) (mcpProxyOutput, int, error) {
+	call, err := mcp.DecodeToolCall(options.Adapter, payload)
+	if err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+
+	policy, err := gate.LoadPolicyFile(policyPath)
+	if err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+
+	evalResult, err := mcp.EvaluateToolCall(policy, call, gate.EvalOptions{ProducerVersion: version})
+	if err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+
+	keyPair, warnings, err := sign.LoadSigningKey(sign.KeyConfig{
+		Mode:           sign.KeyMode(strings.ToLower(strings.TrimSpace(options.KeyMode))),
+		PrivateKeyPath: options.PrivateKey,
+		PrivateKeyEnv:  options.PrivateKeyEnv,
+	})
+	if err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
+		ProducerVersion:   version,
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         options.TracePath,
+	})
+	if err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+
+	resolvedRunID := normalizeRunID(options.RunID)
+	if resolvedRunID == "" {
+		resolvedRunID = normalizeRunID(call.Context.RunID)
+	}
+	if resolvedRunID == "" {
+		resolvedRunID = "run_mcp_" + evalResult.Intent.IntentDigest[:12]
+	}
+
+	resolvedRunpackPath := ""
+	if strings.TrimSpace(options.RunpackOut) != "" {
+		resolvedRunpackPath = strings.TrimSpace(options.RunpackOut)
+		if err := writeMCPRunpack(resolvedRunpackPath, resolvedRunID, evalResult, traceResult.Trace.TraceID); err != nil {
+			return mcpProxyOutput{}, exitInvalidInput, err
+		}
+	}
+
+	exportEvent := mcp.ExportEvent{
+		CreatedAt:       evalResult.Outcome.Result.CreatedAt,
+		ProducerVersion: version,
+		RunID:           resolvedRunID,
+		TraceID:         traceResult.Trace.TraceID,
+		TracePath:       traceResult.TracePath,
+		ToolName:        evalResult.Intent.ToolName,
+		Verdict:         evalResult.Outcome.Result.Verdict,
+		ReasonCodes:     evalResult.Outcome.Result.ReasonCodes,
+		PolicyDigest:    traceResult.PolicyDigest,
+		IntentDigest:    traceResult.IntentDigest,
+	}
+	resolvedLogExport := ""
+	if strings.TrimSpace(options.LogExportPath) != "" {
+		resolvedLogExport = strings.TrimSpace(options.LogExportPath)
+		if err := mcp.ExportLogEvent(resolvedLogExport, exportEvent); err != nil {
+			return mcpProxyOutput{}, exitInvalidInput, err
+		}
+	}
+	resolvedOTelExport := ""
+	if strings.TrimSpace(options.OTelExport) != "" {
+		resolvedOTelExport = strings.TrimSpace(options.OTelExport)
+		if err := mcp.ExportOTelEvent(resolvedOTelExport, exportEvent); err != nil {
+			return mcpProxyOutput{}, exitInvalidInput, err
+		}
+	}
+
+	exitCode := exitOK
+	switch evalResult.Outcome.Result.Verdict {
+	case "block":
+		exitCode = exitPolicyBlocked
+	case "require_approval":
+		exitCode = exitApprovalRequired
+	}
+	return mcpProxyOutput{
+		OK:           true,
+		Adapter:      strings.ToLower(strings.TrimSpace(options.Adapter)),
+		RunID:        resolvedRunID,
+		Verdict:      evalResult.Outcome.Result.Verdict,
+		ReasonCodes:  evalResult.Outcome.Result.ReasonCodes,
+		Violations:   evalResult.Outcome.Result.Violations,
+		PolicyDigest: traceResult.PolicyDigest,
+		IntentDigest: traceResult.IntentDigest,
+		TraceID:      traceResult.Trace.TraceID,
+		TracePath:    traceResult.TracePath,
+		RunpackPath:  resolvedRunpackPath,
+		LogExport:    resolvedLogExport,
+		OTelExport:   resolvedOTelExport,
+		Warnings:     warnings,
+	}, exitCode, nil
 }
 
 func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, traceID string) error {
@@ -353,6 +385,7 @@ func printMCPUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--trace-dir <dir>] [--runpack-dir <dir>] [--json] [--explain]")
 }
 
 func printMCPProxyUsage() {

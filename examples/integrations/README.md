@@ -9,6 +9,7 @@ Current adapters:
 - `autogen`
 - `openclaw`
 - `autogpt`
+- `gastown`
 - `template` (canonical copy/paste template)
 
 ## Contract (Must Stay Identical)

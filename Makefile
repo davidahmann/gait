@@ -13,7 +13,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish
+.PHONY: fmt lint test test-hardening test-hardening-acceptance test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint
 
@@ -66,6 +66,10 @@ test-v1-7-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v1_7_acceptance.sh ./gait
 
+test-v1-8-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_v1_8_acceptance.sh ./gait
+
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
 
@@ -96,6 +100,12 @@ test-skill-supply-chain:
 
 test-uat-local:
 	bash scripts/test_uat_local.sh
+
+test-openclaw-skill-install:
+	bash scripts/test_openclaw_skill_install.sh
+
+test-beads-bridge:
+	bash scripts/test_beads_bridge.sh
 
 build:
 	$(GO) build ./cmd/gait
@@ -136,6 +146,14 @@ homebrew-formula:
 wiki-publish:
 	@if [ -z "$(REPO)" ]; then REPO=davidahmann/gait; else REPO=$(REPO); fi; \
 	bash scripts/publish_wiki.sh --repo "$$REPO"
+
+tool-allowlist-policy:
+	@if [ -z "$(INPUT)" ]; then echo "INPUT is required (example: make tool-allowlist-policy INPUT=examples/policy/external_tool_allowlist.json OUTPUT=gait-out/policy_external_allowlist.yaml)"; exit 2; fi
+	@if [ -z "$(OUTPUT)" ]; then echo "OUTPUT is required (example: make tool-allowlist-policy INPUT=examples/policy/external_tool_allowlist.json OUTPUT=gait-out/policy_external_allowlist.yaml)"; exit 2; fi
+	python3 scripts/render_tool_allowlist_policy.py --input "$(INPUT)" --output "$(OUTPUT)"
+
+openclaw-skill-install:
+	@if [ -z "$(TARGET_DIR)" ]; then bash scripts/install_openclaw_skill.sh; else bash scripts/install_openclaw_skill.sh --target-dir "$(TARGET_DIR)"; fi
 
 docs-site-install:
 	cd docs-site && npm ci

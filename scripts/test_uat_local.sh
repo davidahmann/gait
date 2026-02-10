@@ -7,18 +7,21 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUTPUT_DIR="${REPO_ROOT}/gait-out/uat_local"
 RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-v1.0.0}"
 SKIP_BREW="false"
+FULL_CONTRACTS_ALL_PATHS="false"
 
 usage() {
   cat <<'EOF'
 Run local end-to-end UAT across source, release-installer, and Homebrew install paths.
 
 Usage:
-  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew]
+  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--full-contracts-all-paths]
 
 Options:
   --output-dir <path>      UAT artifacts directory (default: gait-out/uat_local)
   --release-version <tag>  GitHub release tag for installer path (default: v1.0.0)
   --skip-brew              Skip Homebrew install path checks
+  --full-contracts-all-paths
+                            Run v1.8 + extended checks on release and brew binaries too
   -h, --help               Show this help
 EOF
 }
@@ -37,6 +40,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-brew)
       SKIP_BREW="true"
+      shift
+      ;;
+    --full-contracts-all-paths)
+      FULL_CONTRACTS_ALL_PATHS="true"
       shift
       ;;
     -h|--help)
@@ -84,6 +91,7 @@ run_step() {
 run_binary_contract_suite() {
   local label="$1"
   local bin_path="$2"
+  local mode="${3:-baseline}"
   if [[ ! -x "${bin_path}" ]]; then
     log "FAIL ${label}: binary not executable at ${bin_path}"
     exit 1
@@ -93,6 +101,11 @@ run_binary_contract_suite() {
   run_step "${label}_v1_6_acceptance" bash "${REPO_ROOT}/scripts/test_v1_6_acceptance.sh" "${bin_path}"
   run_step "${label}_v1_7_acceptance" bash "${REPO_ROOT}/scripts/test_v1_7_acceptance.sh" "${bin_path}"
   run_step "${label}_release_smoke" bash "${REPO_ROOT}/scripts/test_release_smoke.sh" "${bin_path}"
+  if [[ "${mode}" == "extended" ]]; then
+    run_step "${label}_v1_8_acceptance" bash "${REPO_ROOT}/scripts/test_v1_8_acceptance.sh" "${bin_path}"
+    run_step "${label}_openclaw_skill_install" bash "${REPO_ROOT}/scripts/test_openclaw_skill_install.sh"
+    run_step "${label}_beads_bridge" bash "${REPO_ROOT}/scripts/test_beads_bridge.sh"
+  fi
 }
 
 log "UAT output dir: ${OUTPUT_DIR}"
@@ -113,15 +126,20 @@ run_step "quality_e2e" make -C "${REPO_ROOT}" test-e2e
 run_step "quality_adoption" make -C "${REPO_ROOT}" test-adoption
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
+run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
 
 SOURCE_BIN="${REPO_ROOT}/gait"
 run_step "build_source_binary" go build -o "${SOURCE_BIN}" "${REPO_ROOT}/cmd/gait"
-run_binary_contract_suite "source" "${SOURCE_BIN}"
+run_binary_contract_suite "source" "${SOURCE_BIN}" "extended"
 
 RELEASE_INSTALL_DIR="${OUTPUT_DIR}/release_install/bin"
 mkdir -p "${RELEASE_INSTALL_DIR}"
 run_step "install_release_binary" bash "${REPO_ROOT}/scripts/install.sh" --version "${RELEASE_VERSION}" --install-dir "${RELEASE_INSTALL_DIR}"
-run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait"
+if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
+  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "extended"
+else
+  run_binary_contract_suite "release_install" "${RELEASE_INSTALL_DIR}/gait" "baseline"
+fi
 
 if [[ "${SKIP_BREW}" == "true" ]]; then
   log "SKIP brew_path (requested)"
@@ -132,7 +150,11 @@ else
 
   BREW_PREFIX="$(brew --prefix)"
   BREW_BIN="${BREW_PREFIX}/bin/gait"
-  run_binary_contract_suite "brew" "${BREW_BIN}"
+  if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
+    run_binary_contract_suite "brew" "${BREW_BIN}" "extended"
+  else
+    run_binary_contract_suite "brew" "${BREW_BIN}" "baseline"
+  fi
 fi
 
 log "UAT COMPLETE: PASS"

@@ -431,13 +431,66 @@ func normalizeContext(context schemagate.IntentContext) (schemagate.IntentContex
 	if riskClass == "" {
 		return schemagate.IntentContext{}, fmt.Errorf("context.risk_class is required")
 	}
+
+	authContext, err := normalizeContextAuth(context.AuthContext)
+	if err != nil {
+		return schemagate.IntentContext{}, err
+	}
+	credentialScopes := normalizeCredentialScopes(context.CredentialScopes)
+	environmentFingerprint := strings.TrimSpace(context.EnvironmentFingerprint)
+
 	return schemagate.IntentContext{
-		Identity:  identity,
-		Workspace: filepath.ToSlash(strings.ReplaceAll(workspace, `\`, "/")),
-		RiskClass: riskClass,
-		SessionID: strings.TrimSpace(context.SessionID),
-		RequestID: strings.TrimSpace(context.RequestID),
+		Identity:               identity,
+		Workspace:              filepath.ToSlash(strings.ReplaceAll(workspace, `\`, "/")),
+		RiskClass:              riskClass,
+		SessionID:              strings.TrimSpace(context.SessionID),
+		RequestID:              strings.TrimSpace(context.RequestID),
+		AuthContext:            authContext,
+		CredentialScopes:       credentialScopes,
+		EnvironmentFingerprint: environmentFingerprint,
 	}, nil
+}
+
+func normalizeContextAuth(authContext map[string]any) (map[string]any, error) {
+	if len(authContext) == 0 {
+		return nil, nil
+	}
+	normalizedValue, err := normalizeJSONValue(authContext)
+	if err != nil {
+		return nil, fmt.Errorf("normalize context.auth_context: %w", err)
+	}
+	normalizedMap, ok := normalizedValue.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("context.auth_context must be a JSON object")
+	}
+	if len(normalizedMap) == 0 {
+		return nil, nil
+	}
+	return normalizedMap, nil
+}
+
+func normalizeCredentialScopes(scopes []string) []string {
+	if len(scopes) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(scopes))
+	normalized := make([]string, 0, len(scopes))
+	for _, raw := range scopes {
+		scope := strings.TrimSpace(raw)
+		if scope == "" {
+			continue
+		}
+		if _, exists := seen[scope]; exists {
+			continue
+		}
+		seen[scope] = struct{}{}
+		normalized = append(normalized, scope)
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	sort.Strings(normalized)
+	return normalized
 }
 
 func normalizeJSONValue(value any) (any, error) {

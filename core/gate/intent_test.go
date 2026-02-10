@@ -77,11 +77,23 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 			{ArgPath: "args.options", Source: "external", IntegrityDigest: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
 		},
 		Context: schemagate.IntentContext{
-			Identity:  " alice ",
-			Workspace: `C:\repo\gait`,
-			RiskClass: " HIGH ",
-			SessionID: " s1 ",
-			RequestID: " req-1 ",
+			Identity:               " alice ",
+			Workspace:              `C:\repo\gait`,
+			RiskClass:              " HIGH ",
+			SessionID:              " s1 ",
+			RequestID:              " req-1 ",
+			EnvironmentFingerprint: " env:prod-us-east-1 ",
+			CredentialScopes: []string{
+				" tools.read ",
+				"tools.write",
+				"tools.read",
+			},
+			AuthContext: map[string]any{
+				"provider": " oidc ",
+				"claims": map[string]any{
+					"tenant": " acme ",
+				},
+			},
 		},
 	}
 
@@ -107,6 +119,22 @@ func TestNormalizeIntentPopulatesDigestsAndDefaults(t *testing.T) {
 	}
 	if normalized.Context.SessionID != "s1" || normalized.Context.RequestID != "req-1" {
 		t.Fatalf("unexpected normalized context ids: %#v", normalized.Context)
+	}
+	if normalized.Context.EnvironmentFingerprint != "env:prod-us-east-1" {
+		t.Fatalf("unexpected normalized environment fingerprint: %#v", normalized.Context)
+	}
+	if len(normalized.Context.CredentialScopes) != 2 || normalized.Context.CredentialScopes[0] != "tools.read" || normalized.Context.CredentialScopes[1] != "tools.write" {
+		t.Fatalf("unexpected normalized credential scopes: %#v", normalized.Context.CredentialScopes)
+	}
+	if normalized.Context.AuthContext == nil {
+		t.Fatalf("expected normalized auth_context")
+	}
+	if normalized.Context.AuthContext["provider"] != "oidc" {
+		t.Fatalf("unexpected normalized auth_context provider: %#v", normalized.Context.AuthContext)
+	}
+	claims, ok := normalized.Context.AuthContext["claims"].(map[string]any)
+	if !ok || claims["tenant"] != "acme" {
+		t.Fatalf("unexpected normalized auth_context claims: %#v", normalized.Context.AuthContext["claims"])
 	}
 	if len(normalized.Targets) != 2 {
 		t.Fatalf("expected de-duplicated targets, got %d", len(normalized.Targets))
@@ -283,6 +311,21 @@ func TestNormalizeIntentValidationErrors(t *testing.T) {
 					Digest:    "bad",
 				},
 				Context: schemagate.IntentContext{Identity: "u", Workspace: "/tmp", RiskClass: "low"},
+			},
+		},
+		{
+			name: "invalid_auth_context_value",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.demo",
+				Args:     map[string]any{},
+				Context: schemagate.IntentContext{
+					Identity:  "u",
+					Workspace: "/tmp",
+					RiskClass: "low",
+					AuthContext: map[string]any{
+						"token": func() {},
+					},
+				},
 			},
 		},
 	}

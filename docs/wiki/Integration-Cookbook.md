@@ -16,6 +16,7 @@ Use one boundary pattern only: wrapper or sidecar. Execute tools only on `allow`
 - AutoGen: `examples/integrations/autogen/`
 - OpenClaw: `examples/integrations/openclaw/`
 - AutoGPT: `examples/integrations/autogpt/`
+- Gas Town: `examples/integrations/gastown/`
 
 ## Required Validation
 

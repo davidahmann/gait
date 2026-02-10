@@ -171,6 +171,9 @@ func TestRunMCPProxyValidation(t *testing.T) {
 	if code := runMCP([]string{"bridge", "--help"}); code != exitOK {
 		t.Fatalf("runMCP bridge help expected %d got %d", exitOK, code)
 	}
+	if code := runMCP([]string{"serve", "--help"}); code != exitOK {
+		t.Fatalf("runMCP serve help expected %d got %d", exitOK, code)
+	}
 	if code := writeMCPProxyOutput(false, mcpProxyOutput{OK: true, Verdict: "allow"}, exitOK); code != exitOK {
 		t.Fatalf("writeMCPProxyOutput text success expected %d got %d", exitOK, code)
 	}

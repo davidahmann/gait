@@ -1,0 +1,7 @@
+{
+  "policy_path": "./policy.yaml",
+  "adapter": "mcp",
+  "key_mode": "dev",
+  "identity": "openclaw-user",
+  "risk_class": "high"
+}

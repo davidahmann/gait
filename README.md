@@ -49,6 +49,14 @@ Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the a
 
 Full mental model: `docs/concepts/mental_model.md`
 
+## Runtime Governance vs ACP
+
+- Runtime governance usually observes and alerts.
+- Gait ACP decides at execution time (`allow`/`block`/`require_approval`/`dry_run`) and emits signed proof.
+- Guardrails scan content. Gait evaluates structured action intent before side effects execute.
+
+Reference: `docs/zero_trust_stack.md`
+
 ## Turn That Into A CI Regression (2 Minutes)
 
 ```bash
@@ -127,6 +135,18 @@ Gate evaluates structured tool-call intent, not prompt text. If verdict is not `
 - not prompt-only filtering
 - not a replacement for your identity provider, SIEM, or ticketing system
 
+**Works with your existing stack:**
+
+- identity and vault systems (for example CyberArk, HashiCorp Vault, cloud IAM)
+- AI gateway/guardrail scanners for prompt and output inspection
+- SIEM and observability systems (for example Splunk, Datadog, Elastic)
+
+Integration references:
+
+- `docs/zero_trust_stack.md`
+- `docs/external_tool_registry_policy.md`
+- `docs/siem_ingestion_recipes.md`
+
 **Why tool-call boundary, not prompt layer:**
 
 Tool calls are where authority is exercised. Portable artifacts are the durable evidence contract. Deterministic regressions turn one incident into a permanent safety test.
@@ -148,10 +168,19 @@ Details: `docs/packaging.md`
    - `examples/integrations/autogen`
    - `examples/integrations/openclaw`
    - `examples/integrations/autogpt`
-3. Wire the boundary: wrapper or sidecar -> `gait gate eval` -> execute only on `allow`.
-4. Add a regress fixture and JUnit output in CI before enabling privileged tools.
+   - `examples/integrations/gastown`
+3. If you use OpenClaw, install the official boundary package:
+   - `bash scripts/install_openclaw_skill.sh`
+4. Wire the boundary: wrapper or sidecar -> `gait gate eval` -> execute only on `allow`.
+5. Add a regress fixture and JUnit output in CI before enabling privileged tools.
 
 Reduce repeated flags with a project config: `docs/project_defaults.md`
+
+For long-running MCP interception instead of one-shot calls:
+
+```bash
+gait mcp serve --policy examples/policy-test/allow.yaml --listen 127.0.0.1:8787 --trace-dir ./gait-out/mcp-serve/traces
+```
 
 ## Production Posture (oss-prod Profile)
 
@@ -211,6 +240,8 @@ gait regress init --from <run_id|path>             # incident fixture bootstrap
 gait regress run [--junit junit.xml]               # run regressions
 gait policy test <policy.yaml> <fixture.json>      # test policy offline
 gait gate eval --policy <p> --intent <i>           # evaluate tool intent
+gait mcp proxy --policy <p> --call <payload.json>  # one-shot MCP/tool-call boundary
+gait mcp serve --policy <p> --listen <addr>        # long-running local interception service
 gait approve --intent-digest ... --ttl ...         # mint approval token
 gait scout signal --runs <csv>                     # cluster incidents
 gait guard pack --run <id> --out <path>            # evidence bundle
@@ -251,6 +282,13 @@ All commands support `--json`. Most support `--explain`.
 16. `docs/launch/README.md`
 17. `docs/homebrew.md`
 18. `https://github.com/davidahmann/gait/wiki` (playbook layer synced from `docs/wiki/`)
+19. `docs/zero_trust_stack.md`
+20. `docs/external_tool_registry_policy.md`
+21. `docs/siem_ingestion_recipes.md`
+22. `docs/launch/rfc_openclaw.md`
+23. `docs/launch/rfc_gastown.md`
+24. `docs/launch/secure_deployment_openclaw.md`
+25. `docs/launch/secure_deployment_gastown.md`
 
 ## Development
 

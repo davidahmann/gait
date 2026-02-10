@@ -1,0 +1,31 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": { "path": "/tmp/out.txt" },
+  "targets": [
+    {
+      "kind": "path",
+      "value": "/tmp/out.txt",
+      "operation": "write",
+      "endpoint_class": "fs.write"
+    }
+  ],
+  "context": {
+    "identity": "svc-agent-prod",
+    "workspace": "/tmp/work",
+    "risk_class": "high",
+    "auth_context": {
+      "provider": "oidc",
+      "principal_id": "spn://acme/gait-agent",
+      "claims": {
+        "tenant": "acme",
+        "session_type": "workload"
+      }
+    },
+    "credential_scopes": ["tools.read", "tools.write"],
+    "environment_fingerprint": "env:prod-us-east-1:cluster-a"
+  }
+}

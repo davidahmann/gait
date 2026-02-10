@@ -61,11 +61,14 @@ type IntentArgProvenance struct {
 }
 
 type IntentContext struct {
-	Identity  string `json:"identity"`
-	Workspace string `json:"workspace"`
-	RiskClass string `json:"risk_class"`
-	SessionID string `json:"session_id,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
+	Identity               string         `json:"identity"`
+	Workspace              string         `json:"workspace"`
+	RiskClass              string         `json:"risk_class"`
+	SessionID              string         `json:"session_id,omitempty"`
+	RequestID              string         `json:"request_id,omitempty"`
+	AuthContext            map[string]any `json:"auth_context,omitempty"`
+	CredentialScopes       []string       `json:"credential_scopes,omitempty"`
+	EnvironmentFingerprint string         `json:"environment_fingerprint,omitempty"`
 }
 
 type SkillProvenance struct {

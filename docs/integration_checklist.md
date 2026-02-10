@@ -50,6 +50,10 @@ Required outcome:
 - `dry_run` does not execute side effects.
 - Intents include explicit endpoint metadata (`operation`, `endpoint_class`) for side-effecting paths.
 - Intents include `skill_provenance` when execution is skill-triggered.
+- Intents SHOULD carry enterprise passthrough context when available:
+  - `context.auth_context`
+  - `context.credential_scopes`
+  - `context.environment_fingerprint`
 
 Canonical wrapper path:
 
@@ -90,6 +94,47 @@ Covered adapters:
 - `autogen`
 - `openclaw`
 - `autogpt`
+- `gastown`
+
+## Step 2C: OpenClaw Installable Skill Path
+
+Required outcome:
+
+- OpenClaw teams can install one official Gait boundary package with one command.
+
+Validation commands:
+
+```bash
+bash scripts/install_openclaw_skill.sh --json
+bash scripts/test_openclaw_skill_install.sh
+```
+
+Evidence to capture:
+
+- Installed path includes `gait_openclaw_gate.py`, `skill_manifest.json`, and `skill_config.json`.
+- Skill entrypoint is executable and policy path is configured.
+
+## Step 2D: Gas Town Worker Hook
+
+Required outcome:
+
+- Gas Town worker actions pass through one fail-closed Gait wrapper path.
+
+Canonical artifact path:
+
+- `examples/integrations/gastown/`
+
+Validation commands:
+
+```bash
+python3 examples/integrations/gastown/quickstart.py --scenario allow
+python3 examples/integrations/gastown/quickstart.py --scenario block
+```
+
+Evidence to capture:
+
+- Deterministic traces under `gait-out/integrations/gastown/`.
+- `executed=true` only when verdict is `allow`.
 
 ## Step 2A: Sidecar Enforcement (Non-Python Runtimes)
 
