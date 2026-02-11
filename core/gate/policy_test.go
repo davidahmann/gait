@@ -1120,6 +1120,54 @@ fail_closed:
 	}
 }
 
+func TestPolicyHelperMatchersAndSanitizers(t *testing.T) {
+	if !intentContainsDestructiveTarget([]schemagate.IntentTarget{{Destructive: true}}) {
+		t.Fatalf("expected destructive target detection")
+	}
+	if intentContainsDestructiveTarget([]schemagate.IntentTarget{{Destructive: false}}) {
+		t.Fatalf("did not expect destructive target detection")
+	}
+
+	if !matchPathPattern("/tmp/safe/file.txt", "/tmp/safe/**") {
+		t.Fatalf("expected /** prefix pattern match")
+	}
+	if !matchPathPattern("/tmp/safe/file.txt", "/tmp/safe/*.txt") {
+		t.Fatalf("expected glob path pattern match")
+	}
+	if matchPathPattern("/tmp/safe/file.txt", "") {
+		t.Fatalf("did not expect empty path pattern to match")
+	}
+	if matchPathPattern("/tmp/safe/file.txt", "[") {
+		t.Fatalf("did not expect invalid path glob to match")
+	}
+	if !matchesAnyPattern("/tmp/safe/file.txt", []string{"/tmp/other/**", "/tmp/safe/**"}) {
+		t.Fatalf("expected matchesAnyPattern positive match")
+	}
+	if matchesAnyPattern("/tmp/safe/file.txt", []string{"/tmp/other/**", "["}) {
+		t.Fatalf("did not expect matchesAnyPattern false match")
+	}
+
+	if !matchesAnyDomain("API.INTERNAL.LOCAL", []string{"api.internal.local"}) {
+		t.Fatalf("expected exact domain match to be case-insensitive")
+	}
+	if !matchesAnyDomain("svc.example.com", []string{"*.example.com"}) {
+		t.Fatalf("expected wildcard domain match")
+	}
+	if !matchesAnyDomain("api.dev.example.com", []string{"api.*.example.com"}) {
+		t.Fatalf("expected glob domain match")
+	}
+	if matchesAnyDomain("svc.example.com", []string{"", "["}) {
+		t.Fatalf("did not expect empty or invalid domain patterns to match")
+	}
+
+	if got := sanitizeName(""); got != "rule" {
+		t.Fatalf("expected empty sanitizeName fallback, got %q", got)
+	}
+	if got := sanitizeName("My-Rule Name"); got != "my_rule_name" {
+		t.Fatalf("unexpected sanitizeName output: %q", got)
+	}
+}
+
 func baseIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

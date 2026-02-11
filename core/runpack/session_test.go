@@ -537,3 +537,147 @@ func TestSessionConcurrentAppendsAreDeterministic(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionRelativePathGuards(t *testing.T) {
+	workDir := t.TempDir()
+	prevWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(workDir); err != nil {
+		t.Fatalf("chdir to temp dir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(prevWD)
+	})
+
+	journalPath := filepath.Join("sessions", "relative.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 6, 0, 0, 0, time.UTC)
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_relative",
+		RunID:     "run_relative",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start relative session: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    now.Add(1 * time.Second),
+		IntentID:     "intent_relative",
+		ToolName:     "tool.read",
+		IntentDigest: strings.Repeat("1", 64),
+		PolicyDigest: strings.Repeat("2", 64),
+		Verdict:      "allow",
+	}); err != nil {
+		t.Fatalf("append relative event: %v", err)
+	}
+	if _, err := ReadSessionJournal(journalPath); err != nil {
+		t.Fatalf("read relative journal: %v", err)
+	}
+	if err := withSessionLock(journalPath, func() error { return nil }); err != nil {
+		t.Fatalf("lock relative journal: %v", err)
+	}
+
+	lockPath := journalPath + ".lock"
+	staleCreatedAt := time.Now().UTC().Add(-10 * time.Minute).Format(time.RFC3339)
+	if err := os.WriteFile(lockPath, []byte(`{"created_at":"`+staleCreatedAt+`"}`), 0o600); err != nil {
+		t.Fatalf("write stale relative lock: %v", err)
+	}
+	if !shouldRecoverStaleSessionLock(lockPath, time.Now().UTC()) {
+		t.Fatalf("expected stale relative lock to be recoverable")
+	}
+}
+
+func TestSessionRejectsParentTraversalPaths(t *testing.T) {
+	now := time.Date(2026, time.February, 11, 7, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession("../outside.journal.jsonl", SessionStartOptions{
+		SessionID: "sess_invalid",
+		RunID:     "run_invalid",
+		Now:       now,
+	}); err == nil {
+		t.Fatalf("expected start session to reject parent traversal path")
+	}
+
+	record := sessionJournalRecord{
+		RecordType: "header",
+		Header: &schemarunpack.SessionJournal{
+			SessionID: "sess_invalid",
+			RunID:     "run_invalid",
+			CreatedAt: now,
+			StartedAt: now,
+		},
+	}
+	if err := appendJournalRecord("../outside.journal.jsonl", record); err == nil || !strings.Contains(err.Error(), "session journal directory must be local relative or absolute") {
+		t.Fatalf("expected appendJournalRecord traversal guard error, got %v", err)
+	}
+
+	if err := withSessionLock("../outside.journal.jsonl", func() error { return nil }); err == nil || !strings.Contains(err.Error(), "session lock directory must be local relative or absolute") {
+		t.Fatalf("expected withSessionLock traversal guard error, got %v", err)
+	}
+
+	if shouldRecoverStaleSessionLock("../outside.lock", now) {
+		t.Fatalf("expected traversal lock path not to be recoverable")
+	}
+}
+
+func TestSessionJournalAndLockErrorPaths(t *testing.T) {
+	workDir := t.TempDir()
+	now := time.Date(2026, time.February, 11, 8, 0, 0, 0, time.UTC)
+
+	malformed := filepath.Join(workDir, "sessions", "malformed.journal.jsonl")
+	if err := os.MkdirAll(filepath.Dir(malformed), 0o750); err != nil {
+		t.Fatalf("mkdir malformed journal dir: %v", err)
+	}
+	if err := os.WriteFile(malformed, []byte("{\n"), 0o600); err != nil {
+		t.Fatalf("write malformed journal: %v", err)
+	}
+	if _, err := StartSession(malformed, SessionStartOptions{
+		SessionID: "sess_malformed",
+		RunID:     "run_malformed",
+		Now:       now,
+	}); err == nil || !strings.Contains(err.Error(), "parse line") {
+		t.Fatalf("expected start session parse error from malformed journal, got %v", err)
+	}
+
+	validJournal := filepath.Join(workDir, "sessions", "lock_error.journal.jsonl")
+	if err := withSessionLock(validJournal, func() error { return os.ErrPermission }); err == nil || !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("expected lock callback error to propagate, got %v", err)
+	}
+
+	badJSONLock := filepath.Join(workDir, "sessions", "bad_json.lock")
+	if err := os.WriteFile(badJSONLock, []byte("{"), 0o600); err != nil {
+		t.Fatalf("write bad json lock: %v", err)
+	}
+	if shouldRecoverStaleSessionLock(badJSONLock, time.Now().UTC()) {
+		t.Fatalf("expected bad json lock not to be recoverable")
+	}
+
+	badTimeLock := filepath.Join(workDir, "sessions", "bad_time.lock")
+	if err := os.WriteFile(badTimeLock, []byte(`{"created_at":"not-a-time"}`), 0o600); err != nil {
+		t.Fatalf("write bad time lock: %v", err)
+	}
+	if shouldRecoverStaleSessionLock(badTimeLock, time.Now().UTC()) {
+		t.Fatalf("expected bad timestamp lock not to be recoverable")
+	}
+}
+
+func TestWithSessionLockTimeoutOnFreshLock(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "timeout.journal.jsonl")
+	lockPath := journalPath + ".lock"
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o750); err != nil {
+		t.Fatalf("create lock directory: %v", err)
+	}
+	freshCreatedAt := time.Now().UTC().Format(time.RFC3339)
+	if err := os.WriteFile(lockPath, []byte(`{"created_at":"`+freshCreatedAt+`"}`), 0o600); err != nil {
+		t.Fatalf("write fresh lock: %v", err)
+	}
+	start := time.Now()
+	err := withSessionLock(journalPath, func() error { return nil })
+	if err == nil || !strings.Contains(err.Error(), "lock timeout") {
+		t.Fatalf("expected lock timeout error, got %v", err)
+	}
+	if time.Since(start) < sessionLockTimeout {
+		t.Fatalf("expected lock acquisition to wait for timeout window")
+	}
+}
