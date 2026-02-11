@@ -27,28 +27,61 @@ fi
 echo "==> demo workspace: ${DEMO_WORKDIR}"
 cd "${DEMO_WORKDIR}"
 
-echo "==> doctor"
-"${GAIT_BIN}" doctor --json
-
-echo "==> first win"
+echo "==> gait demo (Runpack in seconds)"
 "${GAIT_BIN}" demo
+
+echo "==> gait verify run_demo (offline integrity proof)"
 "${GAIT_BIN}" verify run_demo --json
 
-echo "==> execution-boundary block example"
-set +e
-"${GAIT_BIN}" policy test \
-  "${REPO_ROOT}/examples/prompt-injection/policy.yaml" \
-  "${REPO_ROOT}/examples/prompt-injection/intent_injected.json" \
-  --json
-policy_exit=$?
-set -e
-if [[ "${policy_exit}" -ne 3 ]]; then
-  echo "unexpected prompt-injection fixture exit code: ${policy_exit}" >&2
-  exit 1
+echo "==> gait gate eval (blocked prompt injection + signed trace)"
+TRACE_PATH="./trace_block.json"
+EVAL_PATH="./gate_eval_block.json"
+POLICY_PATH="./policy_prompt_injection.yaml"
+INTENT_PATH="./intent_prompt_injection.json"
+cp "${REPO_ROOT}/examples/prompt-injection/policy.yaml" "${POLICY_PATH}"
+cp "${REPO_ROOT}/examples/prompt-injection/intent_injected.json" "${INTENT_PATH}"
+SIGNING_PREFIX="demo_signing"
+SIGNING_PRIVATE_KEY="./${SIGNING_PREFIX}_private.key"
+if [[ ! -f "${SIGNING_PRIVATE_KEY}" ]]; then
+  "${GAIT_BIN}" keys init --out-dir "." --prefix "${SIGNING_PREFIX}" --json >/dev/null
 fi
+"${GAIT_BIN}" gate eval \
+  --policy "${POLICY_PATH}" \
+  --intent "${INTENT_PATH}" \
+  --trace-out "${TRACE_PATH}" \
+  --key-mode prod \
+  --private-key "${SIGNING_PRIVATE_KEY}" \
+  --json | tee "${EVAL_PATH}"
 
-echo "==> incident to regression"
-"${GAIT_BIN}" regress init --from run_demo --json
-"${GAIT_BIN}" regress run --json --junit "./junit.xml"
+python3 - "${EVAL_PATH}" "${TRACE_PATH}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+eval_path = Path(sys.argv[1])
+trace_path = Path(sys.argv[2])
+
+eval_payload = json.loads(eval_path.read_text(encoding="utf-8"))
+if eval_payload.get("verdict") != "block":
+    raise SystemExit("expected verdict=block from gait gate eval")
+
+trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
+if not isinstance(trace_payload.get("signature"), dict):
+    raise SystemExit("expected signature object in trace output")
+
+summary = {
+    "verdict": eval_payload.get("verdict"),
+    "reason_codes": eval_payload.get("reason_codes", []),
+    "trace_path": str(trace_path),
+    "trace_key_id": trace_payload["signature"].get("key_id", ""),
+}
+print(json.dumps(summary))
+PY
+
+echo "==> gait run inspect (readable artifact narrative)"
+"${GAIT_BIN}" run inspect --from run_demo
+
+echo "==> gait regress bootstrap (incident -> CI test)"
+"${GAIT_BIN}" regress bootstrap --from run_demo --json --junit "./junit.xml"
 
 echo "demo_90s: pass"

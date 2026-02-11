@@ -6,7 +6,7 @@ This file gives coding assistants and contributors the project-wide rules for bu
 
 Gait is an offline-first, default-safe CLI that makes production AI agent runs **controllable and debuggable by default** via:
 
-- **Runpack**: record, verify, diff, replay (stub by default)
+- **Runpack**: record, inspect, verify, diff, receipt/reduce, replay (stub by default)
 - **Regress**: turn runpacks into deterministic CI regressions
 - **Gate**: evaluate tool-call intent against YAML policy, with approvals and signed traces
 - **Doctor**: first-5-minutes diagnostics (stable JSON + fixes)
@@ -16,7 +16,7 @@ Gait is an offline-first, default-safe CLI that makes production AI agent runs *
 Supporting OSS surfaces shipped in v1:
 
 - **Registry**: signed/pinned skill pack install + verify workflows
-- **MCP bridge/proxy**: tool-call boundary adapters that route through Gate policy evaluation
+- **MCP proxy/bridge/serve**: transport-aware boundary adapters (`stdio`, `SSE`, streamable HTTP) that route through Gate policy evaluation
 
 The durable product contract is **artifacts and schemas**, not a hosted UI.
 
@@ -32,8 +32,8 @@ The durable product contract is **artifacts and schemas**, not a hosted UI.
 ## Architecture boundaries
 
 - **Go is authoritative** for: schemas, canonicalization, hashing, signing/verification, zip packaging, diffing, stub replay, policy evaluation, and CLI output.
-- **Python is an adoption layer only**: capture intent, call local Go, return structured results. No policy parsing/logic in Python.
-- **Wrappers and sidecars are transport only**: all enforce/allow/block decisions come from Go (`gait gate eval`), never framework-local logic.
+- **Python is an adoption layer only**: capture intent, call local Go, return structured results. No policy parsing/logic in Python. Keep SDK ergonomics thin (`ToolAdapter`, minimal decorators), not framework replacement.
+- **Wrappers and sidecars are transport only**: all enforce/allow/block decisions come from Go (`gait gate eval`, `gait mcp proxy`, `gait mcp serve`), never framework-local logic.
 - **Node/TypeScript are not part of the v1 core**. If used later, keep it in adapters or tooling, not the core CLI path.
 
 Current reference adapter set (keep parity): `openai_agents`, `langchain`, `autogen`, `openclaw`, `autogpt`, and the canonical sidecar path.
@@ -76,7 +76,14 @@ Current reference adapter set (keep parity): `openai_agents`, `langchain`, `auto
 - CI should run Go linting + security scans (e.g. `golangci-lint`, `go vet`, `gosec`, `govulncheck`) and Python checks for wrapper code (`ruff`, `mypy`, `bandit`, `pytest`).
 - Prefer a cross-platform CI matrix (macOS/Linux/Windows) and path-filtered workflows for speed.
 - Releases should produce checksums, SBOMs, and signed provenance/attestations; treat release integrity separately from runpack/trace signing.
-- Keep pre-commit and pre-push enforcement active (`make hooks`), with pre-push running `make lint` and `make test`.
+- Keep git hooks active (`make hooks`) with pre-push running `make lint` and `make test`; keep `.pre-commit-config.yaml` aligned with current checks if pre-commit is used locally.
+
+## Source of truth for assistants
+
+- CLI behavior and flag contracts: `cmd/gait/*` usage/help text and command tests in `cmd/gait/*_test.go`.
+- Artifact schemas and compatibility rules: `schemas/*`, `core/*` validators, and contract tests.
+- Acceptance/UAT coverage scope: `docs/uat_functional_plan.md` and `scripts/test_*acceptance*.sh`.
+- If docs and code disagree, treat code/tests as source of truth and patch docs in the same change.
 
 ## Tests (what to add as the repo grows)
 

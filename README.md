@@ -6,6 +6,14 @@ Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
+## Gait In 60s
+
+Terminal speaks for itself: control + proof + regression in under a minute.
+
+[![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)](docs/assets/gait_demo_60s.mp4)
+
+Full quality video (MP4): [docs/assets/gait_demo_60s.mp4](docs/assets/gait_demo_60s.mp4)
+
 ## The Problem
 
 AI agents execute tool calls — database writes, API calls, file mutations — with real authority and real consequences. When something goes wrong, there is no artifact trail, no regression test, and no policy gate that can block the next one. Guardrails scan prompts. Gait decides whether the action runs, and signs the proof either way.
