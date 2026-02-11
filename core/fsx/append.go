@@ -86,7 +86,7 @@ func withAppendFileLock(path string, fn func() error) error {
 			}()
 			return fn()
 		}
-		if !os.IsExist(err) {
+		if !isAppendLockContention(err, lockPath) {
 			return fmt.Errorf("acquire append lock: %w", err)
 		}
 		if shouldRecoverStaleAppendLock(lockPath, time.Now().UTC()) {
@@ -98,6 +98,17 @@ func withAppendFileLock(path string, fn func() error) error {
 		}
 		time.Sleep(appendLockRetry)
 	}
+}
+
+func isAppendLockContention(acquireErr error, lockPath string) bool {
+	if os.IsExist(acquireErr) {
+		return true
+	}
+	if !os.IsPermission(acquireErr) {
+		return false
+	}
+	_, statErr := os.Stat(lockPath)
+	return statErr == nil
 }
 
 func shouldRecoverStaleAppendLock(lockPath string, now time.Time) bool {

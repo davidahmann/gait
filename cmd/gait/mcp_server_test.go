@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -379,14 +378,22 @@ func TestMCPServeHandlerAllowsClientArtifactPathOverridesWhenEnabled(t *testing.
 	if err != nil {
 		t.Fatalf("newMCPServeHandler: %v", err)
 	}
-	requestBody := []byte(fmt.Sprintf(`{
-	  "trace_path":"%s",
-	  "call":{
-	    "name":"tool.search",
-	    "args":{"query":"gait"},
-	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
-	  }
-	}`, tracePath))
+	requestPayload := map[string]any{
+		"trace_path": tracePath,
+		"call": map[string]any{
+			"name": "tool.search",
+			"args": map[string]any{"query": "gait"},
+			"context": map[string]any{
+				"identity":   "alice",
+				"workspace":  "/repo/gait",
+				"session_id": "sess-1",
+			},
+		},
+	}
+	requestBody, err := json.Marshal(requestPayload)
+	if err != nil {
+		t.Fatalf("marshal request body: %v", err)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
 	request.Header.Set("content-type", "application/json")
 	recorder := httptest.NewRecorder()

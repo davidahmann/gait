@@ -271,7 +271,7 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 			LastCheckpointSequence: 0,
 			LastCheckpointDigest:   "",
 		}
-		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			state.JournalSizeBytes = info.Size()
 		}
 		return writeSessionState(sessionStatePath(normalizedPath), state)
@@ -334,7 +334,7 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 		state.ProducerVersion = producerVersion
 		state.LastSequence = sequence
 		state.EventCount++
-		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			state.JournalSizeBytes = info.Size()
 		}
 		return writeSessionState(sessionStatePath(normalizedPath), state)
@@ -536,7 +536,7 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 		state.LastCheckpointIndex = checkpoint.CheckpointIndex
 		state.LastCheckpointSequence = checkpoint.SequenceEnd
 		state.LastCheckpointDigest = checkpoint.CheckpointDigest
-		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			state.JournalSizeBytes = info.Size()
 		}
 		if writeErr := writeSessionState(sessionStatePath(normalizedPath), state); writeErr != nil {
@@ -719,7 +719,7 @@ func ReadSessionChain(path string) (schemarunpack.SessionChain, error) {
 		return schemarunpack.SessionChain{}, err
 	}
 	// #nosec G304 -- chain path is explicit local user input.
-	content, err := os.ReadFile(normalizedPath)
+	content, err := readFileLocalOrAbsolutePath(normalizedPath)
 	if err != nil {
 		return schemarunpack.SessionChain{}, fmt.Errorf("read session chain: %w", err)
 	}
@@ -934,7 +934,7 @@ func readSessionState(path string) (sessionState, error) {
 		return sessionState{}, err
 	}
 	// #nosec G304 -- session state path is derived from validated local journal path.
-	content, err := os.ReadFile(normalizedPath)
+	content, err := readFileLocalOrAbsolutePath(normalizedPath)
 	if err != nil {
 		return sessionState{}, fmt.Errorf("read session state: %w", err)
 	}
@@ -1020,7 +1020,7 @@ func buildSessionStateFromJournal(path string, journal schemarunpack.SessionJour
 		lastCheckpointDigest = strings.TrimSpace(last.CheckpointDigest)
 	}
 	sizeBytes := int64(0)
-	if info, err := os.Stat(path); err == nil {
+	if info, err := statLocalOrAbsolutePath(path); err == nil {
 		sizeBytes = info.Size()
 	}
 	producerVersion := strings.TrimSpace(journal.ProducerVersion)
@@ -1060,7 +1060,7 @@ func buildSessionStateFromJournal(path string, journal schemarunpack.SessionJour
 func loadOrRebuildSessionState(journalPath string) (sessionState, error) {
 	statePath := sessionStatePath(journalPath)
 	currentSize := int64(-1)
-	if info, err := os.Stat(journalPath); err == nil {
+	if info, err := statLocalOrAbsolutePath(journalPath); err == nil {
 		currentSize = info.Size()
 	}
 	state, err := readSessionState(statePath)
@@ -1118,6 +1118,43 @@ func uniqueSortedStrings(values []string) []string {
 	return out
 }
 
+func statLocalOrAbsolutePath(path string) (os.FileInfo, error) {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return nil, err
+	}
+	if filepath.IsLocal(normalizedPath) {
+		return os.Stat(normalizedPath)
+	}
+	if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
+		return os.Stat(normalizedPath)
+	}
+	if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
+		return os.Stat(normalizedPath)
+	}
+	return nil, fmt.Errorf("path must be local relative or absolute")
+}
+
+func readFileLocalOrAbsolutePath(path string) ([]byte, error) {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return nil, err
+	}
+	if filepath.IsLocal(normalizedPath) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return os.ReadFile(normalizedPath)
+	}
+	if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return os.ReadFile(normalizedPath)
+	}
+	if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return os.ReadFile(normalizedPath)
+	}
+	return nil, fmt.Errorf("path must be local relative or absolute")
+}
+
 func withSessionLock(journalPath string, fn func() error) error {
 	lockConfig := resolveSessionLockConfig()
 	lockPath := journalPath + ".lock"
@@ -1172,7 +1209,7 @@ func withSessionLock(journalPath string, fn func() error) error {
 			defer func() { _ = os.Remove(lockPath) }()
 			return fn()
 		}
-		if !os.IsExist(err) {
+		if !isSessionLockContention(err, lockPath) {
 			return fmt.Errorf("acquire session lock: %w", err)
 		}
 		if shouldRecoverStaleSessionLockWithThreshold(lockPath, time.Now().UTC(), lockConfig.StaleAfter) {
@@ -1199,6 +1236,17 @@ func withSessionLock(journalPath string, fn func() error) error {
 		}
 		time.Sleep(lockConfig.Retry)
 	}
+}
+
+func isSessionLockContention(acquireErr error, lockPath string) bool {
+	if os.IsExist(acquireErr) {
+		return true
+	}
+	if !os.IsPermission(acquireErr) {
+		return false
+	}
+	_, statErr := os.Stat(lockPath)
+	return statErr == nil
 }
 
 func shouldRecoverStaleSessionLock(lockPath string, now time.Time) bool {
@@ -1382,7 +1430,7 @@ func CompactSessionJournal(path string, opts SessionCompactionOptions) (SessionC
 		}
 
 		bytesBefore := int64(0)
-		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			bytesBefore = info.Size()
 		}
 		bytesAfter := int64(compacted.Len())

@@ -430,6 +430,29 @@ func TestSessionLockRecoveryAndHelpers(t *testing.T) {
 	}
 }
 
+func TestIsSessionLockContention(t *testing.T) {
+	t.Parallel()
+
+	lockPath := filepath.Join(t.TempDir(), "session.lock")
+	permissionErr := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+
+	if !isSessionLockContention(os.ErrExist, lockPath) {
+		t.Fatalf("expected os.ErrExist to be lock contention")
+	}
+	if isSessionLockContention(permissionErr, lockPath) {
+		t.Fatalf("expected permission error without existing lock to be non-contention")
+	}
+	if err := os.WriteFile(lockPath, []byte("lock"), 0o600); err != nil {
+		t.Fatalf("write lock file: %v", err)
+	}
+	if !isSessionLockContention(permissionErr, lockPath) {
+		t.Fatalf("expected permission error with lock present to be contention")
+	}
+	if isSessionLockContention(os.ErrNotExist, lockPath) {
+		t.Fatalf("expected non-contention error")
+	}
+}
+
 func TestVerifySessionChainRequireSignature(t *testing.T) {
 	workDir := t.TempDir()
 	journalPath := filepath.Join(workDir, "sessions", "require_signature.journal.jsonl")
@@ -660,6 +683,38 @@ func TestSessionRejectsParentTraversalPaths(t *testing.T) {
 
 	if shouldRecoverStaleSessionLock("../outside.lock", now) {
 		t.Fatalf("expected traversal lock path not to be recoverable")
+	}
+}
+
+func TestSessionPathHelpersEnforceLocalOrAbsolute(t *testing.T) {
+	workDir := t.TempDir()
+	filePath := filepath.Join(workDir, "session_state.json")
+	content := []byte(`{"ok":true}`)
+	if err := os.WriteFile(filePath, content, 0o600); err != nil {
+		t.Fatalf("write helper fixture: %v", err)
+	}
+
+	info, err := statLocalOrAbsolutePath(filePath)
+	if err != nil {
+		t.Fatalf("statLocalOrAbsolutePath absolute path: %v", err)
+	}
+	if info.Size() != int64(len(content)) {
+		t.Fatalf("unexpected stat size: got=%d want=%d", info.Size(), len(content))
+	}
+
+	read, err := readFileLocalOrAbsolutePath(filePath)
+	if err != nil {
+		t.Fatalf("readFileLocalOrAbsolutePath absolute path: %v", err)
+	}
+	if string(read) != string(content) {
+		t.Fatalf("unexpected helper read content: %q", string(read))
+	}
+
+	if _, err := statLocalOrAbsolutePath(filepath.Join("..", "outside.json")); err == nil {
+		t.Fatalf("expected traversal stat path to be rejected")
+	}
+	if _, err := readFileLocalOrAbsolutePath(filepath.Join("..", "outside.json")); err == nil {
+		t.Fatalf("expected traversal read path to be rejected")
 	}
 }
 

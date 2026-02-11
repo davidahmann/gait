@@ -104,6 +104,29 @@ func TestAppendPayloadCapacity(t *testing.T) {
 	}
 }
 
+func TestIsAppendLockContention(t *testing.T) {
+	t.Parallel()
+
+	lockPath := filepath.Join(t.TempDir(), "append.lock")
+	permissionErr := &os.PathError{Op: "open", Path: lockPath, Err: os.ErrPermission}
+
+	if !isAppendLockContention(os.ErrExist, lockPath) {
+		t.Fatalf("expected os.ErrExist to be treated as lock contention")
+	}
+	if isAppendLockContention(permissionErr, lockPath) {
+		t.Fatalf("expected permission error without lock file to be non-contention")
+	}
+	if err := os.WriteFile(lockPath, []byte("lock"), 0o600); err != nil {
+		t.Fatalf("write lock file: %v", err)
+	}
+	if !isAppendLockContention(permissionErr, lockPath) {
+		t.Fatalf("expected permission error with existing lock file to be contention")
+	}
+	if isAppendLockContention(os.ErrNotExist, lockPath) {
+		t.Fatalf("expected unrelated error to be non-contention")
+	}
+}
+
 func splitLines(raw []byte) []string {
 	lines := make([]string, 0)
 	current := make([]byte, 0)
