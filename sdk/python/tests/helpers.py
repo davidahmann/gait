@@ -42,7 +42,8 @@ def run_gate_eval(args):
         verdict = "dry_run"
         reason_codes = ["dry_run_selected"]
 
-    trace_path = arg_value(args, "--trace-out", "trace_fake.json")
+    default_trace_path = str(Path(intent_path).with_name("trace_fake.json"))
+    trace_path = arg_value(args, "--trace-out", default_trace_path)
     trace_payload = {
         "schema_id": "gait.gate.trace",
         "schema_version": "1.0.0",

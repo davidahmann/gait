@@ -41,7 +41,8 @@ def test_capture_intent_and_evaluate_gate_allow(tmp_path: Path) -> None:
     assert result.ok
     assert result.verdict == "allow"
     assert result.reason_codes == ["default_allow"]
-    assert result.trace_path == "trace_fake.json"
+    assert result.trace_path is not None
+    assert result.trace_path.endswith("trace_fake.json")
 
 
 def test_evaluate_gate_require_approval_exit_code(tmp_path: Path) -> None:
