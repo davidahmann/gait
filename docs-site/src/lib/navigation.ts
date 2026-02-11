@@ -61,6 +61,13 @@ export const navigation: NavItem[] = [
     ],
   },
   {
+    title: 'Blog',
+    href: '/docs/blog/openclaw_24h_boundary_enforcement',
+    children: [
+      { title: '2,880 Tool Calls Gate-Checked', href: '/docs/blog/openclaw_24h_boundary_enforcement' },
+    ],
+  },
+  {
     title: 'Ecosystem',
     href: '/docs/ecosystem/awesome',
     children: [
