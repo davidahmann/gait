@@ -19,6 +19,8 @@ Prove that a user can:
 
 Windows is included in CI matrix validation, but this local script focuses on Linux/macOS hosts.
 
+The UAT script refreshes Homebrew taps before reinstall to avoid stale formula reads during release validation.
+
 ## Required Scripts
 
 - `scripts/test_uat_local.sh` (orchestrator; this document's entrypoint)
@@ -72,11 +74,11 @@ GAIT_UAT_RELEASE_VERSION=vX.Y.Z bash scripts/test_uat_local.sh --output-dir ./ga
 bash scripts/test_uat_local.sh --skip-brew
 ```
 
-Full-contract run across all install paths (use only when release/brew tag includes current epics):
+Legacy fallback when validating an older release tag that predates the extended suites:
 
 ```bash
-GAIT_UAT_RELEASE_VERSION=<released-tag-with-v1.8> \
-bash scripts/test_uat_local.sh --full-contracts-all-paths
+GAIT_UAT_RELEASE_VERSION=<older-tag> \
+bash scripts/test_uat_local.sh --baseline-install-paths
 ```
 
 ## Outputs
@@ -92,11 +94,11 @@ bash scripts/test_uat_local.sh --full-contracts-all-paths
   - source binary
   - release-installer binary
   - Homebrew binary (unless explicitly skipped)
-- Source binary must pass extended suite:
+- All install paths must pass the extended suite by default:
   - `v1.8` acceptance
   - OpenClaw install skill checks
   - Beads bridge checks
-- If `--full-contracts-all-paths` is enabled, release-installer and Homebrew binaries must also pass the extended suite.
+- Use `--baseline-install-paths` only for legacy tag compatibility checks.
 - Final summary reports no `FAIL` entries
 
 ## Failure Handling

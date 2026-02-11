@@ -7,21 +7,22 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUTPUT_DIR="${REPO_ROOT}/gait-out/uat_local"
 RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-}"
 SKIP_BREW="false"
-FULL_CONTRACTS_ALL_PATHS="false"
+FULL_CONTRACTS_ALL_PATHS="true"
 
 usage() {
   cat <<'EOF'
 Run local end-to-end UAT across source, release-installer, and Homebrew install paths.
 
 Usage:
-  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--full-contracts-all-paths]
+  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--baseline-install-paths]
 
 Options:
   --output-dir <path>      UAT artifacts directory (default: gait-out/uat_local)
   --release-version <tag>  GitHub release tag for installer path (default: latest published release)
   --skip-brew              Skip Homebrew install path checks
+  --baseline-install-paths  Run baseline suites on release/brew install paths (legacy releases only)
   --full-contracts-all-paths
-                            Run v1.8 + extended checks on release and brew binaries too
+                            Deprecated alias for full coverage on all install paths (default behavior)
   -h, --help               Show this help
 EOF
 }
@@ -44,6 +45,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --full-contracts-all-paths)
       FULL_CONTRACTS_ALL_PATHS="true"
+      shift
+      ;;
+    --baseline-install-paths)
+      FULL_CONTRACTS_ALL_PATHS="false"
       shift
       ;;
     -h|--help)
@@ -103,7 +108,7 @@ run_step() {
 run_binary_contract_suite() {
   local label="$1"
   local bin_path="$2"
-  local mode="${3:-baseline}"
+  local mode="${3:-extended}"
   if [[ ! -x "${bin_path}" ]]; then
     log "FAIL ${label}: binary not executable at ${bin_path}"
     exit 1
@@ -133,6 +138,11 @@ resolve_release_version
 
 log "UAT output dir: ${OUTPUT_DIR}"
 log "Release version: ${RELEASE_VERSION}"
+if [[ "${FULL_CONTRACTS_ALL_PATHS}" == "true" ]]; then
+  log "Install-path capability mode: extended (source + release-install + brew)"
+else
+  log "Install-path capability mode: baseline for release-install + brew (legacy override)"
+fi
 
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
 run_step "quality_test" make -C "${REPO_ROOT}" test
@@ -159,6 +169,7 @@ if [[ "${SKIP_BREW}" == "true" ]]; then
   log "SKIP brew_path (requested)"
 else
   run_step "brew_tap" brew tap davidahmann/tap
+  run_step "brew_update" brew update
   run_step "brew_reinstall" brew reinstall davidahmann/tap/gait
   run_step "brew_test_formula" brew test davidahmann/tap/gait
 
