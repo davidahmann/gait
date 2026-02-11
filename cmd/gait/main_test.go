@@ -49,6 +49,21 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "policy", "fmt", "--help"}); code != exitOK {
 		t.Fatalf("run policy fmt help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "policy", "simulate", "--help"}); code != exitOK {
+		t.Fatalf("run policy simulate help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "keys", "--help"}); code != exitOK {
+		t.Fatalf("run keys help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "keys", "init", "--help"}); code != exitOK {
+		t.Fatalf("run keys init help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "keys", "rotate", "--help"}); code != exitOK {
+		t.Fatalf("run keys rotate help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "keys", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run keys verify help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "trace", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run trace help: expected %d got %d", exitOK, code)
 	}
@@ -365,6 +380,184 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 		"--json",
 	}); code != exitMissingDependency {
 		t.Fatalf("doctor missing schemas: expected %d got %d", exitMissingDependency, code)
+	}
+}
+
+func TestPolicySimulateCommand(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	baselinePolicyPath := filepath.Join(workDir, "policy_baseline.yaml")
+	mustWriteFile(t, baselinePolicyPath, "default_verdict: allow\n")
+
+	candidatePolicyPath := filepath.Join(workDir, "policy_candidate.yaml")
+	mustWriteFile(t, candidatePolicyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: block-write",
+		"    priority: 1",
+		"    effect: block",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [blocked_write]",
+	}, "\n")+"\n")
+
+	fixtureDir := filepath.Join(workDir, "fixtures")
+	if err := os.MkdirAll(fixtureDir, 0o750); err != nil {
+		t.Fatalf("mkdir fixtures: %v", err)
+	}
+	writeIntentFixture(t, filepath.Join(fixtureDir, "intent_write.json"), "tool.write")
+	writeIntentFixture(t, filepath.Join(fixtureDir, "intent_read.json"), "tool.read")
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runPolicySimulate([]string{
+			"--baseline", baselinePolicyPath,
+			"--policy", candidatePolicyPath,
+			"--fixtures", fixtureDir,
+			"--json",
+		})
+	})
+	if code != exitOK {
+		t.Fatalf("runPolicySimulate expected %d got %d", exitOK, code)
+	}
+
+	var output policySimulateOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode policy simulate output: %v (%s)", err, raw)
+	}
+	if !output.OK {
+		t.Fatalf("expected successful policy simulate output: %#v", output)
+	}
+	if output.FixturesTotal != 2 {
+		t.Fatalf("expected fixtures_total=2 got %d", output.FixturesTotal)
+	}
+	if output.ChangedFixtures != 1 {
+		t.Fatalf("expected changed_fixtures=1 got %d", output.ChangedFixtures)
+	}
+	if output.Recommendation != "require_approval" {
+		t.Fatalf("unexpected recommendation: %s", output.Recommendation)
+	}
+	if len(output.Changed) != 1 {
+		t.Fatalf("expected one changed fixture entry got %#v", output.Changed)
+	}
+	if output.Changed[0].FixturePath != filepath.Join(fixtureDir, "intent_write.json") {
+		t.Fatalf("unexpected changed fixture path: %s", output.Changed[0].FixturePath)
+	}
+}
+
+func TestKeysLifecycleCommands(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runKeys(nil); code != exitInvalidInput {
+		t.Fatalf("runKeys without args expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runKeys([]string{"unknown"}); code != exitInvalidInput {
+		t.Fatalf("runKeys unknown subcommand expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runKeys([]string{"--explain"}); code != exitOK {
+		t.Fatalf("runKeys explain expected %d got %d", exitOK, code)
+	}
+
+	keysDir := filepath.Join(workDir, "keys")
+	var initCode int
+	initRaw := captureStdout(t, func() {
+		initCode = runKeys([]string{
+			"init",
+			"--out-dir", keysDir,
+			"--prefix", "gaittest",
+			"--json",
+		})
+	})
+	if initCode != exitOK {
+		t.Fatalf("runKeys init expected %d got %d", exitOK, initCode)
+	}
+	var initOutput keysInitOutput
+	if err := json.Unmarshal([]byte(initRaw), &initOutput); err != nil {
+		t.Fatalf("decode keys init output: %v (%s)", err, initRaw)
+	}
+	if !initOutput.OK {
+		t.Fatalf("expected keys init ok output: %#v", initOutput)
+	}
+	if _, err := os.Stat(initOutput.PrivateKeyPath); err != nil {
+		t.Fatalf("expected private key file: %v", err)
+	}
+	if _, err := os.Stat(initOutput.PublicKeyPath); err != nil {
+		t.Fatalf("expected public key file: %v", err)
+	}
+
+	var verifyCode int
+	verifyRaw := captureStdout(t, func() {
+		verifyCode = runKeys([]string{
+			"verify",
+			"--private-key", initOutput.PrivateKeyPath,
+			"--public-key", initOutput.PublicKeyPath,
+			"--json",
+		})
+	})
+	if verifyCode != exitOK {
+		t.Fatalf("runKeys verify expected %d got %d", exitOK, verifyCode)
+	}
+	var verifyOutput keysVerifyOutput
+	if err := json.Unmarshal([]byte(verifyRaw), &verifyOutput); err != nil {
+		t.Fatalf("decode keys verify output: %v (%s)", err, verifyRaw)
+	}
+	if !verifyOutput.OK {
+		t.Fatalf("expected keys verify ok output: %#v", verifyOutput)
+	}
+	if verifyOutput.KeyID == "" {
+		t.Fatalf("expected key id in keys verify output")
+	}
+
+	if code := runKeys([]string{"verify", "--json"}); code != exitInvalidInput {
+		t.Fatalf("runKeys verify missing private key expected %d got %d", exitInvalidInput, code)
+	}
+
+	var rotateCode int
+	rotateRaw := captureStdout(t, func() {
+		rotateCode = runKeys([]string{
+			"rotate",
+			"--out-dir", keysDir,
+			"--prefix", "gaittest",
+			"--json",
+		})
+	})
+	if rotateCode != exitOK {
+		t.Fatalf("runKeys rotate expected %d got %d", exitOK, rotateCode)
+	}
+	var rotateOutput keysInitOutput
+	if err := json.Unmarshal([]byte(rotateRaw), &rotateOutput); err != nil {
+		t.Fatalf("decode keys rotate output: %v (%s)", err, rotateRaw)
+	}
+	if !rotateOutput.OK {
+		t.Fatalf("expected keys rotate ok output: %#v", rotateOutput)
+	}
+	if !strings.HasPrefix(rotateOutput.Prefix, "gaittest_") {
+		t.Fatalf("expected rotated prefix with timestamp, got %s", rotateOutput.Prefix)
+	}
+
+	if _, err := createSigningKeypair(keysDir, "gaittest", false); err == nil {
+		t.Fatalf("expected createSigningKeypair duplicate paths error")
+	}
+	if _, err := createSigningKeypair("", "x", false); err == nil {
+		t.Fatalf("expected createSigningKeypair out-dir error")
+	}
+	if _, err := createSigningKeypair(keysDir, "", false); err == nil {
+		t.Fatalf("expected createSigningKeypair prefix error")
+	}
+	if _, err := createSigningKeypair(keysDir, "gaittest", true); err != nil {
+		t.Fatalf("expected createSigningKeypair force overwrite success: %v", err)
+	}
+
+	if got := keySourceLabel(initOutput.PublicKeyPath, ""); !strings.HasPrefix(got, "path:") {
+		t.Fatalf("expected path key source label, got %s", got)
+	}
+	if got := keySourceLabel("", "GAIT_KEY_ENV"); got != "env:GAIT_KEY_ENV" {
+		t.Fatalf("expected env key source label, got %s", got)
+	}
+	if got := keySourceLabel("", ""); got != "derived" {
+		t.Fatalf("expected derived key source label, got %s", got)
 	}
 }
 
@@ -1712,6 +1905,57 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	if code := writePolicyTestOutput(false, policyTestOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
 		t.Fatalf("writePolicyTestOutput text: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := writePolicyInitOutput(false, policyInitOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writePolicyInitOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writePolicyInitOutput(false, policyInitOutput{
+		OK:           true,
+		Template:     "baseline-highrisk",
+		PolicyPath:   "gait.policy.yaml",
+		NextCommands: []string{"gait policy validate gait.policy.yaml --json"},
+	}, exitOK); code != exitOK {
+		t.Fatalf("writePolicyInitOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writePolicyValidateOutput(false, policyValidateOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writePolicyValidateOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writePolicyValidateOutput(false, policyValidateOutput{OK: true, Summary: "ok"}, exitOK); code != exitOK {
+		t.Fatalf("writePolicyValidateOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writePolicyFmtOutput(false, policyFmtOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writePolicyFmtOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writePolicyFmtOutput(false, policyFmtOutput{
+		OK:      true,
+		Path:    "gait.policy.yaml",
+		Changed: true,
+		Written: true,
+	}, exitOK); code != exitOK {
+		t.Fatalf("writePolicyFmtOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writePolicySimulateOutput(false, policySimulateOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writePolicySimulateOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writePolicySimulateOutput(false, policySimulateOutput{OK: true, Summary: "policy simulate ok"}, exitOK); code != exitOK {
+		t.Fatalf("writePolicySimulateOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeKeysInitOutput(false, keysInitOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeKeysInitOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeKeysInitOutput(false, keysInitOutput{
+		OK:             true,
+		KeyID:          "kid",
+		PublicKeyPath:  "pub.key",
+		PrivateKeyPath: "priv.key",
+	}, exitOK); code != exitOK {
+		t.Fatalf("writeKeysInitOutput text ok: expected %d got %d", exitOK, code)
+	}
+	if code := writeKeysVerifyOutput(false, keysVerifyOutput{OK: false, Error: "bad"}, exitInvalidInput); code != exitInvalidInput {
+		t.Fatalf("writeKeysVerifyOutput text err: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := writeKeysVerifyOutput(false, keysVerifyOutput{OK: true, KeyID: "kid"}, exitOK); code != exitOK {
+		t.Fatalf("writeKeysVerifyOutput text ok: expected %d got %d", exitOK, code)
+	}
 
 	if code := writeRegressInitOutput(true, regressInitOutput{OK: true, FixtureName: "f"}, exitOK); code != exitOK {
 		t.Fatalf("writeRegressInitOutput json: expected %d got %d", exitOK, code)
@@ -1957,7 +2201,14 @@ func TestOutputWritersAndUsagePrinters(t *testing.T) {
 	printGateEvalUsage()
 	printPolicyUsage()
 	printPolicyInitUsage()
+	printPolicyValidateUsage()
+	printPolicyFmtUsage()
+	printPolicySimulateUsage()
 	printPolicyTestUsage()
+	printKeysUsage()
+	printKeysInitUsage()
+	printKeysRotateUsage()
+	printKeysVerifyUsage()
 	printTraceUsage()
 	printTraceVerifyUsage()
 	printRegressUsage()

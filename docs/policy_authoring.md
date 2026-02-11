@@ -18,6 +18,7 @@ gait policy init baseline-mediumrisk --out gait.policy.yaml --json
 gait policy validate gait.policy.yaml --json
 gait policy fmt gait.policy.yaml --write --json
 gait policy test gait.policy.yaml examples/policy/intents/intent_write.json --json
+gait policy simulate --baseline examples/policy/base_medium_risk.yaml --policy gait.policy.yaml --fixtures examples/policy/intents --json
 ```
 
 Interpretation:
@@ -25,6 +26,7 @@ Interpretation:
 - `policy validate` checks strict YAML parsing + policy semantics only.
 - `policy fmt` rewrites normalized YAML deterministically.
 - `policy test` evaluates one intent fixture and returns verdict, reason codes, and `matched_rule`.
+- `policy simulate` compares baseline vs candidate verdicts over fixture corpora and recommends rollout stage (`observe`, `require_approval`, `enforce`).
 
 ## Failure Semantics
 
@@ -59,8 +61,19 @@ This gives fast feedback for enum values and unknown keys before runtime.
 ## Team Workflow Recommendation
 
 - Require `policy validate` + fixture `policy test` in pre-merge CI.
+- Run `policy simulate` against representative fixture sets before changing rollout stage.
 - Keep policy files formatted by `policy fmt --write` before review.
 - Review policy changes with fixture deltas and matched-rule evidence, not raw YAML diff alone.
+
+## Signing Key Lifecycle (Local)
+
+For production verification profiles and trace signing workflows, manage keys with CLI primitives:
+
+```bash
+gait keys init --out-dir ./gait-out/keys --prefix prod --json
+gait keys rotate --out-dir ./gait-out/keys --prefix prod --json
+gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./gait-out/keys/prod_public.key --json
+```
 
 ## Example Policy Packs
 

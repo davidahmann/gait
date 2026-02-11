@@ -12,6 +12,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - End-to-end runtime and operational flows: `docs/flows.md`
 - Core concepts and terminology: `docs/concepts/mental_model.md`
 - Normative artifact and schema contracts: `docs/contracts/primitive_contract.md`
+- Artifact graph and cross-artifact compatibility contract: `docs/contracts/artifact_graph.md`
 - Endpoint action taxonomy contract: `docs/contracts/endpoint_action_model.md`
 - Skill provenance contract: `docs/contracts/skill_provenance.md`
 - Integration steps and acceptance checklist: `docs/integration_checklist.md`
@@ -58,12 +59,13 @@ This index defines documentation ownership so docs stay aligned with code and av
 4. `docs/architecture.md`
 5. `docs/flows.md`
 6. `docs/contracts/primitive_contract.md`
-7. `docs/integration_checklist.md`
-8. `docs/deployment/cloud_runtime_patterns.md`
-9. `docs/policy_authoring.md`
-10. `docs/policy_rollout.md`
-11. `docs/approval_runbook.md`
-12. `docs/homebrew.md`
-13. `docs/zero_trust_stack.md`
-14. `docs/external_tool_registry_policy.md`
-15. `docs/siem_ingestion_recipes.md`
+7. `docs/contracts/artifact_graph.md`
+8. `docs/integration_checklist.md`
+9. `docs/deployment/cloud_runtime_patterns.md`
+10. `docs/policy_authoring.md`
+11. `docs/policy_rollout.md`
+12. `docs/approval_runbook.md`
+13. `docs/homebrew.md`
+14. `docs/zero_trust_stack.md`
+15. `docs/external_tool_registry_policy.md`
+16. `docs/siem_ingestion_recipes.md`

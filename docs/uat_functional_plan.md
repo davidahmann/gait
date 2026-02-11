@@ -40,7 +40,8 @@ The acceptance suites together exercise command families including:
 - `demo`, `verify`, `run replay`, `run diff`, `run receipt`
 - `run inspect` (human-readable runpack timeline)
 - `regress init`, `regress run`, `regress bootstrap`
-- `policy init`, `policy validate`, `policy fmt`, `policy test`
+- `policy init`, `policy validate`, `policy fmt`, `policy test`, `policy simulate`
+- `keys init`, `keys rotate`, `keys verify`
 - `gate eval`, `approve`
 - `scout signal`
 - `guard pack`, `guard verify`, `incident pack`

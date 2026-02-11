@@ -192,6 +192,7 @@ func TestNormalizeAdoptionCommandVariants(t *testing.T) {
 		{arguments: []string{"gait", "version"}, expected: "version"},
 		{arguments: []string{"gait", "--version"}, expected: "version"},
 		{arguments: []string{"gait", "regress", "run"}, expected: "regress run"},
+		{arguments: []string{"gait", "keys", "verify"}, expected: "keys verify"},
 		{arguments: []string{"gait", "doctor", "adoption"}, expected: "doctor adoption"},
 		{arguments: []string{"gait", "doctor", "--json"}, expected: "doctor"},
 		{arguments: []string{"gait", "--explain"}, expected: "explain"},

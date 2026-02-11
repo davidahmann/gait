@@ -264,12 +264,16 @@ gait policy fmt examples/policy-test/allow.yaml --write --json
 gait policy test examples/policy-test/allow.yaml examples/policy-test/intent.json --json
 gait policy test examples/policy-test/block.yaml examples/policy-test/intent.json --json
 gait policy test examples/policy-test/require_approval.yaml examples/policy-test/intent.json --json
+gait policy simulate --baseline examples/policy-test/allow.yaml --policy examples/policy-test/block.yaml --fixtures examples/policy-test/intent.json --json
+gait keys init --out-dir ./gait-out/keys --prefix integration --json
+gait keys verify --private-key ./gait-out/keys/integration_private.key --public-key ./gait-out/keys/integration_public.key --json
 ```
 
 Evidence to capture:
 
 - Exit codes map to expected decisions (`0`, `3`, `4`).
 - `policy test --json` includes `matched_rule` when rule match is explicit.
+- `policy simulate --json` returns fixture-delta counts and stage recommendation before enforce changes.
 
 ## Step 7: Integration Sign-Off
 

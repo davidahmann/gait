@@ -54,6 +54,7 @@ export const navigation: NavItem[] = [
     href: '/docs/contracts/primitive_contract',
     children: [
       { title: 'Primitive Contract', href: '/docs/contracts/primitive_contract' },
+      { title: 'Artifact Graph Contract', href: '/docs/contracts/artifact_graph' },
       { title: 'Endpoint Action Model', href: '/docs/contracts/endpoint_action_model' },
       { title: 'Skill Provenance', href: '/docs/contracts/skill_provenance' },
       { title: 'Runtime SLO', href: '/docs/slo/runtime_slo' },

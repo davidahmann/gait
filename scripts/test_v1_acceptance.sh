@@ -173,8 +173,71 @@ if not fmt_second.get("ok"):
 if fmt_second.get("changed", False) is not False:
     raise SystemExit("policy fmt second run should be idempotent")
 PY
+
+  if "$BIN_PATH" policy simulate --help >/dev/null 2>&1; then
+    "$BIN_PATH" policy simulate --baseline allow.yaml --policy block.yaml --fixtures intent.json --json > policy_simulate.json
+    python3 - <<'PY'
+import json
+from pathlib import Path
+
+simulate_payload = json.loads(Path("policy_simulate.json").read_text(encoding="utf-8"))
+if not simulate_payload.get("ok"):
+    raise SystemExit("policy simulate returned ok=false")
+if simulate_payload.get("fixtures_total") != 1:
+    raise SystemExit(f"unexpected fixtures_total: {simulate_payload.get('fixtures_total')}")
+if simulate_payload.get("changed_fixtures", 0) < 1:
+    raise SystemExit("expected changed_fixtures >= 1")
+if simulate_payload.get("recommendation") != "require_approval":
+    raise SystemExit(f"unexpected recommendation: {simulate_payload.get('recommendation')}")
+PY
+  fi
 else
   echo "skip policy validate/fmt checks (binary does not support these commands yet)"
+fi
+
+if "$BIN_PATH" keys --help >/dev/null 2>&1; then
+  "$BIN_PATH" keys init --out-dir "$WORK_DIR/keys" --prefix acceptance --json > keys_init.json
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("keys_init.json").read_text(encoding="utf-8"))
+if not payload.get("ok"):
+    raise SystemExit("keys init returned ok=false")
+private_path = Path(payload.get("private_key_path", ""))
+public_path = Path(payload.get("public_key_path", ""))
+if not private_path.exists():
+    raise SystemExit(f"missing private key path: {private_path}")
+if not public_path.exists():
+    raise SystemExit(f"missing public key path: {public_path}")
+PY
+
+  private_key_path="$(python3 - <<'PY'
+import json
+from pathlib import Path
+payload = json.loads(Path("keys_init.json").read_text(encoding="utf-8"))
+print(payload["private_key_path"])
+PY
+)"
+  public_key_path="$(python3 - <<'PY'
+import json
+from pathlib import Path
+payload = json.loads(Path("keys_init.json").read_text(encoding="utf-8"))
+print(payload["public_key_path"])
+PY
+)"
+
+  "$BIN_PATH" keys verify --private-key "$private_key_path" --public-key "$public_key_path" --json > keys_verify.json
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("keys_verify.json").read_text(encoding="utf-8"))
+if not payload.get("ok"):
+    raise SystemExit("keys verify returned ok=false")
+if payload.get("key_id", "") == "":
+    raise SystemExit("keys verify missing key_id")
+PY
 fi
 
 set +e

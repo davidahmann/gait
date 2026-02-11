@@ -296,3 +296,34 @@ If any command fails, fix and rerun from the failing step.
 5. Run validation + UAT.
 6. Commit and push.
 7. Monitor CI/docs to green; fix forward if red.
+
+---
+
+## OSS Compounding Scope (Post-v2 Policy Ergonomics)
+
+This section captures the next OSS compounding loop and explicitly separates it from enterprise control-plane features.
+
+### OSS Now (Implement in CLI + local docs/tests)
+
+1. Artifact specification hardening:
+   - publish a formal artifact protocol document for runpack/trace/regress linkage and hash references
+2. Historical policy simulation:
+   - compare candidate policy vs baseline policy across deterministic intent fixtures
+   - emit verdict deltas and rollout-stage recommendation (`observe`, `require_approval`, `enforce`)
+3. Regress corpus accumulation:
+   - optional append-only local history output for repeated regress runs
+4. Key lifecycle basics:
+   - local key init/rotate/verify commands for ed25519 signing workflow
+5. Adapter conformance baseline:
+   - keep adapter-parity suite and contract docs aligned as the de-facto conformance kit
+6. Local corpus query primitives:
+   - maintain CLI-first query surface (`run inspect`, `scout signal`) as local read path
+
+### ENT Later (Tracked in `PLAN_ENT.md`)
+
+- centralized artifact indexing and cross-team search
+- org policy inheritance/composition
+- fleet-scale simulation and rollout impact analysis
+- enterprise KMS/HSM integrations and trust hierarchy
+- compliance control mapping/reporting
+- hosted workflow integrations (ticketing/SIEM/alerting)

@@ -122,6 +122,7 @@ gait policy validate examples/policy/base_low_risk.yaml --json
 gait policy fmt examples/policy/base_low_risk.yaml --write --json
 gait policy test examples/policy/base_low_risk.yaml examples/policy/intents/intent_read.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json
+gait policy simulate --baseline examples/policy/base_low_risk.yaml --policy examples/policy/base_high_risk.yaml --fixtures examples/policy/intents --json
 ```
 
 - low risk read -> `allow`
@@ -223,6 +224,13 @@ gait gate eval \
 
 The demo key in `examples/scenarios/keys/` is for walkthroughs only. In production, provision your own key and replace `stub` with `env` or `command` broker.
 
+Generate and validate local signing keys:
+
+```bash
+gait keys init --out-dir ./gait-out/keys --prefix prod --json
+gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./gait-out/keys/prod_public.key --json
+```
+
 For staged rollout, simulate mode reports what *would have* happened without enforcing:
 
 ```bash
@@ -269,7 +277,9 @@ gait regress run [--junit junit.xml]               # run regressions
 gait policy validate <policy.yaml>                 # strict syntax+semantic validation
 gait policy fmt <policy.yaml> [--write]            # deterministic policy formatting
 gait policy test <policy.yaml> <fixture.json>      # test policy offline
+gait policy simulate --baseline <p> --policy <p> --fixtures <csv>  # compare candidate policy vs baseline
 gait gate eval --policy <p> --intent <i>           # evaluate tool intent
+gait keys init|rotate|verify                        # local signing key lifecycle
 gait mcp proxy --policy <p> --call <payload.json>  # one-shot MCP/tool-call boundary
 gait mcp serve --policy <p> --listen <addr>        # long-running local interception service
 gait approve --intent-digest ... --ttl ...         # mint approval token

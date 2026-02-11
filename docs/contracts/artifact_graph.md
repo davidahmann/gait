@@ -1,0 +1,46 @@
+# Artifact Graph Contract (Normative)
+
+Status: normative for OSS v1.x producers and consumers.
+
+This contract defines how Gait artifacts compose into a verifiable graph over time.
+
+## Scope
+
+Applies to:
+
+- Runpack artifacts (`gait.runpack.*`)
+- Gate traces (`gait.gate.trace`)
+- Regress results (`gait.regress.result`)
+- Evidence packs (`gait.guard.pack`)
+
+## Contract Rules
+
+- Artifacts MUST be schema-versioned and self-describing (`schema_id`, `schema_version`).
+- Digests MUST be computed from canonical JSON (JCS/RFC 8785) for any signed or hashed content.
+- Cross-artifact references SHOULD use immutable identifiers (digest, run_id, trace_id) and MUST NOT rely on mutable display names.
+- Producers MUST preserve deterministic serialization for stable verification and diff behavior.
+- Consumers MUST treat unknown additive fields as non-breaking within major `v1.x`.
+
+## Graph Integrity Expectations
+
+- A `TraceRecord` MUST bind verdict context (`intent_digest`, `policy_digest`) for one tool decision.
+- A `Runpack` MUST include the deterministic run timeline and manifest digests for replay and verification.
+- A `RegressResult` SHOULD reference fixture/run identity so failures can map back to captured artifacts.
+- Evidence bundles SHOULD include pointers back to the exact runpack/trace/regress artifacts they summarize.
+
+## Compatibility Model
+
+- Within `v1.x`, artifact schemas are append-only for required behavior.
+- Breaking field removals/renames require a major version increment.
+- New optional fields are allowed when existing readers can ignore them safely.
+
+## Why This Exists
+
+The artifact graph is the durable system of record for:
+
+- incident reconstruction
+- policy drift comparisons
+- regression baselines
+- audit evidence continuity
+
+The contract above keeps that graph verifiable and stable across tool versions.

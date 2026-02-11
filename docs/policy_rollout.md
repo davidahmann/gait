@@ -23,6 +23,7 @@ gait policy fmt examples/policy/base_medium_risk.yaml --write --json
 gait policy test examples/policy/base_low_risk.yaml examples/policy/intents/intent_read.json --json
 gait policy test examples/policy/base_medium_risk.yaml examples/policy/intents/intent_write.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json
+gait policy simulate --baseline examples/policy/base_medium_risk.yaml --policy examples/policy/base_high_risk.yaml --fixtures examples/policy/intents --json
 ```
 
 Rollout gate:
@@ -46,6 +47,7 @@ Interpretation:
 Rollout gate:
 
 - Move forward only when false positives are at or below your threshold.
+- Use `gait policy simulate` with baseline and candidate policy versions to quantify changed fixture verdicts before switching stages.
 
 ## Stage 2: Dry-Run Execution Boundary
 
