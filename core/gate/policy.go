@@ -156,7 +156,11 @@ func LoadPolicyFile(path string) (Policy, error) {
 
 func ParsePolicyYAML(data []byte) (Policy, error) {
 	var policy Policy
-	if err := yaml.Unmarshal(data, &policy); err != nil {
+	if err := yaml.UnmarshalWithOptions(data, &policy, yaml.Strict(), yaml.DisallowUnknownField()); err != nil {
+		formatted := strings.TrimSpace(yaml.FormatError(err, false, false))
+		if formatted != "" {
+			return Policy{}, fmt.Errorf("parse policy yaml: %s", formatted)
+		}
 		return Policy{}, fmt.Errorf("parse policy yaml: %w", err)
 	}
 	return normalizePolicy(policy)

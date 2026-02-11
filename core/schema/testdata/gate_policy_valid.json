@@ -1,0 +1,24 @@
+{
+  "schema_id": "gait.gate.policy",
+  "schema_version": "1.0.0",
+  "default_verdict": "require_approval",
+  "fail_closed": {
+    "enabled": true,
+    "risk_classes": ["critical", "high"],
+    "required_fields": ["targets", "arg_provenance", "endpoint_class"]
+  },
+  "rules": [
+    {
+      "name": "block-delete",
+      "priority": 1,
+      "effect": "block",
+      "match": {
+        "tool_names": ["tool.delete"],
+        "risk_classes": ["critical", "high"],
+        "target_kinds": ["path"]
+      },
+      "reason_codes": ["blocked_delete"],
+      "violations": ["destructive_action"]
+    }
+  ]
+}

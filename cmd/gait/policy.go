@@ -12,6 +12,7 @@ import (
 
 	"github.com/davidahmann/gait/core/gate"
 	"github.com/davidahmann/gait/core/policytest"
+	"github.com/goccy/go-yaml"
 )
 
 type policyTestOutput struct {
@@ -24,6 +25,7 @@ type policyTestOutput struct {
 	Verdict       string   `json:"verdict,omitempty"`
 	ReasonCodes   []string `json:"reason_codes,omitempty"`
 	Violations    []string `json:"violations,omitempty"`
+	MatchedRule   string   `json:"matched_rule,omitempty"`
 	Summary       string   `json:"summary,omitempty"`
 	Error         string   `json:"error,omitempty"`
 }
@@ -34,6 +36,29 @@ type policyInitOutput struct {
 	PolicyPath   string   `json:"policy_path,omitempty"`
 	NextCommands []string `json:"next_commands,omitempty"`
 	Error        string   `json:"error,omitempty"`
+}
+
+type policyValidateOutput struct {
+	OK             bool   `json:"ok"`
+	SchemaID       string `json:"schema_id,omitempty"`
+	SchemaVersion  string `json:"schema_version,omitempty"`
+	PolicyDigest   string `json:"policy_digest,omitempty"`
+	DefaultVerdict string `json:"default_verdict,omitempty"`
+	RuleCount      int    `json:"rule_count,omitempty"`
+	Summary        string `json:"summary,omitempty"`
+	Error          string `json:"error,omitempty"`
+}
+
+type policyFmtOutput struct {
+	OK             bool   `json:"ok"`
+	Path           string `json:"path,omitempty"`
+	Written        bool   `json:"written,omitempty"`
+	Changed        bool   `json:"changed,omitempty"`
+	PolicyDigest   string `json:"policy_digest,omitempty"`
+	DefaultVerdict string `json:"default_verdict,omitempty"`
+	RuleCount      int    `json:"rule_count,omitempty"`
+	Formatted      string `json:"formatted,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 //go:embed policy_templates/baseline-lowrisk.yaml
@@ -65,7 +90,7 @@ var policyTemplateAliases = map[string]string{
 
 func runPolicy(arguments []string) int {
 	if hasExplainFlag(arguments) {
-		return writeExplain("Initialize baseline policy scaffolds and run deterministic policy validation workflows against intent fixtures.")
+		return writeExplain("Initialize, validate, format, and test Gate policies deterministically before rollout.")
 	}
 	if len(arguments) == 0 {
 		printPolicyUsage()
@@ -74,6 +99,10 @@ func runPolicy(arguments []string) int {
 	switch arguments[0] {
 	case "init":
 		return runPolicyInit(arguments[1:])
+	case "validate":
+		return runPolicyValidate(arguments[1:])
+	case "fmt":
+		return runPolicyFmt(arguments[1:])
 	case "test":
 		return runPolicyTest(arguments[1:])
 	default:
@@ -161,6 +190,8 @@ func runPolicyInit(arguments []string) int {
 	}
 
 	nextCommands := []string{
+		fmt.Sprintf("gait policy validate %s --json", trimmedOutPath),
+		fmt.Sprintf("gait policy fmt %s --write --json", trimmedOutPath),
 		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_read.json --json", trimmedOutPath),
 		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_write.json --json", trimmedOutPath),
 		fmt.Sprintf("gait policy test %s examples/policy/intents/intent_delete.json --json", trimmedOutPath),
@@ -172,6 +203,143 @@ func runPolicyInit(arguments []string) int {
 		PolicyPath:   trimmedOutPath,
 		NextCommands: nextCommands,
 	}, exitOK)
+}
+
+func runPolicyValidate(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Parse and normalize one policy file with strict YAML checks and return deterministic metadata.")
+	}
+	arguments = reorderInterspersedFlags(arguments, nil)
+
+	flagSet := flag.NewFlagSet("policy-validate", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writePolicyValidateOutput(jsonOutput, policyValidateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printPolicyValidateUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) != 1 {
+		return writePolicyValidateOutput(jsonOutput, policyValidateOutput{
+			OK:    false,
+			Error: "expected <policy.yaml>",
+		}, exitInvalidInput)
+	}
+
+	policyPath := flagSet.Args()[0]
+	policy, err := gate.LoadPolicyFile(policyPath)
+	if err != nil {
+		return writePolicyValidateOutput(jsonOutput, policyValidateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	policyDigest, err := gate.PolicyDigest(policy)
+	if err != nil {
+		return writePolicyValidateOutput(jsonOutput, policyValidateOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	summary := fmt.Sprintf("policy validate ok: default=%s rules=%d digest=%s", policy.DefaultVerdict, len(policy.Rules), policyDigest)
+	return writePolicyValidateOutput(jsonOutput, policyValidateOutput{
+		OK:             true,
+		SchemaID:       policy.SchemaID,
+		SchemaVersion:  policy.SchemaVersion,
+		PolicyDigest:   policyDigest,
+		DefaultVerdict: policy.DefaultVerdict,
+		RuleCount:      len(policy.Rules),
+		Summary:        summary,
+	}, exitOK)
+}
+
+func runPolicyFmt(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Normalize one policy file and emit deterministic YAML formatting with optional write-back.")
+	}
+	arguments = reorderInterspersedFlags(arguments, nil)
+
+	flagSet := flag.NewFlagSet("policy-fmt", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var writeFlag bool
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.BoolVar(&writeFlag, "write", false, "write formatted YAML back to the policy path")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printPolicyFmtUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) != 1 {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{
+			OK:    false,
+			Error: "expected <policy.yaml>",
+		}, exitInvalidInput)
+	}
+
+	policyPath := strings.TrimSpace(flagSet.Args()[0])
+	if policyPath == "" {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{
+			OK:    false,
+			Error: "policy path must not be empty",
+		}, exitInvalidInput)
+	}
+	content, err := os.ReadFile(policyPath) // #nosec G304 -- explicit local user input path.
+	if err != nil {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	policy, err := gate.ParsePolicyYAML(content)
+	if err != nil {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	formatted, err := formatPolicyYAML(policy)
+	if err != nil {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	changed := string(content) != string(formatted)
+	policyDigest, err := gate.PolicyDigest(policy)
+	if err != nil {
+		return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	if writeFlag && changed {
+		fileInfo, statErr := os.Stat(policyPath)
+		mode := os.FileMode(0o600)
+		if statErr == nil {
+			mode = fileInfo.Mode().Perm()
+		}
+		if err := os.WriteFile(policyPath, formatted, mode); err != nil {
+			return writePolicyFmtOutput(jsonOutput, policyFmtOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+	}
+
+	output := policyFmtOutput{
+		OK:             true,
+		Path:           policyPath,
+		Written:        writeFlag && changed,
+		Changed:        changed,
+		PolicyDigest:   policyDigest,
+		DefaultVerdict: policy.DefaultVerdict,
+		RuleCount:      len(policy.Rules),
+	}
+	if !writeFlag && jsonOutput {
+		output.Formatted = string(formatted)
+	}
+
+	if !writeFlag && !jsonOutput {
+		fmt.Print(string(formatted))
+		return exitOK
+	}
+	return writePolicyFmtOutput(jsonOutput, output, exitOK)
 }
 
 func runPolicyTest(arguments []string) int {
@@ -242,6 +410,7 @@ func runPolicyTest(arguments []string) int {
 		Verdict:       runResult.Result.Verdict,
 		ReasonCodes:   runResult.Result.ReasonCodes,
 		Violations:    runResult.Result.Violations,
+		MatchedRule:   runResult.Result.MatchedRule,
 		Summary:       runResult.Summary,
 	}, exitCode)
 }
@@ -274,9 +443,46 @@ func writePolicyInitOutput(jsonOutput bool, output policyInitOutput, exitCode in
 	return exitCode
 }
 
+func writePolicyValidateOutput(jsonOutput bool, output policyValidateOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Println(output.Summary)
+		return exitCode
+	}
+	fmt.Printf("policy validate error: %s\n", output.Error)
+	return exitCode
+}
+
+func writePolicyFmtOutput(jsonOutput bool, output policyFmtOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("policy fmt ok: path=%s changed=%t written=%t rules=%d\n", output.Path, output.Changed, output.Written, output.RuleCount)
+		return exitCode
+	}
+	fmt.Printf("policy fmt error: %s\n", output.Error)
+	return exitCode
+}
+
+func formatPolicyYAML(policy gate.Policy) ([]byte, error) {
+	encoded, err := yaml.MarshalWithOptions(policy, yaml.Indent(2))
+	if err != nil {
+		return nil, fmt.Errorf("encode policy yaml: %w", err)
+	}
+	if len(encoded) == 0 || encoded[len(encoded)-1] != '\n' {
+		encoded = append(encoded, '\n')
+	}
+	return encoded, nil
+}
+
 func printPolicyUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait policy init <baseline-lowrisk|baseline-mediumrisk|baseline-highrisk> [--out gait.policy.yaml] [--force] [--json] [--explain]")
+	fmt.Println("  gait policy validate <policy.yaml> [--json] [--explain]")
+	fmt.Println("  gait policy fmt <policy.yaml> [--write] [--json] [--explain]")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 }
 
@@ -290,4 +496,14 @@ func printPolicyInitUsage() {
 func printPolicyTestUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
+}
+
+func printPolicyValidateUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait policy validate <policy.yaml> [--json] [--explain]")
+}
+
+func printPolicyFmtUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait policy fmt <policy.yaml> [--write] [--json] [--explain]")
 }

@@ -140,14 +140,42 @@ python3 - <<'PY'
 import json
 from pathlib import Path
 
-payload = json.loads(Path("policy_init.json").read_text(encoding="utf-8"))
-if not payload.get("ok"):
+init_payload = json.loads(Path("policy_init.json").read_text(encoding="utf-8"))
+
+if not init_payload.get("ok"):
     raise SystemExit("policy init returned ok=false")
-if payload.get("template") != "baseline-highrisk":
-    raise SystemExit(f"unexpected template: {payload.get('template')}")
-if payload.get("policy_path") != "generated_policy.yaml":
-    raise SystemExit(f"unexpected policy path: {payload.get('policy_path')}")
+if init_payload.get("template") != "baseline-highrisk":
+    raise SystemExit(f"unexpected template: {init_payload.get('template')}")
+if init_payload.get("policy_path") != "generated_policy.yaml":
+    raise SystemExit(f"unexpected policy path: {init_payload.get('policy_path')}")
 PY
+
+if "$BIN_PATH" policy validate --help >/dev/null 2>&1 && "$BIN_PATH" policy fmt --help >/dev/null 2>&1; then
+  "$BIN_PATH" policy validate generated_policy.yaml --json > policy_validate.json
+  "$BIN_PATH" policy fmt generated_policy.yaml --write --json > policy_fmt_first.json
+  "$BIN_PATH" policy fmt generated_policy.yaml --write --json > policy_fmt_second.json
+  python3 - <<'PY'
+import json
+from pathlib import Path
+
+validate_payload = json.loads(Path("policy_validate.json").read_text(encoding="utf-8"))
+fmt_first = json.loads(Path("policy_fmt_first.json").read_text(encoding="utf-8"))
+fmt_second = json.loads(Path("policy_fmt_second.json").read_text(encoding="utf-8"))
+
+if not validate_payload.get("ok"):
+    raise SystemExit("policy validate returned ok=false")
+if validate_payload.get("default_verdict") != "block":
+    raise SystemExit(f"unexpected validated default verdict: {validate_payload.get('default_verdict')}")
+if not fmt_first.get("ok"):
+    raise SystemExit("first policy fmt returned ok=false")
+if not fmt_second.get("ok"):
+    raise SystemExit("second policy fmt returned ok=false")
+if fmt_second.get("changed", False) is not False:
+    raise SystemExit("policy fmt second run should be idempotent")
+PY
+else
+  echo "skip policy validate/fmt checks (binary does not support these commands yet)"
+fi
 
 set +e
 "$BIN_PATH" policy test block.yaml intent.json --json > block.json

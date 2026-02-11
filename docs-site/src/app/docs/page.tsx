@@ -22,6 +22,7 @@ const tracks = [
     steps: [
       { label: 'Integration Checklist', href: '/docs/integration_checklist' },
       { label: 'Cloud Runtime Patterns', href: '/docs/deployment/cloud_runtime_patterns' },
+      { label: 'Policy Authoring', href: '/docs/policy_authoring' },
       { label: 'Project Defaults', href: '/docs/project_defaults' },
       { label: 'CI Regress Kit', href: '/docs/ci_regress_kit' },
     ],

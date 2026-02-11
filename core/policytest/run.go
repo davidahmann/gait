@@ -37,12 +37,13 @@ func Run(opts RunOptions) (RunResult, error) {
 		return RunResult{}, fmt.Errorf("normalize intent: %w", err)
 	}
 
-	gateResult, err := gate.EvaluatePolicy(opts.Policy, opts.Intent, gate.EvalOptions{
+	evalOutcome, err := gate.EvaluatePolicyDetailed(opts.Policy, opts.Intent, gate.EvalOptions{
 		ProducerVersion: opts.ProducerVersion,
 	})
 	if err != nil {
 		return RunResult{}, err
 	}
+	gateResult := evalOutcome.Result
 
 	producerVersion := strings.TrimSpace(opts.ProducerVersion)
 	if producerVersion == "" {
@@ -59,6 +60,7 @@ func Run(opts RunOptions) (RunResult, error) {
 		Verdict:         gateResult.Verdict,
 		ReasonCodes:     gateResult.ReasonCodes,
 		Violations:      gateResult.Violations,
+		MatchedRule:     evalOutcome.MatchedRule,
 	}
 
 	return RunResult{

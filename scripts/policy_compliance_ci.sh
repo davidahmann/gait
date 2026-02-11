@@ -8,7 +8,7 @@ results_path="gait-out/policy_compliance_results.jsonl"
 cat >"$summary_path" <<'EOF'
 # Policy Compliance Summary
 
-| Case | Expected Exit | Actual Exit | Verdict | Reason Codes | Result |
+| Case | Expected Exit | Actual Exit | Signal | Detail | Result |
 | --- | --- | --- | --- | --- | --- |
 EOF
 
@@ -35,10 +35,10 @@ run_case() {
     verdict="unknown"
   fi
 
-  local reason_codes
-  reason_codes="$(printf '%s' "$output" | sed -n 's/.*"reason_codes":\[\([^]]*\)\].*/\1/p')"
-  if [[ -z "$reason_codes" ]]; then
-    reason_codes="none"
+  local detail
+  detail="$(printf '%s' "$output" | sed -n 's/.*"reason_codes":\[\([^]]*\)\].*/\1/p')"
+  if [[ -z "$detail" ]]; then
+    detail="none"
   fi
 
   local result
@@ -50,7 +50,79 @@ run_case() {
   fi
 
   printf '| %s | `%s` | `%s` | `%s` | `%s` | **%s** |\n' \
-    "$case_name" "$expected_exit" "$actual_exit" "$verdict" "$reason_codes" "$result" >>"$summary_path"
+    "$case_name" "$expected_exit" "$actual_exit" "$verdict" "$detail" "$result" >>"$summary_path"
+}
+
+run_validate_case() {
+  local case_name="$1"
+  local policy_path="$2"
+  local expected_exit="$3"
+
+  local output
+  local actual_exit
+  set +e
+  output="$(./gait policy validate "$policy_path" --json 2>&1)"
+  actual_exit=$?
+  set -e
+
+  printf '%s\n' "$output" >>"$results_path"
+
+  local digest
+  digest="$(printf '%s' "$output" | sed -n 's/.*"policy_digest":"\([^"]*\)".*/\1/p')"
+  if [[ -z "$digest" ]]; then
+    digest="none"
+  fi
+
+  local result
+  if [[ "$actual_exit" -eq "$expected_exit" ]]; then
+    result="pass"
+  else
+    result="fail"
+    failed_cases=1
+  fi
+
+  printf '| %s | `%s` | `%s` | `%s` | `%s` | **%s** |\n' \
+    "$case_name" "$expected_exit" "$actual_exit" "validate" "$digest" "$result" >>"$summary_path"
+}
+
+run_fmt_idempotence_case() {
+  local case_name="$1"
+  local source_policy="$2"
+
+  local tmp_policy="gait-out/policy_compliance_fmt.yaml"
+  cp "$source_policy" "$tmp_policy"
+
+  local first_output second_output
+  local first_exit second_exit
+  set +e
+  first_output="$(./gait policy fmt "$tmp_policy" --write --json 2>&1)"
+  first_exit=$?
+  second_output="$(./gait policy fmt "$tmp_policy" --write --json 2>&1)"
+  second_exit=$?
+  set -e
+
+  printf '%s\n' "$first_output" >>"$results_path"
+  printf '%s\n' "$second_output" >>"$results_path"
+
+  local second_changed
+  second_changed="$(printf '%s' "$second_output" | sed -n 's/.*"changed":\([^,}]*\).*/\1/p')"
+  if [[ -z "$second_changed" ]]; then
+    second_changed="false"
+  fi
+
+  local result="pass"
+  if [[ "$first_exit" -ne 0 || "$second_exit" -ne 0 || "$second_changed" != "false" ]]; then
+    result="fail"
+    failed_cases=1
+  fi
+
+  local actual_exit="$second_exit"
+  if [[ "$result" == "fail" && "$first_exit" -ne 0 ]]; then
+    actual_exit="$first_exit"
+  fi
+
+  printf '| %s | `%s` | `%s` | `%s` | `%s` | **%s** |\n' \
+    "$case_name" "0" "$actual_exit" "fmt" "second_changed=${second_changed}" "$result" >>"$summary_path"
 }
 
 failed_cases=0
@@ -64,6 +136,16 @@ run_case "prompt-injection-block" "examples/prompt-injection/policy.yaml" "examp
 run_case "template-low-read" "examples/policy/base_low_risk.yaml" "examples/policy/intents/intent_read.json" 0
 run_case "template-medium-write" "examples/policy/base_medium_risk.yaml" "examples/policy/intents/intent_write.json" 4
 run_case "template-high-delete" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delete.json" 3
+run_validate_case "validate-template-low" "examples/policy/base_low_risk.yaml" 0
+run_validate_case "validate-template-medium" "examples/policy/base_medium_risk.yaml" 0
+run_validate_case "validate-template-high" "examples/policy/base_high_risk.yaml" 0
+
+invalid_policy_path="gait-out/policy_invalid.yaml"
+cat >"$invalid_policy_path" <<'EOF'
+default_verdit: allow
+EOF
+run_validate_case "validate-invalid-unknown-field" "$invalid_policy_path" 6
+run_fmt_idempotence_case "fmt-idempotence-template-medium" "examples/policy/base_medium_risk.yaml"
 
 cat "$summary_path"
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then

@@ -12,4 +12,5 @@ type PolicyTestResult struct {
 	Verdict         string    `json:"verdict"`
 	ReasonCodes     []string  `json:"reason_codes"`
 	Violations      []string  `json:"violations"`
+	MatchedRule     string    `json:"matched_rule,omitempty"`
 }

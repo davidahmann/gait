@@ -93,6 +93,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_result_invalid.json"),
 		},
 		{
+			name:       "gate_policy",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "policy.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_policy_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_policy_invalid.json"),
+		},
+		{
 			name:       "gate_trace_record",
 			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "trace_record.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_trace_record_valid.json"),

@@ -72,6 +72,10 @@ func TestParsePolicyValidationErrors(t *testing.T) {
 			yaml: `default_verdict: nope`,
 		},
 		{
+			name: "unknown_top_level_field",
+			yaml: `default_verdit: allow`,
+		},
+		{
 			name: "invalid_rule_effect",
 			yaml: `
 rules:
@@ -157,6 +161,16 @@ rules:
 				t.Fatalf("expected parse failure")
 			}
 		})
+	}
+}
+
+func TestParsePolicyYAMLRejectsUnknownFields(t *testing.T) {
+	_, err := ParsePolicyYAML([]byte("default_verdit: allow\n"))
+	if err == nil {
+		t.Fatalf("expected parse failure for unknown field")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "unknown field") {
+		t.Fatalf("expected unknown field error, got %v", err)
 	}
 }
 

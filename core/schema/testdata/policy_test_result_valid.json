@@ -7,5 +7,6 @@
   "intent_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "verdict": "allow",
   "reason_codes": [],
-  "violations": []
+  "violations": [],
+  "matched_rule": "allow-read"
 }

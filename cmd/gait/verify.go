@@ -453,6 +453,8 @@ func printUsage() {
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")
 	fmt.Println("  gait policy init <baseline-lowrisk|baseline-mediumrisk|baseline-highrisk> [--out gait.policy.yaml] [--force] [--json] [--explain]")
+	fmt.Println("  gait policy validate <policy.yaml> [--json] [--explain]")
+	fmt.Println("  gait policy fmt <policy.yaml> [--write] [--json] [--explain]")
 	fmt.Println("  gait policy test <policy.yaml> <intent_fixture.json> [--json] [--explain]")
 	fmt.Println("  gait trace verify <path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait regress init --from <run_id|path> [--json] [--explain]")

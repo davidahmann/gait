@@ -43,6 +43,12 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "policy", "test", "--help"}); code != exitOK {
 		t.Fatalf("run policy help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "policy", "validate", "--help"}); code != exitOK {
+		t.Fatalf("run policy validate help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "policy", "fmt", "--help"}); code != exitOK {
+		t.Fatalf("run policy fmt help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "trace", "verify", "--help"}); code != exitOK {
 		t.Fatalf("run trace help: expected %d got %d", exitOK, code)
 	}
@@ -783,6 +789,12 @@ func TestValidationBranches(t *testing.T) {
 	if code := runPolicyTest([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runPolicyTest missing positional args: expected %d got %d", exitInvalidInput, code)
 	}
+	if code := runPolicyValidate([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runPolicyValidate missing positional args: expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runPolicyFmt([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runPolicyFmt missing positional args: expected %d got %d", exitInvalidInput, code)
+	}
 	if code := runTraceVerify([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runTraceVerify missing path: expected %d got %d", exitInvalidInput, code)
 	}
@@ -944,6 +956,136 @@ func TestPolicyInitScaffolds(t *testing.T) {
 	}
 	if code := runPolicyInit([]string{"baseline_high_risk", "--out", policyPath, "--force", "--json"}); code != exitOK {
 		t.Fatalf("expected alias + force overwrite to succeed, got %d", code)
+	}
+}
+
+func TestPolicyValidateFmtAndMatchedRuleOutput(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: block",
+		"rules:",
+		"  - name: allow-write",
+		"    priority: 10",
+		"    effect: allow",
+		"    match:",
+		"      tool_names: [tool.write]",
+		"    reason_codes: [allow_write]",
+	}, "\n")+"\n")
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	var validateCode int
+	validateRaw := captureStdout(t, func() {
+		validateCode = runPolicyValidate([]string{"--json", policyPath})
+	})
+	if validateCode != exitOK {
+		t.Fatalf("runPolicyValidate: expected %d got %d", exitOK, validateCode)
+	}
+	var validateOutput policyValidateOutput
+	if err := json.Unmarshal([]byte(validateRaw), &validateOutput); err != nil {
+		t.Fatalf("decode policy validate output: %v", err)
+	}
+	if !validateOutput.OK {
+		t.Fatalf("policy validate returned ok=false: %#v", validateOutput)
+	}
+	if validateOutput.RuleCount != 1 {
+		t.Fatalf("policy validate expected 1 rule, got %d", validateOutput.RuleCount)
+	}
+	if validateOutput.DefaultVerdict != "block" {
+		t.Fatalf("policy validate default verdict mismatch: %s", validateOutput.DefaultVerdict)
+	}
+	if strings.TrimSpace(validateOutput.PolicyDigest) == "" {
+		t.Fatalf("policy validate expected policy digest")
+	}
+	var validateTextCode int
+	validateText := captureStdout(t, func() {
+		validateTextCode = runPolicyValidate([]string{policyPath})
+	})
+	if validateTextCode != exitOK {
+		t.Fatalf("runPolicyValidate text: expected %d got %d", exitOK, validateTextCode)
+	}
+	if !strings.Contains(validateText, "policy validate ok:") {
+		t.Fatalf("policy validate text output mismatch: %s", validateText)
+	}
+
+	var fmtWriteCode int
+	fmtWriteRaw := captureStdout(t, func() {
+		fmtWriteCode = runPolicyFmt([]string{"--write", "--json", policyPath})
+	})
+	if fmtWriteCode != exitOK {
+		t.Fatalf("runPolicyFmt write: expected %d got %d", exitOK, fmtWriteCode)
+	}
+	var fmtWriteOutput policyFmtOutput
+	if err := json.Unmarshal([]byte(fmtWriteRaw), &fmtWriteOutput); err != nil {
+		t.Fatalf("decode policy fmt write output: %v", err)
+	}
+	if !fmtWriteOutput.OK {
+		t.Fatalf("policy fmt write returned ok=false: %#v", fmtWriteOutput)
+	}
+
+	var fmtIdempotentCode int
+	fmtIdempotentRaw := captureStdout(t, func() {
+		fmtIdempotentCode = runPolicyFmt([]string{"--write", "--json", policyPath})
+	})
+	if fmtIdempotentCode != exitOK {
+		t.Fatalf("runPolicyFmt second write: expected %d got %d", exitOK, fmtIdempotentCode)
+	}
+	var fmtIdempotent policyFmtOutput
+	if err := json.Unmarshal([]byte(fmtIdempotentRaw), &fmtIdempotent); err != nil {
+		t.Fatalf("decode policy fmt second write output: %v", err)
+	}
+	if fmtIdempotent.Changed {
+		t.Fatalf("policy fmt expected idempotent output on second write")
+	}
+
+	var fmtJSONCode int
+	fmtJSONRaw := captureStdout(t, func() {
+		fmtJSONCode = runPolicyFmt([]string{"--json", policyPath})
+	})
+	if fmtJSONCode != exitOK {
+		t.Fatalf("runPolicyFmt json: expected %d got %d", exitOK, fmtJSONCode)
+	}
+	var fmtJSONOutput policyFmtOutput
+	if err := json.Unmarshal([]byte(fmtJSONRaw), &fmtJSONOutput); err != nil {
+		t.Fatalf("decode policy fmt json output: %v", err)
+	}
+	if strings.TrimSpace(fmtJSONOutput.Formatted) == "" {
+		t.Fatalf("expected non-empty formatted payload in policy fmt json output")
+	}
+
+	var fmtStdoutCode int
+	fmtStdout := captureStdout(t, func() {
+		fmtStdoutCode = runPolicyFmt([]string{policyPath})
+	})
+	if fmtStdoutCode != exitOK {
+		t.Fatalf("runPolicyFmt stdout: expected %d got %d", exitOK, fmtStdoutCode)
+	}
+	if !strings.Contains(fmtStdout, "schema_id: gait.gate.policy") {
+		t.Fatalf("policy fmt stdout missing schema metadata: %s", fmtStdout)
+	}
+
+	var testCode int
+	testRaw := captureStdout(t, func() {
+		testCode = runPolicyTest([]string{policyPath, intentPath, "--json"})
+	})
+	if testCode != exitOK {
+		t.Fatalf("runPolicyTest matched-rule: expected %d got %d", exitOK, testCode)
+	}
+	var testOutput policyTestOutput
+	if err := json.Unmarshal([]byte(testRaw), &testOutput); err != nil {
+		t.Fatalf("decode policy test output: %v", err)
+	}
+	if testOutput.MatchedRule != "allow-write" {
+		t.Fatalf("expected matched_rule allow-write, got %q", testOutput.MatchedRule)
+	}
+
+	invalidPolicyPath := filepath.Join(workDir, "policy_invalid.yaml")
+	mustWriteFile(t, invalidPolicyPath, "default_verdit: allow\n")
+	if code := runPolicyValidate([]string{"--json", invalidPolicyPath}); code != exitInvalidInput {
+		t.Fatalf("runPolicyValidate unknown field: expected %d got %d", exitInvalidInput, code)
 	}
 }
 

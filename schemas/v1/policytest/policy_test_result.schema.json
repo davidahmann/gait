@@ -23,7 +23,8 @@
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
     "reason_codes": { "type": "array", "items": { "type": "string" } },
-    "violations": { "type": "array", "items": { "type": "string" } }
+    "violations": { "type": "array", "items": { "type": "string" } },
+    "matched_rule": { "type": "string" }
   },
   "additionalProperties": false
 }

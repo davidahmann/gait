@@ -16,6 +16,10 @@ Move policy controls into production safely:
 Run deterministic policy fixture tests on every PR:
 
 ```bash
+gait policy validate examples/policy/base_low_risk.yaml --json
+gait policy validate examples/policy/base_medium_risk.yaml --json
+gait policy validate examples/policy/base_high_risk.yaml --json
+gait policy fmt examples/policy/base_medium_risk.yaml --write --json
 gait policy test examples/policy/base_low_risk.yaml examples/policy/intents/intent_read.json --json
 gait policy test examples/policy/base_medium_risk.yaml examples/policy/intents/intent_write.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json
@@ -24,6 +28,7 @@ gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/int
 Rollout gate:
 
 - Do not ship policy changes unless fixture tests pass.
+- Use strict-parse failures (`exit 6`) as fail-closed pre-merge blockers.
 
 ## Stage 1: Observe (Simulate Only)
 
@@ -36,7 +41,7 @@ gait gate eval --policy examples/policy/base_medium_risk.yaml --intent examples/
 Interpretation:
 
 - Exit code remains `0` because simulation is non-enforcing.
-- Use `verdict`, `reason_codes`, and trace outputs for tuning.
+- Use `verdict`, `reason_codes`, `matched_rule`, and trace outputs for tuning.
 
 Rollout gate:
 
@@ -116,6 +121,8 @@ Use stable gate exit codes as control signals:
 ## Recommended CI Wiring
 
 - PR workflow:
+  - `gait policy validate` on changed policy files
+  - `gait policy fmt --write` idempotence check on policy fixtures
   - `gait policy test` fixture suite
   - targeted `gait gate eval --simulate` checks for changed policies
 - nightly workflow:

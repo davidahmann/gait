@@ -259,6 +259,8 @@ Required outcome:
 Validation commands:
 
 ```bash
+gait policy validate examples/policy-test/allow.yaml --json
+gait policy fmt examples/policy-test/allow.yaml --write --json
 gait policy test examples/policy-test/allow.yaml examples/policy-test/intent.json --json
 gait policy test examples/policy-test/block.yaml examples/policy-test/intent.json --json
 gait policy test examples/policy-test/require_approval.yaml examples/policy-test/intent.json --json
@@ -267,6 +269,7 @@ gait policy test examples/policy-test/require_approval.yaml examples/policy-test
 Evidence to capture:
 
 - Exit codes map to expected decisions (`0`, `3`, `4`).
+- `policy test --json` includes `matched_rule` when rule match is explicit.
 
 ## Step 7: Integration Sign-Off
 

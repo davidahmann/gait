@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/policy.schema.json",
+  "title": "Gate Policy",
+  "type": "object",
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.policy" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "default_verdict": {
+      "type": "string",
+      "enum": ["allow", "block", "dry_run", "require_approval"]
+    },
+    "fail_closed": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "risk_classes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "required_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["targets", "arg_provenance", "endpoint_class"]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "effect"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 },
+          "effect": {
+            "type": "string",
+            "enum": ["allow", "block", "dry_run", "require_approval"]
+          },
+          "match": {
+            "type": "object",
+            "properties": {
+              "tool_names": { "type": "array", "items": { "type": "string" } },
+              "risk_classes": { "type": "array", "items": { "type": "string" } },
+              "target_kinds": { "type": "array", "items": { "type": "string" } },
+              "target_values": { "type": "array", "items": { "type": "string" } },
+              "endpoint_classes": { "type": "array", "items": { "type": "string" } },
+              "skill_publishers": { "type": "array", "items": { "type": "string" } },
+              "skill_sources": { "type": "array", "items": { "type": "string" } },
+              "data_classes": { "type": "array", "items": { "type": "string" } },
+              "destination_kinds": { "type": "array", "items": { "type": "string" } },
+              "destination_values": { "type": "array", "items": { "type": "string" } },
+              "destination_operations": { "type": "array", "items": { "type": "string" } },
+              "provenance_sources": { "type": "array", "items": { "type": "string" } },
+              "identities": { "type": "array", "items": { "type": "string" } },
+              "workspace_prefixes": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          },
+          "endpoint": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "path_allowlist": { "type": "array", "items": { "type": "string" } },
+              "path_denylist": { "type": "array", "items": { "type": "string" } },
+              "domain_allowlist": { "type": "array", "items": { "type": "string" } },
+              "domain_denylist": { "type": "array", "items": { "type": "string" } },
+              "egress_classes": { "type": "array", "items": { "type": "string" } },
+              "action": { "type": "string", "enum": ["block", "require_approval"] },
+              "destructive_action": { "type": "string", "enum": ["block", "require_approval"] },
+              "reason_code": { "type": "string" },
+              "violation": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          "reason_codes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "violations": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "min_approvals": { "type": "integer", "minimum": 1 },
+          "require_distinct_approvers": { "type": "boolean" },
+          "require_broker_credential": { "type": "boolean" },
+          "broker_reference": { "type": "string" },
+          "broker_scopes": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "rate_limit": {
+            "type": "object",
+            "properties": {
+              "requests": { "type": "integer", "minimum": 1 },
+              "window": { "type": "string", "enum": ["minute", "hour"] },
+              "scope": { "type": "string", "enum": ["tool", "identity", "tool_identity"] }
+            },
+            "additionalProperties": false
+          },
+          "dataflow": {
+            "type": "object",
+            "properties": {
+              "enabled": { "type": "boolean" },
+              "tainted_sources": { "type": "array", "items": { "type": "string" } },
+              "destination_kinds": { "type": "array", "items": { "type": "string" } },
+              "destination_values": { "type": "array", "items": { "type": "string" } },
+              "destination_operations": { "type": "array", "items": { "type": "string" } },
+              "action": { "type": "string", "enum": ["block", "require_approval"] },
+              "reason_code": { "type": "string" },
+              "violation": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

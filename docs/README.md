@@ -20,6 +20,7 @@ This index defines documentation ownership so docs stay aligned with code and av
 - External registry allowlist to policy recipe: `docs/external_tool_registry_policy.md`
 - SIEM export ingestion recipes: `docs/siem_ingestion_recipes.md`
 - Runtime defaults and repeated-flag reduction: `docs/project_defaults.md`
+- Policy authoring workflow and IDE schema guidance: `docs/policy_authoring.md`
 - Policy rollout stages: `docs/policy_rollout.md`
 - Approval workflow and operations: `docs/approval_runbook.md`
 - Incident-to-regression CI workflow: `docs/ci_regress_kit.md`
@@ -59,9 +60,10 @@ This index defines documentation ownership so docs stay aligned with code and av
 6. `docs/contracts/primitive_contract.md`
 7. `docs/integration_checklist.md`
 8. `docs/deployment/cloud_runtime_patterns.md`
-9. `docs/policy_rollout.md`
-10. `docs/approval_runbook.md`
-11. `docs/homebrew.md`
-12. `docs/zero_trust_stack.md`
-13. `docs/external_tool_registry_policy.md`
-14. `docs/siem_ingestion_recipes.md`
+9. `docs/policy_authoring.md`
+10. `docs/policy_rollout.md`
+11. `docs/approval_runbook.md`
+12. `docs/homebrew.md`
+13. `docs/zero_trust_stack.md`
+14. `docs/external_tool_registry_policy.md`
+15. `docs/siem_ingestion_recipes.md`

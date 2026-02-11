@@ -118,6 +118,8 @@ git clone https://github.com/davidahmann/gait.git && cd gait
 Test policies deterministically (no side effects, no keys needed):
 
 ```bash
+gait policy validate examples/policy/base_low_risk.yaml --json
+gait policy fmt examples/policy/base_low_risk.yaml --write --json
 gait policy test examples/policy/base_low_risk.yaml examples/policy/intents/intent_read.json --json
 gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json
 ```
@@ -143,7 +145,7 @@ Block a prompt-injection-style tool call:
 gait policy test examples/prompt-injection/policy.yaml examples/prompt-injection/intent_injected.json --json
 ```
 
-Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`
+Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`, and `matched_rule` for fast rule-debug context.
 
 Gate evaluates structured tool-call intent, not prompt text. If verdict is not `allow`, execution does not run.
 
@@ -230,7 +232,7 @@ gait gate eval \
   --simulate --json
 ```
 
-References: `docs/approval_runbook.md`, `docs/policy_rollout.md`
+References: `docs/policy_authoring.md`, `docs/approval_runbook.md`, `docs/policy_rollout.md`
 
 ## Local Signal Engine
 
@@ -264,6 +266,8 @@ gait run inspect --from <run_id|path>              # readable run timeline (term
 gait regress bootstrap --from <run_id|path>        # incident to CI test (one command)
 gait regress init --from <run_id|path>             # create fixture from runpack
 gait regress run [--junit junit.xml]               # run regressions
+gait policy validate <policy.yaml>                 # strict syntax+semantic validation
+gait policy fmt <policy.yaml> [--write]            # deterministic policy formatting
 gait policy test <policy.yaml> <fixture.json>      # test policy offline
 gait gate eval --policy <p> --intent <i>           # evaluate tool intent
 gait mcp proxy --policy <p> --call <payload.json>  # one-shot MCP/tool-call boundary

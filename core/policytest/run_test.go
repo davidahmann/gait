@@ -67,6 +67,9 @@ rules:
 	if first.Result.PolicyDigest == "" || first.Result.IntentDigest == "" {
 		t.Fatalf("expected non-empty digests: %#v", first.Result)
 	}
+	if first.Result.MatchedRule != "require-write" {
+		t.Fatalf("expected matched rule require-write, got %q", first.Result.MatchedRule)
+	}
 	if first.Summary == "" {
 		t.Fatalf("expected summary to be set")
 	}
