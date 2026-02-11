@@ -254,6 +254,53 @@ func TestEmitSignedTraceIncludesDelegationReference(t *testing.T) {
 	}
 }
 
+func TestEmitSignedTraceRuntimeEventIdentity(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: allow`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	firstPath := filepath.Join(t.TempDir(), "trace_event_1.json")
+	first, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:   "test",
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         firstPath,
+	})
+	if err != nil {
+		t.Fatalf("emit first trace: %v", err)
+	}
+	time.Sleep(2 * time.Millisecond)
+	secondPath := filepath.Join(t.TempDir(), "trace_event_2.json")
+	second, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:   "test",
+		SigningPrivateKey: keyPair.Private,
+		TracePath:         secondPath,
+	})
+	if err != nil {
+		t.Fatalf("emit second trace: %v", err)
+	}
+	if first.Trace.TraceID != second.Trace.TraceID {
+		t.Fatalf("expected deterministic trace_id, got %s vs %s", first.Trace.TraceID, second.Trace.TraceID)
+	}
+	if first.Trace.EventID == "" || second.Trace.EventID == "" {
+		t.Fatalf("expected non-empty event_id fields")
+	}
+	if first.Trace.EventID == second.Trace.EventID {
+		t.Fatalf("expected distinct event_id values for separate emissions")
+	}
+	if first.Trace.ObservedAt.IsZero() || second.Trace.ObservedAt.IsZero() {
+		t.Fatalf("expected observed_at on runtime traces")
+	}
+}
+
 func TestWriteTraceRecordRejectsParentTraversal(t *testing.T) {
 	minimal := schemagate.TraceRecord{
 		SchemaID:        "gait.gate.trace",

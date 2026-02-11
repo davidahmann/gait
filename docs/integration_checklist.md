@@ -205,6 +205,9 @@ Evidence to capture:
 - JSON output includes `gate_result`, `trace_path`, and `exit_code`.
 - Blocked or approval-required decisions are treated as non-executable paths.
 - If using `gait mcp serve`, validate your chosen transport endpoint (`/v1/evaluate`, `/v1/evaluate/sse`, or `/v1/evaluate/stream`) returns the same non-`allow` enforcement semantics.
+- For non-loopback service binds, require service authentication (`--auth-mode token --auth-token-env <VAR>`) and set `--max-request-bytes`.
+- Prefer `--http-verdict-status strict` when upstream runtimes can safely handle non-2xx responses for non-`allow` decisions.
+- Configure artifact retention in service mode (`--trace-max-age`, `--trace-max-count`, `--runpack-max-age`, `--runpack-max-count`, `--session-max-age`, `--session-max-count`).
 - If using delegation-constrained policies, validate sidecar delegation passthrough flags:
   - `--delegation-token`
   - `--delegation-token-chain`
@@ -285,6 +288,17 @@ gait policy simulate --baseline examples/policy-test/allow.yaml --policy example
 gait keys init --out-dir ./gait-out/keys --prefix integration --json
 gait keys verify --private-key ./gait-out/keys/integration_private.key --public-key ./gait-out/keys/integration_public.key --json
 ```
+
+## Framework Maintainer Production Checklist
+
+Use this as PR acceptance criteria for adapter/framework integration changes:
+
+1. Non-allow verdicts are fail-closed (`executed=false`) and never call side-effect executors.
+2. Service integrations use strict boundary mode (`--http-verdict-status strict`) when caller supports non-2xx handling.
+3. Service integrations set auth (`--auth-mode token`) for non-loopback binds.
+4. Service integrations set bounded payload and retention limits.
+5. SDK/adapter command paths have bounded timeout behavior.
+6. `gait doctor --production-readiness --json` passes in reference deployment setup.
 
 Evidence to capture:
 

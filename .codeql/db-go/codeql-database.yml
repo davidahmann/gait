@@ -1,0 +1,13 @@
+---
+sourceLocationPrefix: /Users/davidahmann/Projects/gait
+baselineLinesOfCode: 42827
+unicodeNewlines: false
+columnKind: utf8
+primaryLanguage: go
+creationMetadata:
+  sha: 00b60c1e09bf09d6cbc4d504c72b043471ec8446
+  cliVersion: 2.24.1
+  creationTime: 2026-02-11T22:52:55.685885Z
+finalised: true
+overlayBaseDatabase: false
+overlayDatabase: false

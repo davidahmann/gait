@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davidahmann/gait/core/projectconfig"
 	"github.com/davidahmann/gait/core/sign"
 )
 
@@ -20,11 +22,12 @@ const (
 )
 
 type Options struct {
-	WorkDir         string
-	OutputDir       string
-	ProducerVersion string
-	KeyMode         sign.KeyMode
-	KeyConfig       sign.KeyConfig
+	WorkDir             string
+	OutputDir           string
+	ProducerVersion     string
+	KeyMode             sign.KeyMode
+	KeyConfig           sign.KeyConfig
+	ProductionReadiness bool
 }
 
 type Result struct {
@@ -106,6 +109,9 @@ func Run(opts Options) Result {
 		checkKeySourceAmbiguity(opts.KeyConfig),
 		checkKeyFilePermissions(opts.KeyConfig),
 		checkKeyConfig(opts.KeyMode, opts.KeyConfig),
+	}
+	if opts.ProductionReadiness {
+		checks = append(checks, checkProductionReadiness(workDir)...)
 	}
 
 	failed := 0
@@ -602,6 +608,216 @@ func checkKeyConfig(mode sign.KeyMode, cfg sign.KeyConfig) Check {
 			FixCommand: "use --key-mode dev or --key-mode prod",
 		}
 	}
+}
+
+func checkProductionReadiness(workDir string) []Check {
+	checks := make([]Check, 0, 6)
+	configPath := filepath.Join(workDir, filepath.FromSlash(projectconfig.DefaultPath))
+	configuration, err := projectconfig.Load(configPath, true)
+	if err != nil {
+		return []Check{{
+			Name:       "production_readiness_config",
+			Status:     statusFail,
+			Message:    fmt.Sprintf("failed to parse %s: %v", projectconfig.DefaultPath, err),
+			FixCommand: fmt.Sprintf("edit %s and fix yaml syntax", shellQuote(projectconfig.DefaultPath)),
+		}}
+	}
+	if _, statErr := os.Stat(configPath); statErr != nil {
+		checks = append(checks, Check{
+			Name:       "production_readiness_config",
+			Status:     statusFail,
+			Message:    fmt.Sprintf("missing %s", projectconfig.DefaultPath),
+			FixCommand: fmt.Sprintf("cp examples/config/oss_prod_template.yaml %s", shellQuote(projectconfig.DefaultPath)),
+		})
+	} else {
+		checks = append(checks, Check{
+			Name:    "production_readiness_config",
+			Status:  statusPass,
+			Message: fmt.Sprintf("%s present", projectconfig.DefaultPath),
+		})
+	}
+
+	profile := strings.ToLower(strings.TrimSpace(configuration.Gate.Profile))
+	if profile != "oss-prod" {
+		checks = append(checks, Check{
+			Name:       "production_profile",
+			Status:     statusFail,
+			Message:    "gate.profile must be oss-prod for production readiness",
+			FixCommand: fmt.Sprintf("set gate.profile=oss-prod in %s", shellQuote(projectconfig.DefaultPath)),
+		})
+	} else {
+		checks = append(checks, Check{
+			Name:    "production_profile",
+			Status:  statusPass,
+			Message: "gate.profile is oss-prod",
+		})
+	}
+
+	keyMode := strings.ToLower(strings.TrimSpace(configuration.Gate.KeyMode))
+	if keyMode != "prod" {
+		checks = append(checks, Check{
+			Name:       "production_key_mode",
+			Status:     statusFail,
+			Message:    "gate.key_mode must be prod for production readiness",
+			FixCommand: fmt.Sprintf("set gate.key_mode=prod in %s", shellQuote(projectconfig.DefaultPath)),
+		})
+	} else {
+		checks = append(checks, Check{
+			Name:    "production_key_mode",
+			Status:  statusPass,
+			Message: "gate.key_mode is prod",
+		})
+	}
+
+	retentionCheck := checkProductionRetention(configuration.Retention)
+	checks = append(checks, retentionCheck)
+
+	serviceCheck := checkProductionServiceBoundary(configuration.MCPServe)
+	checks = append(checks, serviceCheck)
+
+	contextCheck := checkProductionContextStrictness(configuration.Gate)
+	checks = append(checks, contextCheck)
+
+	return checks
+}
+
+func checkProductionContextStrictness(defaults projectconfig.GateDefaults) Check {
+	profile := strings.ToLower(strings.TrimSpace(defaults.Profile))
+	if profile != "oss-prod" {
+		return Check{
+			Name:    "production_context_strictness",
+			Status:  statusFail,
+			Message: "strict context enforcement requires gate.profile=oss-prod",
+		}
+	}
+	if strings.TrimSpace(defaults.Policy) == "" {
+		return Check{
+			Name:       "production_context_strictness",
+			Status:     statusFail,
+			Message:    "gate.policy must be set for strict context enforcement",
+			FixCommand: fmt.Sprintf("set gate.policy in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	return Check{
+		Name:    "production_context_strictness",
+		Status:  statusPass,
+		Message: "strict context profile is configured",
+	}
+}
+
+func checkProductionRetention(retention projectconfig.RetentionDefaults) Check {
+	traceTTL := strings.TrimSpace(retention.TraceTTL)
+	sessionTTL := strings.TrimSpace(retention.SessionTTL)
+	exportTTL := strings.TrimSpace(retention.ExportTTL)
+	if traceTTL == "" || sessionTTL == "" || exportTTL == "" {
+		return Check{
+			Name:       "production_retention",
+			Status:     statusFail,
+			Message:    "retention.trace_ttl, retention.session_ttl, and retention.export_ttl are required",
+			FixCommand: fmt.Sprintf("set retention trace/session/export TTLs in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	if _, err := time.ParseDuration(traceTTL); err != nil {
+		return Check{Name: "production_retention", Status: statusFail, Message: fmt.Sprintf("invalid retention.trace_ttl: %v", err)}
+	}
+	if _, err := time.ParseDuration(sessionTTL); err != nil {
+		return Check{Name: "production_retention", Status: statusFail, Message: fmt.Sprintf("invalid retention.session_ttl: %v", err)}
+	}
+	if _, err := time.ParseDuration(exportTTL); err != nil {
+		return Check{Name: "production_retention", Status: statusFail, Message: fmt.Sprintf("invalid retention.export_ttl: %v", err)}
+	}
+	return Check{
+		Name:    "production_retention",
+		Status:  statusPass,
+		Message: "retention TTLs are configured",
+	}
+}
+
+func checkProductionServiceBoundary(defaults projectconfig.MCPServeDefaults) Check {
+	listen := strings.TrimSpace(defaults.Listen)
+	if !defaults.Enabled && listen == "" {
+		return Check{
+			Name:    "production_service_boundary",
+			Status:  statusPass,
+			Message: "mcp_serve not configured",
+		}
+	}
+	if listen == "" {
+		listen = "127.0.0.1:8787"
+	}
+	isLoopback, loopbackErr := doctorIsLoopbackListen(listen)
+	if loopbackErr != nil {
+		return Check{
+			Name:    "production_service_boundary",
+			Status:  statusFail,
+			Message: fmt.Sprintf("invalid mcp_serve.listen: %v", loopbackErr),
+		}
+	}
+	if !isLoopback && strings.ToLower(strings.TrimSpace(defaults.AuthMode)) != "token" {
+		return Check{
+			Name:       "production_service_boundary",
+			Status:     statusFail,
+			Message:    "non-loopback mcp_serve.listen requires mcp_serve.auth_mode=token",
+			FixCommand: fmt.Sprintf("set mcp_serve.auth_mode=token in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	if strings.ToLower(strings.TrimSpace(defaults.AuthMode)) == "token" && strings.TrimSpace(defaults.AuthTokenEnv) == "" {
+		return Check{
+			Name:       "production_service_boundary",
+			Status:     statusFail,
+			Message:    "mcp_serve.auth_mode=token requires mcp_serve.auth_token_env",
+			FixCommand: fmt.Sprintf("set mcp_serve.auth_token_env in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	if defaults.AllowClientArtifactPaths {
+		return Check{
+			Name:       "production_service_boundary",
+			Status:     statusFail,
+			Message:    "mcp_serve.allow_client_artifact_paths must be false in production",
+			FixCommand: fmt.Sprintf("set mcp_serve.allow_client_artifact_paths=false in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	if defaults.MaxRequestBytes <= 0 || defaults.MaxRequestBytes > 4<<20 {
+		return Check{
+			Name:       "production_service_boundary",
+			Status:     statusFail,
+			Message:    "mcp_serve.max_request_bytes must be >0 and <=4194304",
+			FixCommand: fmt.Sprintf("set mcp_serve.max_request_bytes=1048576 in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	if status := strings.ToLower(strings.TrimSpace(defaults.HTTPVerdictStatus)); status != "strict" {
+		return Check{
+			Name:       "production_service_boundary",
+			Status:     statusFail,
+			Message:    "mcp_serve.http_verdict_status must be strict in production",
+			FixCommand: fmt.Sprintf("set mcp_serve.http_verdict_status=strict in %s", shellQuote(projectconfig.DefaultPath)),
+		}
+	}
+	return Check{
+		Name:    "production_service_boundary",
+		Status:  statusPass,
+		Message: "service boundary hardening settings are configured",
+	}
+}
+
+func doctorIsLoopbackListen(listenAddr string) (bool, error) {
+	trimmed := strings.TrimSpace(listenAddr)
+	if trimmed == "" {
+		return false, fmt.Errorf("listen address is required")
+	}
+	host, _, err := net.SplitHostPort(trimmed)
+	if err != nil {
+		return false, fmt.Errorf("invalid listen address: %w", err)
+	}
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true, nil
+	}
+	parsed := net.ParseIP(host)
+	if parsed == nil {
+		return false, nil
+	}
+	return parsed.IsLoopback(), nil
 }
 
 func hasAnyKeySource(cfg sign.KeyConfig) bool {

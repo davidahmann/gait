@@ -1,0 +1,21 @@
+[2026-02-11 17:51:18] This is codeql execute queries -J-Xmx5139M --off-heap-ram=6149 --verbosity=progress --logdir=/Users/davidahmann/Projects/gait/.codeql/db-python/log --evaluator-log-level=5 --threads=0 --warnings=show --qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml --dynamic-join-order-mode=none --no-rerun --interpret-passthrough=null,--format=sarif-latest,-o=/Users/davidahmann/Projects/gait/.codeql/python.sarif,--max-paths=4,--csv-location-format=line-column,--print-diagnostics-summary,--print-metrics-summary,--threads=0,--qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml,--,/Users/davidahmann/Projects/gait/.codeql/db-python,codeql/python-queries:code-scanning --output=/Users/davidahmann/Projects/gait/.codeql/db-python/results -- /Users/davidahmann/Projects/gait/.codeql/db-python/db-python codeql/python-queries:code-scanning
+[2026-02-11 17:51:18] Calling plumbing command: codeql resolve queries --qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml --format=json -- codeql/python-queries:code-scanning
+[2026-02-11 17:51:18] Exception caught at top level: Query pack codeql/python-queries:code-scanning cannot be found. Check the spelling of the pack.
+                      com.semmle.cli2.resolve.ResolveQueriesCommand.resolveQuerySpecifier(ResolveQueriesCommand.java:298)
+                      com.semmle.cli2.resolve.ResolveQueriesCommand.executeJSON(ResolveQueriesCommand.java:211)
+                      com.semmle.cli2.resolve.ResolveQueriesCommand.executeJSON(ResolveQueriesCommand.java:68)
+                      com.semmle.cli2.picocli.SimpleJsonSubcommand.executeInsistingOnJSONWithExistingMessages(SimpleJsonSubcommand.java:121)
+                      com.semmle.cli2.picocli.SubcommandCommon.withCompilationMessages(SubcommandCommon.java:444)
+                      com.semmle.cli2.picocli.SimpleJsonSubcommand.executeInsistingOnJSON(SimpleJsonSubcommand.java:110)
+                      com.semmle.cli2.picocli.PlumbingRunner.call(PlumbingRunner.java:61)
+                      com.semmle.cli2.picocli.SubcommandCommon.callPlumbingInProcess(SubcommandCommon.java:170)
+                      com.semmle.cli2.execute.ExecuteQueriesCommand.executeSubcommand(ExecuteQueriesCommand.java:425)
+                      com.semmle.cli2.picocli.SubcommandCommon.lambda$executeSubcommandWithMessages$5(SubcommandCommon.java:886)
+                      com.semmle.cli2.picocli.SubcommandCommon.withCompilationMessages(SubcommandCommon.java:444)
+                      com.semmle.cli2.picocli.SubcommandCommon.executeSubcommandWithMessages(SubcommandCommon.java:884)
+                      com.semmle.cli2.picocli.SubcommandCommon.toplevelMain(SubcommandCommon.java:777)
+                      com.semmle.cli2.picocli.SubcommandCommon.call(SubcommandCommon.java:757)
+                      com.semmle.cli2.picocli.SubcommandMaker.runMain(SubcommandMaker.java:238)
+                      com.semmle.cli2.picocli.SubcommandMaker.runMain(SubcommandMaker.java:259)
+                      com.semmle.cli2.CodeQL.main(CodeQL.java:113)
+[2026-02-11 17:51:18] [SPAMMY] execute queries> Failed to write 1 diagnostics for execute queries since this subcommand could not determine its diagnostic directory.

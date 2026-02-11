@@ -3,10 +3,10 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/davidahmann/gait/core/fsx"
 )
 
 type ExportEvent struct {
@@ -69,25 +69,8 @@ func ExportOTelEvent(path string, event ExportEvent) error {
 }
 
 func appendJSONL(path string, line []byte) error {
-	dir := filepath.Dir(path)
-	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			return fmt.Errorf("create export directory: %w", err)
-		}
-	}
-	// #nosec G304 -- export path is explicit local user input.
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("open export file: %w", err)
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-	if _, err := file.Write(line); err != nil {
-		return fmt.Errorf("write export file: %w", err)
-	}
-	if _, err := file.Write([]byte{'\n'}); err != nil {
-		return fmt.Errorf("write export newline: %w", err)
+	if err := fsx.AppendLineLocked(path, line, 0o600); err != nil {
+		return fmt.Errorf("append export file: %w", err)
 	}
 	return nil
 }

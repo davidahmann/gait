@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -92,6 +93,9 @@ func TestRunSessionStatusAndHelpPaths(t *testing.T) {
 	if code := runSession([]string{"checkpoint", "--help"}); code != exitOK {
 		t.Fatalf("runSession checkpoint help expected %d got %d", exitOK, code)
 	}
+	if code := runSession([]string{"compact", "--help"}); code != exitOK {
+		t.Fatalf("runSession compact help expected %d got %d", exitOK, code)
+	}
 
 	if code := runSessionStatus([]string{"--json"}); code != exitInvalidInput {
 		t.Fatalf("runSessionStatus missing journal expected %d got %d", exitInvalidInput, code)
@@ -123,6 +127,9 @@ func TestRunSessionStatusAndHelpPaths(t *testing.T) {
 		"--json",
 	}); code != exitInvalidInput {
 		t.Fatalf("runSessionCheckpoint without events expected %d got %d", exitInvalidInput, code)
+	}
+	if code := runSessionCompact([]string{"--json"}); code != exitInvalidInput {
+		t.Fatalf("runSessionCompact missing journal expected %d got %d", exitInvalidInput, code)
 	}
 }
 
@@ -182,6 +189,23 @@ func TestWriteRunSessionOutputTextModes(t *testing.T) {
 		}, exitOK); code != exitOK {
 			t.Fatalf("writeRunSessionOutput fallback expected exit %d got %d", exitOK, code)
 		}
+		if code := writeRunSessionOutput(false, runSessionOutput{
+			OK:        true,
+			Operation: "compact",
+			Compaction: &runpack.SessionCompactionResult{
+				Compacted:    true,
+				DryRun:       true,
+				EventsBefore: 4,
+				EventsAfter:  1,
+				Checkpoints:  2,
+				BytesBefore:  1000,
+				BytesAfter:   200,
+				JournalPath:  "/tmp/journal.jsonl",
+				OutputPath:   "/tmp/compacted.jsonl",
+			},
+		}, exitOK); code != exitOK {
+			t.Fatalf("writeRunSessionOutput compact expected exit %d got %d", exitOK, code)
+		}
 	})
 
 	expectedSnippets := []string{
@@ -189,12 +213,69 @@ func TestWriteRunSessionOutputTextModes(t *testing.T) {
 		"session status:",
 		"session append:",
 		"session checkpoint:",
+		"session compact:",
 		"run session custom: ok",
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(text, snippet) {
 			t.Fatalf("expected output to contain %q, got:\n%s", snippet, text)
 		}
+	}
+}
+
+func TestRunSessionCompactFlow(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+	journalPath := filepath.Join(workDir, "sessions", "compact.journal.jsonl")
+	checkpointPath := filepath.Join(workDir, "gait-out", "compact_cp_0001.zip")
+
+	if code := runSessionStart([]string{
+		"--journal", journalPath,
+		"--session-id", "sess_compact",
+		"--run-id", "run_compact",
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runSessionStart expected %d got %d", exitOK, code)
+	}
+	for i := 0; i < 2; i++ {
+		if code := runSessionAppend([]string{
+			"--journal", journalPath,
+			"--tool", "tool.write",
+			"--verdict", "allow",
+			"--intent-id", "intent_pre_" + strconv.Itoa(i+1),
+			"--json",
+		}); code != exitOK {
+			t.Fatalf("runSessionAppend pre-checkpoint %d expected %d got %d", i+1, exitOK, code)
+		}
+	}
+	if code := runSessionCheckpoint([]string{
+		"--journal", journalPath,
+		"--out", checkpointPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runSessionCheckpoint expected %d got %d", exitOK, code)
+	}
+	if code := runSessionAppend([]string{
+		"--journal", journalPath,
+		"--tool", "tool.write",
+		"--verdict", "allow",
+		"--intent-id", "intent_post_1",
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runSessionAppend post-checkpoint expected %d got %d", exitOK, code)
+	}
+	if code := runSessionCompact([]string{
+		"--journal", journalPath,
+		"--dry-run",
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runSessionCompact dry-run expected %d got %d", exitOK, code)
+	}
+	if code := runSessionCompact([]string{
+		"--journal", journalPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runSessionCompact apply expected %d got %d", exitOK, code)
 	}
 }
 

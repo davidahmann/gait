@@ -22,6 +22,21 @@ go test ./core/runpack -run 'TestSessionConcurrentAppendsAreDeterministic|TestSe
 echo "[hardening-acceptance] network retry behavior classification"
 go test ./core/registry -run 'TestInstallRemoteRetryAndFallbackBranches' -count=1
 
+echo "[hardening-acceptance] chaos exporter integrity gate"
+bash scripts/test_chaos_exporters.sh
+
+echo "[hardening-acceptance] chaos service boundary gate"
+bash scripts/test_chaos_service_boundary.sh
+
+echo "[hardening-acceptance] chaos payload limit gate"
+bash scripts/test_chaos_payload_limits.sh
+
+echo "[hardening-acceptance] chaos session swarm/latency gate"
+bash scripts/test_chaos_sessions.sh
+
+echo "[hardening-acceptance] chaos trace uniqueness gate"
+bash scripts/test_chaos_trace_uniqueness.sh
+
 echo "[hardening-acceptance] hardening integration and e2e checks"
-go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic|TestConcurrentSessionAppendStateIsDeterministic' -count=1
+go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic|TestConcurrentSessionAppendStateIsDeterministic|TestSessionSwarmContentionBudget' -count=1
 go test ./internal/e2e -run 'TestCLIRegressExitCodes|TestCLIPolicyTestExitCodes|TestCLIDoctor|TestCLIDelegateAndGateRequireDelegationFlow' -count=1

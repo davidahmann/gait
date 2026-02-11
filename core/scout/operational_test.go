@@ -1,8 +1,10 @@
 package scout
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -130,5 +132,47 @@ func TestOperationalEventHelpersAndErrors(t *testing.T) {
 	}
 	if _, err := LoadOperationalEvents(""); err == nil {
 		t.Fatalf("expected load error for empty path")
+	}
+}
+
+func TestAppendOperationalEventConcurrentIntegrity(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "operational_concurrent.jsonl")
+	base := time.Date(2026, time.February, 7, 1, 0, 0, 0, time.UTC)
+	const workers = 300
+	var group sync.WaitGroup
+	group.Add(workers)
+	errCh := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		index := i
+		go func() {
+			defer group.Done()
+			event := NewOperationalEndEvent(
+				fmt.Sprintf("verify-%d", index),
+				fmt.Sprintf("cid-%d", index),
+				"stress-test",
+				0,
+				"none",
+				false,
+				10*time.Millisecond,
+				base.Add(time.Duration(index)*time.Millisecond),
+			)
+			if err := AppendOperationalEvent(logPath, event); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+	group.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("append concurrent operational event: %v", err)
+		}
+	}
+	events, err := LoadOperationalEvents(logPath)
+	if err != nil {
+		t.Fatalf("load concurrent operational events: %v", err)
+	}
+	if len(events) != workers {
+		t.Fatalf("expected %d concurrent events, got %d", workers, len(events))
 	}
 }

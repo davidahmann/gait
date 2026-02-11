@@ -109,6 +109,8 @@ sequenceDiagram
 
 Rule: default bind is loopback and non-`allow` outcomes remain non-executing at the caller.
 
+Hardening note: for non-loopback service binds, configure `--auth-mode token --auth-token-env <VAR>`, bounded `--max-request-bytes`, strict verdict mode (`--http-verdict-status strict`), and retention caps (`--trace-max-*`, `--runpack-max-*`, `--session-max-*`).
+
 Enforcement note: `POST /v1/evaluate` returns a decision payload only. The runtime that called the endpoint must still enforce `if verdict != allow: do not execute side effects`.
 
 Transport endpoints:
@@ -141,6 +143,8 @@ sequenceDiagram
 ```
 
 Outcome: multi-day execution can be checkpointed incrementally and verified as a linked chain.
+
+Operational note: use `gait run session compact --journal <path>` to prune already-checkpointed events while preserving chain verification.
 
 ## 7) Delegation Token Enforcement
 

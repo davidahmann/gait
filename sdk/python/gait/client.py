@@ -20,6 +20,8 @@ from .models import (
     TraceRecord,
 )
 
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 30.0
+
 
 class GaitError(RuntimeError):
     """Base SDK error."""
@@ -244,15 +246,26 @@ def create_regress_fixture(
 
 
 def _run_command(command: Sequence[str], *, cwd: str | Path | None) -> _CommandResult:
-    completed = subprocess.run(  # nosec B603
-        list(command),
-        cwd=str(cwd) if cwd is not None else None,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    command_list = list(command)
+    try:
+        completed = subprocess.run(  # nosec B603
+            command_list,
+            cwd=str(cwd) if cwd is not None else None,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as timeout_error:
+        raise GaitCommandError(
+            "gait command timed out",
+            command=command_list,
+            exit_code=-1,
+            stdout=str(timeout_error.stdout or ""),
+            stderr=str(timeout_error.stderr or ""),
+        ) from timeout_error
     return _CommandResult(
-        command=list(command),
+        command=command_list,
         exit_code=completed.returncode,
         stdout=completed.stdout,
         stderr=completed.stderr,

@@ -19,6 +19,7 @@ import (
 
 type mcpProxyOutput struct {
 	OK           bool     `json:"ok"`
+	Executed     bool     `json:"executed"`
 	Adapter      string   `json:"adapter,omitempty"`
 	RunID        string   `json:"run_id,omitempty"`
 	SessionID    string   `json:"session_id,omitempty"`
@@ -214,13 +215,20 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	resolvedTracePath := strings.TrimSpace(options.TracePath)
+	if resolvedTracePath == "" {
+		resolvedTracePath = fmt.Sprintf("trace_%s_%s.json", normalizeRunID(options.RunID), time.Now().UTC().Format("20060102T150405.000000000"))
+	}
 	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
 		ProducerVersion:   version,
 		SigningPrivateKey: keyPair.Private,
-		TracePath:         options.TracePath,
+		TracePath:         resolvedTracePath,
 	})
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
+	}
+	if resolvedProfile == gateProfileStandard && (strings.TrimSpace(call.Context.Identity) == "" || strings.TrimSpace(call.Context.Workspace) == "" || strings.TrimSpace(call.Context.SessionID) == "") {
+		warnings = append(warnings, "standard profile applied fallback intent context; use --profile oss-prod for strict context enforcement")
 	}
 
 	resolvedRunID := normalizeRunID(options.RunID)
@@ -283,6 +291,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	}
 	return mcpProxyOutput{
 		OK:           true,
+		Executed:     false,
 		Adapter:      strings.ToLower(strings.TrimSpace(options.Adapter)),
 		RunID:        resolvedRunID,
 		SessionID:    evalResult.Intent.Context.SessionID,
@@ -451,7 +460,7 @@ func printMCPUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--trace-dir <dir>] [--runpack-dir <dir>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 

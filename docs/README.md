@@ -21,6 +21,9 @@ This index defines documentation ownership so docs stay aligned with code and av
 - External registry allowlist to policy recipe: `docs/external_tool_registry_policy.md`
 - SIEM export ingestion recipes: `docs/siem_ingestion_recipes.md`
 - Runtime defaults and repeated-flag reduction: `docs/project_defaults.md`
+- Prime-time hardening contract: `docs/hardening/v2_2_contract.md`
+- Prime-time hardening runbook: `docs/hardening/prime_time_runbook.md`
+- Retention profile guidance: `docs/slo/retention_profiles.md`
 - Policy authoring workflow and IDE schema guidance: `docs/policy_authoring.md`
 - Policy rollout stages: `docs/policy_rollout.md`
 - Approval workflow and operations: `docs/approval_runbook.md`

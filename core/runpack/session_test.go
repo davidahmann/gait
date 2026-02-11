@@ -1,6 +1,7 @@
 package runpack
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -538,6 +539,48 @@ func TestSessionConcurrentAppendsAreDeterministic(t *testing.T) {
 	}
 }
 
+func TestSessionAppendLatencyDriftBudget(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "latency.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 5, 30, 0, 0, time.UTC)
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_latency",
+		RunID:     "run_latency",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	const samples = 240
+	durations := make([]time.Duration, 0, samples)
+	for i := 0; i < samples; i++ {
+		start := time.Now()
+		_, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+			CreatedAt: now.Add(time.Duration(i+1) * time.Second),
+			IntentID:  "intent_latency_" + strconv.Itoa(i+1),
+			ToolName:  "tool.write",
+			Verdict:   "allow",
+		})
+		if err != nil {
+			t.Fatalf("append latency sample %d: %v", i+1, err)
+		}
+		durations = append(durations, time.Since(start))
+	}
+
+	var firstWindowTotal time.Duration
+	var lastWindowTotal time.Duration
+	for i := 0; i < 40; i++ {
+		firstWindowTotal += durations[i]
+		lastWindowTotal += durations[len(durations)-1-i]
+	}
+	firstAvg := firstWindowTotal / 40
+	lastAvg := lastWindowTotal / 40
+	// Keep a generous gate to avoid noisy CI while still detecting runaway growth.
+	if lastAvg > firstAvg*8 {
+		t.Fatalf("append latency drift exceeded budget: first_avg=%s last_avg=%s", firstAvg, lastAvg)
+	}
+}
+
 func TestSessionRelativePathGuards(t *testing.T) {
 	workDir := t.TempDir()
 	prevWD, err := os.Getwd()
@@ -679,5 +722,207 @@ func TestWithSessionLockTimeoutOnFreshLock(t *testing.T) {
 	}
 	if time.Since(start) < sessionLockTimeout {
 		t.Fatalf("expected lock acquisition to wait for timeout window")
+	}
+}
+
+func TestSessionStateIndexRebuildsFromJournalDrift(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "state.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 9, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID:       "sess_state",
+		RunID:           "run_state",
+		ProducerVersion: "test",
+		Now:             now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt: now.Add(1 * time.Second),
+		IntentID:  "intent_1",
+		ToolName:  "tool.read",
+		Verdict:   "allow",
+	}); err != nil {
+		t.Fatalf("append event 1: %v", err)
+	}
+	statePath := sessionStatePath(journalPath)
+	state, err := readSessionState(statePath)
+	if err != nil {
+		t.Fatalf("read session state: %v", err)
+	}
+	if state.LastSequence != 1 || state.EventCount != 1 {
+		t.Fatalf("unexpected session state after first append: %#v", state)
+	}
+
+	// Simulate drift from crash between journal append and state update.
+	state.LastSequence = 0
+	state.EventCount = 0
+	state.JournalSizeBytes = 1
+	if err := writeSessionState(statePath, state); err != nil {
+		t.Fatalf("write drifted session state: %v", err)
+	}
+
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt: now.Add(2 * time.Second),
+		IntentID:  "intent_2",
+		ToolName:  "tool.read",
+		Verdict:   "allow",
+	}); err != nil {
+		t.Fatalf("append event 2 with drifted state: %v", err)
+	}
+
+	journal, err := ReadSessionJournal(journalPath)
+	if err != nil {
+		t.Fatalf("read session journal: %v", err)
+	}
+	if len(journal.Events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(journal.Events))
+	}
+	if journal.Events[0].Sequence != 1 || journal.Events[1].Sequence != 2 {
+		t.Fatalf("unexpected event sequences after rebuild: %#v", journal.Events)
+	}
+	rebuilt, err := readSessionState(statePath)
+	if err != nil {
+		t.Fatalf("read rebuilt session state: %v", err)
+	}
+	if rebuilt.LastSequence != 2 || rebuilt.EventCount != 2 {
+		t.Fatalf("unexpected rebuilt session state: %#v", rebuilt)
+	}
+}
+
+func TestSessionCompactionPreservesCheckpointVerification(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "compact.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 10, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID:       "sess_compact",
+		RunID:           "run_compact",
+		ProducerVersion: "test",
+		Now:             now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+			CreatedAt: now.Add(time.Duration(i+1) * time.Second),
+			IntentID:  "intent_pre_" + strconv.Itoa(i+1),
+			ToolName:  "tool.write",
+			Verdict:   "allow",
+		}); err != nil {
+			t.Fatalf("append pre-checkpoint event %d: %v", i+1, err)
+		}
+	}
+	_, chainPath, err := SessionCheckpointAndWriteChain(journalPath, filepath.Join(workDir, "gait-out", "compact_cp_0001.zip"), SessionCheckpointOptions{
+		Now:             now.Add(3 * time.Second),
+		ProducerVersion: "test",
+	})
+	if err != nil {
+		t.Fatalf("checkpoint 1: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt: now.Add(4 * time.Second),
+		IntentID:  "intent_post_1",
+		ToolName:  "tool.write",
+		Verdict:   "allow",
+	}); err != nil {
+		t.Fatalf("append post-checkpoint event: %v", err)
+	}
+
+	dryRun, err := CompactSessionJournal(journalPath, SessionCompactionOptions{
+		DryRun: true,
+		Now:    now.Add(5 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("dry-run compact: %v", err)
+	}
+	if !dryRun.Compacted || dryRun.EventsBefore != 3 || dryRun.EventsAfter != 1 {
+		t.Fatalf("unexpected dry-run compaction result: %#v", dryRun)
+	}
+
+	applied, err := CompactSessionJournal(journalPath, SessionCompactionOptions{
+		Now:             now.Add(6 * time.Second),
+		ProducerVersion: "test",
+	})
+	if err != nil {
+		t.Fatalf("apply compact: %v", err)
+	}
+	if !applied.Compacted || applied.EventsAfter != 1 {
+		t.Fatalf("unexpected applied compaction result: %#v", applied)
+	}
+
+	journal, err := ReadSessionJournal(journalPath)
+	if err != nil {
+		t.Fatalf("read compacted journal: %v", err)
+	}
+	if len(journal.Checkpoints) != 1 || len(journal.Events) != 1 {
+		t.Fatalf("unexpected compacted journal shape: checkpoints=%d events=%d", len(journal.Checkpoints), len(journal.Events))
+	}
+	if journal.Events[0].Sequence != 3 {
+		t.Fatalf("expected retained event sequence 3, got %d", journal.Events[0].Sequence)
+	}
+
+	status, err := GetSessionStatus(journalPath)
+	if err != nil {
+		t.Fatalf("session status after compaction: %v", err)
+	}
+	if status.EventCount != 1 || status.LastSequence != 3 || status.CheckpointCount != 1 {
+		t.Fatalf("unexpected status after compaction: %#v", status)
+	}
+
+	verifyBefore, err := VerifySessionChain(chainPath, SessionChainVerifyOptions{})
+	if err != nil {
+		t.Fatalf("verify checkpoint chain after compaction: %v", err)
+	}
+	if len(verifyBefore.LinkageErrors) != 0 || len(verifyBefore.CheckpointErrors) != 0 {
+		t.Fatalf("unexpected chain verification issues after compaction: %#v", verifyBefore)
+	}
+
+	if _, _, err := SessionCheckpointAndWriteChain(journalPath, filepath.Join(workDir, "gait-out", "compact_cp_0002.zip"), SessionCheckpointOptions{
+		Now:             now.Add(7 * time.Second),
+		ProducerVersion: "test",
+	}); err != nil {
+		t.Fatalf("checkpoint 2 after compaction: %v", err)
+	}
+}
+
+func TestWithSessionLockTimeoutIncludesDiagnosticsAndEnvOverrides(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "timeout_diagnostics.journal.jsonl")
+	lockPath := journalPath + ".lock"
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o750); err != nil {
+		t.Fatalf("create lock directory: %v", err)
+	}
+	freshCreatedAt := time.Now().UTC().Format(time.RFC3339)
+	if err := os.WriteFile(lockPath, []byte(`{"created_at":"`+freshCreatedAt+`"}`), 0o600); err != nil {
+		t.Fatalf("write fresh lock: %v", err)
+	}
+
+	t.Setenv("GAIT_SESSION_LOCK_PROFILE", "swarm")
+	t.Setenv("GAIT_SESSION_LOCK_TIMEOUT", "200ms")
+	t.Setenv("GAIT_SESSION_LOCK_RETRY", "20ms")
+	t.Setenv("GAIT_SESSION_LOCK_STALE_AFTER", "2m")
+
+	start := time.Now()
+	err := withSessionLock(journalPath, func() error { return nil })
+	if err == nil {
+		t.Fatalf("expected lock timeout")
+	}
+	var contentionErr SessionLockContentionError
+	if !errors.As(err, &contentionErr) {
+		t.Fatalf("expected SessionLockContentionError, got %T: %v", err, err)
+	}
+	if contentionErr.Profile != "swarm" {
+		t.Fatalf("expected swarm profile, got %q", contentionErr.Profile)
+	}
+	if contentionErr.Timeout != 200*time.Millisecond || contentionErr.Retry != 20*time.Millisecond {
+		t.Fatalf("unexpected timeout/retry in diagnostics: %#v", contentionErr)
+	}
+	if contentionErr.Attempts < 2 {
+		t.Fatalf("expected multiple retry attempts, got %d", contentionErr.Attempts)
+	}
+	if time.Since(start) < 180*time.Millisecond {
+		t.Fatalf("expected lock wait close to configured timeout")
 	}
 }

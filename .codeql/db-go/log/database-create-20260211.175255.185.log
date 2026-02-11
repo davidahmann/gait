@@ -1,0 +1,983 @@
+[2026-02-11 17:52:55] This is codeql database create .codeql/db-go --overwrite --language=go --source-root=. --command=go build ./cmd/gait
+[2026-02-11 17:52:55] Log file was started late.
+[2026-02-11 17:52:55] [PROGRESS] database create> Initializing database at /Users/davidahmann/Projects/gait/.codeql/db-go.
+[2026-02-11 17:52:55] Running plumbing command: codeql database init --overwrite --language=go --extractor-options-verbosity=1 --qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml --source-root=/Users/davidahmann/Projects/gait --allow-missing-source-root=false --allow-already-existing -- /Users/davidahmann/Projects/gait/.codeql/db-go
+[2026-02-11 17:52:55] Calling plumbing command: codeql resolve languages --extractor-options-verbosity=1 --format=betterjson
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Scanning for [codeql-extractor.yml] from /opt/homebrew/Caskroom/codeql/2.24.1/codeql/.codeqlmanifest.json
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/python/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/rust/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/java/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/html/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/xml/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/properties/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/cpp/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/swift/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/csv/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/actions/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/yaml/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/csharp/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/javascript/codeql-extractor.yml.
+[2026-02-11 17:52:55] [DETAILS] resolve languages> Parsing /opt/homebrew/Caskroom/codeql/2.24.1/codeql/ruby/codeql-extractor.yml.
+[2026-02-11 17:52:55] Plumbing command codeql resolve languages completed:
+                      {
+                        "aliases" : {
+                          "c" : "cpp",
+                          "c++" : "cpp",
+                          "c-c++" : "cpp",
+                          "c-cpp" : "cpp",
+                          "c#" : "csharp",
+                          "java-kotlin" : "java",
+                          "kotlin" : "java",
+                          "javascript-typescript" : "javascript",
+                          "typescript" : "javascript"
+                        },
+                        "extractors" : {
+                          "go" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/go",
+                              "extractor_options" : {
+                                "extract_tests" : {
+                                  "title" : "Whether to include Go test files in the CodeQL database.",
+                                  "description" : "A value indicating whether Go test files should be included in the CodeQL database. The default is 'false'.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                },
+                                "extract_vendor_dirs" : {
+                                  "title" : "Whether to include Go vendor directories in the CodeQL database.",
+                                  "description" : "A value indicating whether Go vendor directories should be included in the CodeQL database. The default is 'false'.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                }
+                              }
+                            }
+                          ],
+                          "python" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/python",
+                              "extractor_options" : {
+                                "logging" : {
+                                  "title" : "Options pertaining to logging.",
+                                  "description" : "Options pertaining to logging.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "verbosity" : {
+                                      "title" : "Python extractor logging verbosity level.",
+                                      "description" : "Controls the level of verbosity of the CodeQL Python extractor.\nThe supported levels are (in order of increasing verbosity):\n\n  - off\n  - errors\n  - warnings\n  - info or progress\n  - debug or progress+\n  - trace or progress++\n  - progress+++\n",
+                                      "type" : "string",
+                                      "pattern" : "^(off|errors|warnings|(info|progress)|(debug|progress\\+)|(trace|progress\\+\\+)|progress\\+\\+\\+)$"
+                                    }
+                                  }
+                                },
+                                "python_executable_name" : {
+                                  "title" : "Controls the name of the Python executable used by the Python extractor.",
+                                  "description" : "The Python extractor uses platform-dependent heuristics to determine the name of the Python executable to use. Specifying a value for this option overrides the name of the Python executable used by the extractor. Accepted values are py, python and python3. Use this setting with caution, the Python extractor requires Python 3 to run.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(py|python|python3)$"
+                                }
+                              }
+                            }
+                          ],
+                          "rust" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/rust",
+                              "extractor_options" : {
+                                "trap" : {
+                                  "title" : "Options pertaining to TRAP.",
+                                  "description" : "Options pertaining to TRAP.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "compression" : {
+                                      "title" : "Controls compression for the TRAP files written by the extractor.",
+                                      "description" : "This option is only intended for use in debugging the extractor. Accepted values are 'gzip' (to write gzip-compressed TRAP) 'zstd' (to write Zstandard-compressed TRAP) and 'none' (the default, to write uncompressed TRAP).\n",
+                                      "type" : "string",
+                                      "pattern" : "^(none|gzip|zstd)$"
+                                    }
+                                  }
+                                },
+                                "cargo_target_dir" : {
+                                  "title" : "Directory to use for cargo output files.",
+                                  "description" : "This value is an optional path to use as `CARGO_TARGET_DIR` for the internal cargo commands the extractor uses. Pointing it to a persistent directory may reduce execution time of consecutive extractor runs. By default, a new scratch directory is used for each run.\n",
+                                  "type" : "string"
+                                },
+                                "cargo_target" : {
+                                  "title" : "Target architecture",
+                                  "description" : "Target architecture to use for analysis, analogous to `cargo --target`. By default the host architecture is used.\n",
+                                  "type" : "string"
+                                },
+                                "cargo_features" : {
+                                  "title" : "Cargo features to turn on",
+                                  "description" : "Comma-separated list of features to turn on. By default all features are enabled. If any features are specified, then only those features are enabled. The `default` feature must be explicitly specified if only default features are desired. Can be repeated.\n",
+                                  "type" : "array"
+                                },
+                                "cargo_cfg_overrides" : {
+                                  "title" : "Cargo cfg overrides",
+                                  "description" : "Comma-separated list of cfg settings to enable, or disable if prefixed with `-`. Can be repeated.\n",
+                                  "type" : "array"
+                                },
+                                "logging" : {
+                                  "title" : "Options pertaining to logging.",
+                                  "description" : "Options pertaining to logging.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "verbosity" : {
+                                      "title" : "Extractor logging verbosity level.",
+                                      "description" : "Controls the level of verbosity of the extractor. The supported levels are (in order of increasing verbosity):\n  - off\n  - errors\n  - warnings\n  - info or progress\n  - debug or progress+\n  - trace or progress++\n  - progress+++\n",
+                                      "type" : "string",
+                                      "pattern" : "^(off|errors|warnings|(info|progress)|(debug|progress\\+)|(trace|progress\\+\\+)|progress\\+\\+\\+)$"
+                                    },
+                                    "flamegraph" : {
+                                      "title" : "[Experimental] File path for write flame graph log",
+                                      "description" : "Collect flame graph data using the `tracing-flame` crate. To render a flame graph or chart, run the `inferno-flamegraph` command. See also: https://crates.io/crates/tracing-flame\n",
+                                      "type" : "string"
+                                    }
+                                  }
+                                },
+                                "extract_dependencies_as_source" : {
+                                  "title" : "Extract dependencies as source code",
+                                  "description" : "Extract the full source code of dependencies instead of only extracting signatures.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                }
+                              }
+                            }
+                          ],
+                          "java" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/java",
+                              "extractor_options" : {
+                                "exclude" : {
+                                  "title" : "A glob excluding files from analysis.",
+                                  "description" : "A glob indicating what files to exclude from the analysis. This accepts glob patterns that are supported by Java's 'getPathMatcher' implementation.\n",
+                                  "type" : "string"
+                                },
+                                "add_prefer_source" : {
+                                  "title" : "Whether to always prefer source files over class files.",
+                                  "description" : "A value indicating whether source files should be preferred over class files. If set to 'true', the extraction adds '-Xprefer:source' to the javac command line. If set to 'false', the extraction uses the default javac behavior ('-Xprefer:newer'). The default is 'true'.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                },
+                                "buildless" : {
+                                  "title" : "Whether to use buildless (standalone) extraction (experimental).",
+                                  "description" : "A value indicating, which type of extraction the autobuilder should perform. If 'true', then the standalone extractor will be used, otherwise tracing extraction will be performed. The default is 'false'. Note that buildless extraction will generally yield less accurate analysis results, and should only be used in cases where it is not possible to build the code (for example if it uses inaccessible dependencies).\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                },
+                                "buildless_dependency_dir" : {
+                                  "title" : "The path where buildless (standalone) extraction should keep dependencies.",
+                                  "description" : "If set, the buildless (standalone) extractor will store dependencies in this directory.\n",
+                                  "type" : "string"
+                                },
+                                "minimize_dependency_jars" : {
+                                  "title" : "Whether to rewrite and minimize downloaded JAR dependencies (experimental).",
+                                  "description" : "If 'true', JAR dependencies downloaded during extraction will be rewritten to remove unneeded data, such as method bodies. The default is 'false'.\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                }
+                              }
+                            }
+                          ],
+                          "html" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/html"
+                            }
+                          ],
+                          "xml" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/xml"
+                            }
+                          ],
+                          "properties" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/properties"
+                            }
+                          ],
+                          "cpp" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/cpp",
+                              "extractor_options" : {
+                                "scale_timeouts" : {
+                                  "title" : "Value to scale compiler introspection timeouts with",
+                                  "description" : "The extractor attempts to determine what compiler the source code being extracted is compiled with. To this end the extractor makes additional calls to the compiler, some of which are expected to return within a certain fixed time (either 10s or 15s). On some systems that are under high load this time might be too short, and can be scaled up using this option.\n",
+                                  "type" : "string",
+                                  "pattern" : "[0-9]+"
+                                },
+                                "log_verbosity" : {
+                                  "title" : "Verbosity of the extractor logging",
+                                  "description" : "Set the verbosity of the extractor logging to 'quiet' (0), 'normal' (1), 'chatty' (2), or 'noisy' (3). The default is 'normal'.\n",
+                                  "type" : "string",
+                                  "pattern" : "[0-3]"
+                                }
+                              }
+                            }
+                          ],
+                          "swift" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/swift"
+                            }
+                          ],
+                          "csv" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/csv"
+                            }
+                          ],
+                          "actions" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/actions",
+                              "extractor_options" : { }
+                            }
+                          ],
+                          "yaml" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/yaml"
+                            }
+                          ],
+                          "csharp" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/csharp",
+                              "extractor_options" : {
+                                "trap" : {
+                                  "title" : "Options pertaining to TRAP.",
+                                  "description" : "Options pertaining to TRAP.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "compression" : {
+                                      "title" : "Controls compression for the TRAP files written by the extractor.",
+                                      "description" : "This option is only intended for use in debugging the extractor. Accepted values are 'brotli' (the default, to write brotli-compressed TRAP), 'gzip', and 'none' (to write uncompressed TRAP).\n",
+                                      "type" : "string",
+                                      "pattern" : "^(none|gzip|brotli)$"
+                                    }
+                                  }
+                                },
+                                "buildless" : {
+                                  "title" : "DEPRECATED - Whether to use buildless (standalone) extraction.",
+                                  "description" : "DEPRECATED: Use `--build-mode none` instead.\nA value indicating, which type of extraction the autobuilder should perform. If 'true', then the standalone extractor will be used, otherwise tracing extraction will be performed. The default is 'false'. Note that buildless extraction will generally yield less accurate analysis results, and should only be used in cases where it is not possible to build the code (for example if it uses inaccessible dependencies).\n",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                },
+                                "logging" : {
+                                  "title" : "Options pertaining to logging.",
+                                  "description" : "Options pertaining to logging.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "verbosity" : {
+                                      "title" : "Extractor logging verbosity level.",
+                                      "description" : "Controls the level of verbosity of the extractor. The supported levels are (in order of increasing verbosity):\n  - off\n  - errors\n  - warnings\n  - info or progress\n  - debug or progress+\n  - trace or progress++\n  - progress+++\n",
+                                      "type" : "string",
+                                      "pattern" : "^(off|errors|warnings|(info|progress)|(debug|progress\\+)|(trace|progress\\+\\+)|progress\\+\\+\\+)$"
+                                    }
+                                  }
+                                },
+                                "binlog" : {
+                                  "title" : "Binlog",
+                                  "description" : "[EXPERIMENTAL] The value is a path to the MsBuild binary log file that should be extracted. This option only works when `--build-mode none` is also specified.\n",
+                                  "type" : "array"
+                                },
+                                "buildless_dependency_dir" : {
+                                  "title" : "The path where buildless (standalone) extraction should keep dependencies.",
+                                  "description" : "If set, the buildless (standalone) extractor will store dependencies in this directory.\n",
+                                  "type" : "string"
+                                }
+                              }
+                            }
+                          ],
+                          "javascript" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/javascript",
+                              "extractor_options" : {
+                                "skip_types" : {
+                                  "title" : "Skip type extraction for TypeScript",
+                                  "description" : "Whether to skip the extraction of types in a TypeScript application",
+                                  "type" : "string",
+                                  "pattern" : "^(false|true)$"
+                                }
+                              }
+                            }
+                          ],
+                          "ruby" : [
+                            {
+                              "extractor_root" : "/opt/homebrew/Caskroom/codeql/2.24.1/codeql/ruby",
+                              "extractor_options" : {
+                                "trap" : {
+                                  "title" : "Options pertaining to TRAP.",
+                                  "description" : "Options pertaining to TRAP.",
+                                  "type" : "object",
+                                  "properties" : {
+                                    "compression" : {
+                                      "title" : "Controls compression for the TRAP files written by the extractor.",
+                                      "description" : "This option is only intended for use in debugging the extractor. Accepted values are 'gzip' (the default, to write gzip-compressed TRAP) 'zstd' (to write Zstandard-compressed TRAP) and 'none' (to write uncompressed TRAP).\n",
+                                      "type" : "string",
+                                      "pattern" : "^(none|gzip|zstd)$"
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+[2026-02-11 17:52:55] [PROGRESS] database init> Calculating baseline information in /Users/davidahmann/Projects/gait
+[2026-02-11 17:52:55] [SPAMMY] database init> Ignoring the following directories when processing baseline information: .git, .hg, .svn.
+[2026-02-11 17:52:55] [DETAILS] database init> Running command in /Users/davidahmann/Projects/gait: /opt/homebrew/Caskroom/codeql/2.24.1/codeql/tools/osx64/scc --by-file --exclude-dir .git,.hg,.svn --format json --no-large --no-min .
+[2026-02-11 17:52:55] Using configure-baseline script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/configure-baseline.sh.
+[2026-02-11 17:52:55] [PROGRESS] database init> Running command in /Users/davidahmann/Projects/gait: [/opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/configure-baseline.sh]
+[2026-02-11 17:52:55] Using configure-baseline script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/actions/tools/configure-baseline.sh.
+[2026-02-11 17:52:55] [PROGRESS] database init> Running command in /Users/davidahmann/Projects/gait: [/opt/homebrew/Caskroom/codeql/2.24.1/codeql/actions/tools/configure-baseline.sh]
+[2026-02-11 17:52:55] [SPAMMY] database init> Ignored an additional 48 files when processing baseline information for YAML due to paths and paths-ignore configuration.
+[2026-02-11 17:52:55] Using configure-baseline script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/javascript/tools/configure-baseline.sh.
+[2026-02-11 17:52:55] [PROGRESS] database init> Running command in /Users/davidahmann/Projects/gait: [/opt/homebrew/Caskroom/codeql/2.24.1/codeql/javascript/tools/configure-baseline.sh]
+[2026-02-11 17:52:55] [SPAMMY] database init> Found 156 baseline files for go.
+[2026-02-11 17:52:55] [SPAMMY] database init> Found 9 baseline files for actions.
+[2026-02-11 17:52:55] [SPAMMY] database init> Found 31 baseline files for python.
+[2026-02-11 17:52:55] [SPAMMY] database init> Found 16 baseline files for javascript.
+[2026-02-11 17:52:55] [PROGRESS] database init> Calculated baseline information for languages: actions, go, javascript, python (205ms).
+[2026-02-11 17:52:55] [PROGRESS] database init> Resolving extractor go.
+[2026-02-11 17:52:55] [DETAILS] database init> Found candidate extractor root for go: /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go.
+[2026-02-11 17:52:55] [PROGRESS] database init> Successfully loaded extractor Go (go) from /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go.
+[2026-02-11 17:52:55] [SPAMMY] database init> Determining macOS System Integrity Protection status...
+[2026-02-11 17:52:55] [SPAMMY] database init> Running command [/usr/bin/csrutil, status].
+[2026-02-11 17:52:55] [SPAMMY] database init> SIP is enabled.
+[2026-02-11 17:52:55] [PROGRESS] database init> Created skeleton CodeQL database at /Users/davidahmann/Projects/gait/.codeql/db-go. This in-progress database is ready to be populated by an extractor.
+[2026-02-11 17:52:55] Plumbing command codeql database init completed.
+[2026-02-11 17:52:55] [PROGRESS] database create> Running build command: [go, build, ./cmd/gait]
+[2026-02-11 17:52:55] Running plumbing command: codeql database trace-command --working-dir=/Users/davidahmann/Projects/gait --index-traceless-dbs --no-db-cluster -- /Users/davidahmann/Projects/gait/.codeql/db-go go build ./cmd/gait
+[2026-02-11 17:52:55] [PROGRESS] database trace-command> Running command in /Users/davidahmann/Projects/gait: [go, build, ./cmd/gait]
+[2026-02-11 17:52:59] Plumbing command codeql database trace-command completed.
+[2026-02-11 17:52:59] [PROGRESS] database create> Finalizing database at /Users/davidahmann/Projects/gait/.codeql/db-go.
+[2026-02-11 17:52:59] Running plumbing command: codeql database finalize --no-db-cluster -- /Users/davidahmann/Projects/gait/.codeql/db-go
+[2026-02-11 17:52:59] Using pre-finalize script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/pre-finalize.sh.
+[2026-02-11 17:52:59] [PROGRESS] database finalize> Running pre-finalize script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/pre-finalize.sh in /Users/davidahmann/Projects/gait.
+[2026-02-11 17:52:59] Running plumbing command: codeql database trace-command --working-dir=/Users/davidahmann/Projects/gait --no-tracing -- /Users/davidahmann/Projects/gait/.codeql/db-go /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/pre-finalize.sh
+[2026-02-11 17:52:59] [PROGRESS] database trace-command> Running command in /Users/davidahmann/Projects/gait: [/opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/pre-finalize.sh]
+[2026-02-11 17:53:00] [build-stderr] Scanning for files in /Users/davidahmann/Projects/gait...
+[2026-02-11 17:53:00] [build-stderr] /Users/davidahmann/Projects/gait/.codeql/db-go: Indexing files in in /Users/davidahmann/Projects/gait...
+[2026-02-11 17:53:00] [build-stderr] Running command in /Users/davidahmann/Projects/gait: [/opt/homebrew/Caskroom/codeql/2.24.1/codeql/html/tools/index-files.sh, /Users/davidahmann/Projects/gait/.codeql/db-go/working/files-to-index13255305482229605552.list]
+[2026-02-11 17:53:01] Plumbing command codeql database trace-command completed.
+[2026-02-11 17:53:01] [PROGRESS] database finalize> Pre-finalize script /opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/tools/pre-finalize.sh completed in 1594 ms.
+[2026-02-11 17:53:01] [PROGRESS] database finalize> Running TRAP import for CodeQL database at /Users/davidahmann/Projects/gait/.codeql/db-go...
+[2026-02-11 17:53:01] Running plumbing command: codeql dataset import --dbscheme=/opt/homebrew/Caskroom/codeql/2.24.1/codeql/go/go.dbscheme -- /Users/davidahmann/Projects/gait/.codeql/db-go/db-go /Users/davidahmann/Projects/gait/.codeql/db-go/trap/go
+[2026-02-11 17:53:01] Clearing disk cache since the version file /Users/davidahmann/Projects/gait/.codeql/db-go/db-go/default/cache/version does not exist
+[2026-02-11 17:53:01] Tuple pool not found. Clearing relations with cached strings
+[2026-02-11 17:53:01] Trimming disk cache at /Users/davidahmann/Projects/gait/.codeql/db-go/db-go/default/cache in mode clear.
+[2026-02-11 17:53:01] Sequence stamp origin is -5948141519837051310
+[2026-02-11 17:53:01] Pausing evaluation to hard-clear memory at sequence stamp o+0
+[2026-02-11 17:53:01] Unpausing evaluation
+[2026-02-11 17:53:01] Pausing evaluation to quickly trim disk at sequence stamp o+1
+[2026-02-11 17:53:01] Unpausing evaluation
+[2026-02-11 17:53:01] Pausing evaluation to zealously trim disk at sequence stamp o+2
+[2026-02-11 17:53:01] Unpausing evaluation
+[2026-02-11 17:53:01] Trimming completed (2ms): Purged everything.
+[2026-02-11 17:53:01] Scanning for files in /Users/davidahmann/Projects/gait/.codeql/db-go/trap/go
+[2026-02-11 17:53:01] Found 459 TRAP files (17.15 MiB)
+[2026-02-11 17:53:01] [PROGRESS] dataset import> Importing TRAP files
+[2026-02-11 17:53:01] Importing approve.go.trap.gz (1 of 459)
+[2026-02-11 17:53:01] Importing args.go.trap.gz (2 of 459)
+[2026-02-11 17:53:01] Importing correlation.go.trap.gz (3 of 459)
+[2026-02-11 17:53:01] Importing delegate.go.trap.gz (4 of 459)
+[2026-02-11 17:53:01] Importing demo.go.trap.gz (5 of 459)
+[2026-02-11 17:53:01] Importing doctor.go.trap.gz (6 of 459)
+[2026-02-11 17:53:01] Importing error_output.go.trap.gz (7 of 459)
+[2026-02-11 17:53:01] Importing explain.go.trap.gz (8 of 459)
+[2026-02-11 17:53:01] Importing gate.go.trap.gz (9 of 459)
+[2026-02-11 17:53:01] Importing guard.go.trap.gz (10 of 459)
+[2026-02-11 17:53:01] Importing incident.go.trap.gz (11 of 459)
+[2026-02-11 17:53:01] Importing keys.go.trap.gz (12 of 459)
+[2026-02-11 17:53:01] Importing main.go.trap.gz (13 of 459)
+[2026-02-11 17:53:01] Importing mcp.go.trap.gz (14 of 459)
+[2026-02-11 17:53:01] Importing mcp_server.go.trap.gz (15 of 459)
+[2026-02-11 17:53:01] Importing migrate.go.trap.gz (16 of 459)
+[2026-02-11 17:53:01] Importing policy.go.trap.gz (17 of 459)
+[2026-02-11 17:53:01] Importing registry.go.trap.gz (18 of 459)
+[2026-02-11 17:53:01] Importing regress.go.trap.gz (19 of 459)
+[2026-02-11 17:53:01] Importing run.go.trap.gz (20 of 459)
+[2026-02-11 17:53:01] Importing run_inspect.go.trap.gz (21 of 459)
+[2026-02-11 17:53:01] Importing run_receipt.go.trap.gz (22 of 459)
+[2026-02-11 17:53:01] Importing run_record.go.trap.gz (23 of 459)
+[2026-02-11 17:53:01] Importing run_session.go.trap.gz (24 of 459)
+[2026-02-11 17:53:01] Importing runpack_path.go.trap.gz (25 of 459)
+[2026-02-11 17:53:01] Importing scout.go.trap.gz (26 of 459)
+[2026-02-11 17:53:01] Importing ticket_footer.go.trap.gz (27 of 459)
+[2026-02-11 17:53:01] Importing trace.go.trap.gz (28 of 459)
+[2026-02-11 17:53:01] Importing verify.go.trap.gz (29 of 459)
+[2026-02-11 17:53:02] Importing broker.go.trap.gz (30 of 459)
+[2026-02-11 17:53:02] Importing providers.go.trap.gz (31 of 459)
+[2026-02-11 17:53:02] Importing doctor.go.trap.gz (32 of 459)
+[2026-02-11 17:53:02] Importing errors.go.trap.gz (33 of 459)
+[2026-02-11 17:53:02] Importing append.go.trap.gz (34 of 459)
+[2026-02-11 17:53:02] Importing fsx.go.trap.gz (35 of 459)
+[2026-02-11 17:53:02] Importing approval.go.trap.gz (36 of 459)
+[2026-02-11 17:53:02] Importing approval_audit.go.trap.gz (37 of 459)
+[2026-02-11 17:53:02] Importing credential_evidence.go.trap.gz (38 of 459)
+[2026-02-11 17:53:02] Importing delegation.go.trap.gz (39 of 459)
+[2026-02-11 17:53:02] Importing delegation_audit.go.trap.gz (40 of 459)
+[2026-02-11 17:53:02] Importing intent.go.trap.gz (41 of 459)
+[2026-02-11 17:53:02] Importing policy.go.trap.gz (42 of 459)
+[2026-02-11 17:53:02] Importing rate_limit.go.trap.gz (43 of 459)
+[2026-02-11 17:53:02] Importing trace.go.trap.gz (44 of 459)
+[2026-02-11 17:53:02] Importing crypto.go.trap.gz (45 of 459)
+[2026-02-11 17:53:02] Importing incident.go.trap.gz (46 of 459)
+[2026-02-11 17:53:02] Importing interfaces.go.trap.gz (47 of 459)
+[2026-02-11 17:53:02] Importing pack.go.trap.gz (48 of 459)
+[2026-02-11 17:53:02] Importing pdf.go.trap.gz (49 of 459)
+[2026-02-11 17:53:02] Importing retention.go.trap.gz (50 of 459)
+[2026-02-11 17:53:02] Importing template.go.trap.gz (51 of 459)
+[2026-02-11 17:53:02] Importing jcs.go.trap.gz (52 of 459)
+[2026-02-11 17:53:02] Importing exporters.go.trap.gz (53 of 459)
+[2026-02-11 17:53:02] Importing interfaces.go.trap.gz (54 of 459)
+[2026-02-11 17:53:02] Importing proxy.go.trap.gz (55 of 459)
+[2026-02-11 17:53:02] Importing run.go.trap.gz (56 of 459)
+[2026-02-11 17:53:02] Importing config.go.trap.gz (57 of 459)
+[2026-02-11 17:53:02] Importing install.go.trap.gz (58 of 459)
+[2026-02-11 17:53:02] Importing query.go.trap.gz (59 of 459)
+[2026-02-11 17:53:02] Importing init.go.trap.gz (60 of 459)
+[2026-02-11 17:53:02] Importing run.go.trap.gz (61 of 459)
+[2026-02-11 17:53:02] Importing diff.go.trap.gz (62 of 459)
+[2026-02-11 17:53:02] Importing read.go.trap.gz (63 of 459)
+[2026-02-11 17:53:02] Importing record.go.trap.gz (64 of 459)
+[2026-02-11 17:53:02] Importing reduce.go.trap.gz (65 of 459)
+[2026-02-11 17:53:02] Importing replay.go.trap.gz (66 of 459)
+[2026-02-11 17:53:02] Importing session.go.trap.gz (67 of 459)
+[2026-02-11 17:53:02] Importing verify.go.trap.gz (68 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (69 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (70 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (71 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (72 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (73 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (74 of 459)
+[2026-02-11 17:53:02] Importing types.go.trap.gz (75 of 459)
+[2026-02-11 17:53:02] Importing adoption.go.trap.gz (76 of 459)
+[2026-02-11 17:53:02] Importing coverage.go.trap.gz (77 of 459)
+[2026-02-11 17:53:02] Importing diff.go.trap.gz (78 of 459)
+[2026-02-11 17:53:02] Importing interfaces.go.trap.gz (79 of 459)
+[2026-02-11 17:53:02] Importing operational.go.trap.gz (80 of 459)
+[2026-02-11 17:53:02] Importing signal.go.trap.gz (81 of 459)
+[2026-02-11 17:53:02] Importing snapshot.go.trap.gz (82 of 459)
+[2026-02-11 17:53:02] Importing json.go.trap.gz (83 of 459)
+[2026-02-11 17:53:02] Importing keys.go.trap.gz (84 of 459)
+[2026-02-11 17:53:02] Importing sign.go.trap.gz (85 of 459)
+[2026-02-11 17:53:02] Importing zipx.go.trap.gz (86 of 459)
+[2026-02-11 17:53:02] Importing _not-found.html.trap.gz (87 of 459)
+[2026-02-11 17:53:02] Importing 0001-error-taxonomy-and-exit-mapping.html.trap.gz (88 of 459)
+[2026-02-11 17:53:02] Importing 0002-atomic-write-strategy.html.trap.gz (89 of 459)
+[2026-02-11 17:53:02] Importing 0003-lock-contention-strategy.html.trap.gz (90 of 459)
+[2026-02-11 17:53:02] Importing 0004-network-retry-policy.html.trap.gz (91 of 459)
+[2026-02-11 17:53:02] Importing approval_runbook.html.trap.gz (92 of 459)
+[2026-02-11 17:53:02] Importing architecture.html.trap.gz (93 of 459)
+[2026-02-11 17:53:02] Importing openclaw_24h_boundary_enforcement.html.trap.gz (94 of 459)
+[2026-02-11 17:53:02] Importing ci_regress_kit.html.trap.gz (95 of 459)
+[2026-02-11 17:53:02] Importing mental_model.html.trap.gz (96 of 459)
+[2026-02-11 17:53:02] Importing artifact_graph.html.trap.gz (97 of 459)
+[2026-02-11 17:53:02] Importing endpoint_action_model.html.trap.gz (98 of 459)
+[2026-02-11 17:53:02] Importing primitive_contract.html.trap.gz (99 of 459)
+[2026-02-11 17:53:02] Importing skill_provenance.html.trap.gz (100 of 459)
+[2026-02-11 17:53:02] Importing contributing.html.trap.gz (101 of 459)
+[2026-02-11 17:53:02] Importing cloud_runtime_patterns.html.trap.gz (102 of 459)
+[2026-02-11 17:53:02] Importing awesome.html.trap.gz (103 of 459)
+[2026-02-11 17:53:02] Importing contribute.html.trap.gz (104 of 459)
+[2026-02-11 17:53:02] Importing evidence_templates.html.trap.gz (105 of 459)
+[2026-02-11 17:53:02] Importing external_tool_registry_policy.html.trap.gz (106 of 459)
+[2026-02-11 17:53:02] Importing flows.html.trap.gz (107 of 459)
+[2026-02-11 17:53:02] Importing aws_well_architected_matrix.html.trap.gz (108 of 459)
+[2026-02-11 17:53:02] Importing beyond12factor_matrix.html.trap.gz (109 of 459)
+[2026-02-11 17:53:02] Importing contracts.html.trap.gz (110 of 459)
+[2026-02-11 17:53:02] Importing frugal_architecture_matrix.html.trap.gz (111 of 459)
+[2026-02-11 17:53:02] Importing release_checklist.html.trap.gz (112 of 459)
+[2026-02-11 17:53:02] Importing resource_budgets.html.trap.gz (113 of 459)
+[2026-02-11 17:53:02] Importing risk_register.html.trap.gz (114 of 459)
+[2026-02-11 17:53:02] Importing homebrew.html.trap.gz (115 of 459)
+[2026-02-11 17:53:02] Importing install.html.trap.gz (116 of 459)
+[2026-02-11 17:53:02] Importing integration_checklist.html.trap.gz (117 of 459)
+[2026-02-11 17:53:02] Importing faq_objections.html.trap.gz (118 of 459)
+[2026-02-11 17:53:02] Importing github_release_template.html.trap.gz (119 of 459)
+[2026-02-11 17:53:02] Importing hn_post.html.trap.gz (120 of 459)
+[2026-02-11 17:53:02] Importing kpi_scorecard.html.trap.gz (121 of 459)
+[2026-02-11 17:53:02] Importing narrative_one_liner.html.trap.gz (122 of 459)
+[2026-02-11 17:53:02] Importing readme.html.trap.gz (123 of 459)
+[2026-02-11 17:53:02] Importing rfc_agent_framework_template.html.trap.gz (124 of 459)
+[2026-02-11 17:53:02] Importing rfc_gastown.html.trap.gz (125 of 459)
+[2026-02-11 17:53:02] Importing rfc_openclaw.html.trap.gz (126 of 459)
+[2026-02-11 17:53:02] Importing secure_deployment_gastown.html.trap.gz (127 of 459)
+[2026-02-11 17:53:02] Importing secure_deployment_openclaw.html.trap.gz (128 of 459)
+[2026-02-11 17:53:02] Importing seo_aeo_checklist.html.trap.gz (129 of 459)
+[2026-02-11 17:53:02] Importing packaging.html.trap.gz (130 of 459)
+[2026-02-11 17:53:02] Importing policy_authoring.html.trap.gz (131 of 459)
+[2026-02-11 17:53:02] Importing policy_rollout.html.trap.gz (132 of 459)
+[2026-02-11 17:53:02] Importing positioning.html.trap.gz (133 of 459)
+[2026-02-11 17:53:02] Importing project_defaults.html.trap.gz (134 of 459)
+[2026-02-11 17:53:02] Importing security.html.trap.gz (135 of 459)
+[2026-02-11 17:53:02] Importing siem_ingestion_recipes.html.trap.gz (136 of 459)
+[2026-02-11 17:53:02] Importing runtime_slo.html.trap.gz (137 of 459)
+[2026-02-11 17:53:02] Importing start-here.html.trap.gz (138 of 459)
+[2026-02-11 17:53:02] Importing test_cadence.html.trap.gz (139 of 459)
+[2026-02-11 17:53:02] Importing uat_functional_plan.html.trap.gz (140 of 459)
+[2026-02-11 17:53:02] Importing _sidebar.html.trap.gz (141 of 459)
+[2026-02-11 17:53:02] Importing community-patterns.html.trap.gz (142 of 459)
+[2026-02-11 17:53:02] Importing examples-gallery.html.trap.gz (143 of 459)
+[2026-02-11 17:53:02] Importing home.html.trap.gz (144 of 459)
+[2026-02-11 17:53:02] Importing integration-cookbook.html.trap.gz (145 of 459)
+[2026-02-11 17:53:02] Importing migration-playbooks.html.trap.gz (146 of 459)
+[2026-02-11 17:53:02] Importing operator-faq.html.trap.gz (147 of 459)
+[2026-02-11 17:53:02] Importing troubleshooting-atlas.html.trap.gz (148 of 459)
+[2026-02-11 17:53:02] Importing zero_trust_stack.html.trap.gz (149 of 459)
+[2026-02-11 17:53:02] Importing docs.html.trap.gz (150 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (151 of 459)
+[2026-02-11 17:53:02] Importing llms.html.trap.gz (152 of 459)
+[2026-02-11 17:53:02] Importing 404.html.trap.gz (153 of 459)
+[2026-02-11 17:53:02] Importing 500.html.trap.gz (154 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (155 of 459)
+[2026-02-11 17:53:02] Importing demo-compound.html.trap.gz (156 of 459)
+[2026-02-11 17:53:02] Importing demo.html.trap.gz (157 of 459)
+[2026-02-11 17:53:02] Importing demo-compound.html.trap.gz (158 of 459)
+[2026-02-11 17:53:02] Importing demo-constraint.html.trap.gz (159 of 459)
+[2026-02-11 17:53:02] Importing demo.html.trap.gz (160 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (161 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (162 of 459)
+[2026-02-11 17:53:02] Importing angular.html.trap.gz (163 of 459)
+[2026-02-11 17:53:02] Importing tslib.es6.html.trap.gz (164 of 459)
+[2026-02-11 17:53:02] Importing tslib.html.trap.gz (165 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (166 of 459)
+[2026-02-11 17:53:02] Importing 404.html.trap.gz (167 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (168 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (169 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (170 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (171 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (172 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (173 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (174 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (175 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (176 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (177 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (178 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (179 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (180 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (181 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (182 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (183 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (184 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (185 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (186 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (187 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (188 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (189 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (190 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (191 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (192 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (193 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (194 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (195 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (196 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (197 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (198 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (199 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (200 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (201 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (202 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (203 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (204 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (205 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (206 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (207 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (208 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (209 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (210 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (211 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (212 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (213 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (214 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (215 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (216 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (217 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (218 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (219 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (220 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (221 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (222 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (223 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (224 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (225 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (226 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (227 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (228 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (229 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (230 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (231 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (232 of 459)
+[2026-02-11 17:53:02] Importing go.mod.trap.gz (233 of 459)
+[2026-02-11 17:53:02] Importing index.html.trap.gz (234 of 459)
+[2026-02-11 17:53:02] Importing pyfile.html.trap.gz (235 of 459)
+[2026-02-11 17:53:02] Importing zip.trap.gz (236 of 459)
+[2026-02-11 17:53:02] Importing bufio.trap.gz (237 of 459)
+[2026-02-11 17:53:02] Importing bytes.trap.gz (238 of 459)
+[2026-02-11 17:53:02] Importing cmp.trap.gz (239 of 459)
+[2026-02-11 17:53:02] Importing 170b1121344184979dc72fb5f84457_0.trap.gz (240 of 459)
+[2026-02-11 17:53:02] Importing flate.trap.gz (241 of 459)
+[2026-02-11 17:53:02] Importing gzip.trap.gz (242 of 459)
+[2026-02-11 17:53:02] Importing list.trap.gz (243 of 459)
+[2026-02-11 17:53:02] Importing context.trap.gz (244 of 459)
+[2026-02-11 17:53:02] Importing aes.trap.gz (245 of 459)
+[2026-02-11 17:53:02] Importing cipher.trap.gz (246 of 459)
+[2026-02-11 17:53:02] Importing des.trap.gz (247 of 459)
+[2026-02-11 17:53:02] Importing dsa.trap.gz (248 of 459)
+[2026-02-11 17:53:02] Importing ecdh.trap.gz (249 of 459)
+[2026-02-11 17:53:02] Importing ecdsa.trap.gz (250 of 459)
+[2026-02-11 17:53:02] Importing ed25519.trap.gz (251 of 459)
+[2026-02-11 17:53:02] Importing elliptic.trap.gz (252 of 459)
+[2026-02-11 17:53:02] Importing fips140.trap.gz (253 of 459)
+[2026-02-11 17:53:02] Importing hkdf.trap.gz (254 of 459)
+[2026-02-11 17:53:02] Importing hmac.trap.gz (255 of 459)
+[2026-02-11 17:53:02] Importing bbig.trap.gz (256 of 459)
+[2026-02-11 17:53:02] Importing sig.trap.gz (257 of 459)
+[2026-02-11 17:53:02] Importing boring.trap.gz (258 of 459)
+[2026-02-11 17:53:02] Importing entropy.trap.gz (259 of 459)
+[2026-02-11 17:53:02] Importing gcm.trap.gz (260 of 459)
+[2026-02-11 17:53:02] Importing aes.trap.gz (261 of 459)
+[2026-02-11 17:53:02] Importing alias.trap.gz (262 of 459)
+[2026-02-11 17:53:02] Importing bigmod.trap.gz (263 of 459)
+[2026-02-11 17:53:02] Importing check.trap.gz (264 of 459)
+[2026-02-11 17:53:02] Importing drbg.trap.gz (265 of 459)
+[2026-02-11 17:53:02] Importing ecdh.trap.gz (266 of 459)
+[2026-02-11 17:53:02] Importing ecdsa.trap.gz (267 of 459)
+[2026-02-11 17:53:02] Importing ed25519.trap.gz (268 of 459)
+[2026-02-11 17:53:02] Importing field.trap.gz (269 of 459)
+[2026-02-11 17:53:02] Importing edwards25519.trap.gz (270 of 459)
+[2026-02-11 17:53:02] Importing hkdf.trap.gz (271 of 459)
+[2026-02-11 17:53:02] Importing hmac.trap.gz (272 of 459)
+[2026-02-11 17:53:02] Importing mlkem.trap.gz (273 of 459)
+[2026-02-11 17:53:02] Importing fiat.trap.gz (274 of 459)
+[2026-02-11 17:53:02] Importing nistec.trap.gz (275 of 459)
+[2026-02-11 17:53:02] Importing rsa.trap.gz (276 of 459)
+[2026-02-11 17:53:02] Importing sha256.trap.gz (277 of 459)
+[2026-02-11 17:53:02] Importing sha3.trap.gz (278 of 459)
+[2026-02-11 17:53:02] Importing sha512.trap.gz (279 of 459)
+[2026-02-11 17:53:02] Importing subtle.trap.gz (280 of 459)
+[2026-02-11 17:53:02] Importing tls12.trap.gz (281 of 459)
+[2026-02-11 17:53:02] Importing tls13.trap.gz (282 of 459)
+[2026-02-11 17:53:02] Importing fips140.trap.gz (283 of 459)
+[2026-02-11 17:53:02] Importing fips140cache.trap.gz (284 of 459)
+[2026-02-11 17:53:02] Importing byteorder.trap.gz (285 of 459)
+[2026-02-11 17:53:02] Importing cpu.trap.gz (286 of 459)
+[2026-02-11 17:53:02] Importing godebug.trap.gz (287 of 459)
+[2026-02-11 17:53:02] Importing fips140hash.trap.gz (288 of 459)
+[2026-02-11 17:53:02] Importing fips140only.trap.gz (289 of 459)
+[2026-02-11 17:53:02] Importing hpke.trap.gz (290 of 459)
+[2026-02-11 17:53:02] Importing impl.trap.gz (291 of 459)
+[2026-02-11 17:53:02] Importing randutil.trap.gz (292 of 459)
+[2026-02-11 17:53:02] Importing sysrand.trap.gz (293 of 459)
+[2026-02-11 17:53:02] Importing md5.trap.gz (294 of 459)
+[2026-02-11 17:53:02] Importing rand.trap.gz (295 of 459)
+[2026-02-11 17:53:02] Importing rc4.trap.gz (296 of 459)
+[2026-02-11 17:53:02] Importing rsa.trap.gz (297 of 459)
+[2026-02-11 17:53:02] Importing sha1.trap.gz (298 of 459)
+[2026-02-11 17:53:02] Importing sha256.trap.gz (299 of 459)
+[2026-02-11 17:53:02] Importing sha3.trap.gz (300 of 459)
+[2026-02-11 17:53:02] Importing sha512.trap.gz (301 of 459)
+[2026-02-11 17:53:02] Importing subtle.trap.gz (302 of 459)
+[2026-02-11 17:53:02] Importing fips140tls.trap.gz (303 of 459)
+[2026-02-11 17:53:02] Importing tls.trap.gz (304 of 459)
+[2026-02-11 17:53:02] Importing macos.trap.gz (305 of 459)
+[2026-02-11 17:53:02] Importing pkix.trap.gz (306 of 459)
+[2026-02-11 17:53:02] Importing x509.trap.gz (307 of 459)
+[2026-02-11 17:53:02] Importing crypto.trap.gz (308 of 459)
+[2026-02-11 17:53:02] Importing embed.trap.gz (309 of 459)
+[2026-02-11 17:53:02] Importing asn1.trap.gz (310 of 459)
+[2026-02-11 17:53:02] Importing base64.trap.gz (311 of 459)
+[2026-02-11 17:53:02] Importing binary.trap.gz (312 of 459)
+[2026-02-11 17:53:02] Importing hex.trap.gz (313 of 459)
+[2026-02-11 17:53:02] Importing json.trap.gz (314 of 459)
+[2026-02-11 17:53:02] Importing pem.trap.gz (315 of 459)
+[2026-02-11 17:53:02] Importing xml.trap.gz (316 of 459)
+[2026-02-11 17:53:02] Importing encoding.trap.gz (317 of 459)
+[2026-02-11 17:53:02] Importing errors.trap.gz (318 of 459)
+[2026-02-11 17:53:02] Importing flag.trap.gz (319 of 459)
+[2026-02-11 17:53:02] Importing fmt.trap.gz (320 of 459)
+[2026-02-11 17:53:02] Importing gait.trap.gz (321 of 459)
+[2026-02-11 17:53:02] Importing credential.trap.gz (322 of 459)
+[2026-02-11 17:53:02] Importing doctor.trap.gz (323 of 459)
+[2026-02-11 17:53:02] Importing errors.trap.gz (324 of 459)
+[2026-02-11 17:53:02] Importing fsx.trap.gz (325 of 459)
+[2026-02-11 17:53:02] Importing gate.trap.gz (326 of 459)
+[2026-02-11 17:53:02] Importing guard.trap.gz (327 of 459)
+[2026-02-11 17:53:02] Importing jcs.trap.gz (328 of 459)
+[2026-02-11 17:53:02] Importing mcp.trap.gz (329 of 459)
+[2026-02-11 17:53:02] Importing policytest.trap.gz (330 of 459)
+[2026-02-11 17:53:02] Importing projectconfig.trap.gz (331 of 459)
+[2026-02-11 17:53:02] Importing registry.trap.gz (332 of 459)
+[2026-02-11 17:53:02] Importing regress.trap.gz (333 of 459)
+[2026-02-11 17:53:02] Importing runpack.trap.gz (334 of 459)
+[2026-02-11 17:53:02] Importing gate.trap.gz (335 of 459)
+[2026-02-11 17:53:02] Importing guard.trap.gz (336 of 459)
+[2026-02-11 17:53:02] Importing policytest.trap.gz (337 of 459)
+[2026-02-11 17:53:02] Importing registry.trap.gz (338 of 459)
+[2026-02-11 17:53:02] Importing regress.trap.gz (339 of 459)
+[2026-02-11 17:53:02] Importing runpack.trap.gz (340 of 459)
+[2026-02-11 17:53:02] Importing scout.trap.gz (341 of 459)
+[2026-02-11 17:53:02] Importing scout.trap.gz (342 of 459)
+[2026-02-11 17:53:02] Importing sign.trap.gz (343 of 459)
+[2026-02-11 17:53:02] Importing zipx.trap.gz (344 of 459)
+[2026-02-11 17:53:02] Importing ast.trap.gz (345 of 459)
+[2026-02-11 17:53:02] Importing errors.trap.gz (346 of 459)
+[2026-02-11 17:53:02] Importing format.trap.gz (347 of 459)
+[2026-02-11 17:53:02] Importing lexer.trap.gz (348 of 459)
+[2026-02-11 17:53:02] Importing parser.trap.gz (349 of 459)
+[2026-02-11 17:53:02] Importing printer.trap.gz (350 of 459)
+[2026-02-11 17:53:02] Importing scanner.trap.gz (351 of 459)
+[2026-02-11 17:53:02] Importing token.trap.gz (352 of 459)
+[2026-02-11 17:53:02] Importing go-yaml.trap.gz (353 of 459)
+[2026-02-11 17:53:02] Importing jcs.trap.gz (354 of 459)
+[2026-02-11 17:53:02] Importing crc32.trap.gz (355 of 459)
+[2026-02-11 17:53:02] Importing hash.trap.gz (356 of 459)
+[2026-02-11 17:53:02] Importing abi.trap.gz (357 of 459)
+[2026-02-11 17:53:02] Importing asan.trap.gz (358 of 459)
+[2026-02-11 17:53:02] Importing bisect.trap.gz (359 of 459)
+[2026-02-11 17:53:02] Importing bytealg.trap.gz (360 of 459)
+[2026-02-11 17:53:02] Importing byteorder.trap.gz (361 of 459)
+[2026-02-11 17:53:02] Importing chacha8rand.trap.gz (362 of 459)
+[2026-02-11 17:53:02] Importing rtcov.trap.gz (363 of 459)
+[2026-02-11 17:53:02] Importing cpu.trap.gz (364 of 459)
+[2026-02-11 17:53:02] Importing filepathlite.trap.gz (365 of 459)
+[2026-02-11 17:53:02] Importing fmtsort.trap.gz (366 of 459)
+[2026-02-11 17:53:02] Importing goarch.trap.gz (367 of 459)
+[2026-02-11 17:53:02] Importing godebug.trap.gz (368 of 459)
+[2026-02-11 17:53:02] Importing godebugs.trap.gz (369 of 459)
+[2026-02-11 17:53:02] Importing goexperiment.trap.gz (370 of 459)
+[2026-02-11 17:53:02] Importing goos.trap.gz (371 of 459)
+[2026-02-11 17:53:02] Importing itoa.trap.gz (372 of 459)
+[2026-02-11 17:53:02] Importing msan.trap.gz (373 of 459)
+[2026-02-11 17:53:02] Importing nettrace.trap.gz (374 of 459)
+[2026-02-11 17:53:02] Importing oserror.trap.gz (375 of 459)
+[2026-02-11 17:53:02] Importing poll.trap.gz (376 of 459)
+[2026-02-11 17:53:02] Importing profilerecord.trap.gz (377 of 459)
+[2026-02-11 17:53:02] Importing race.trap.gz (378 of 459)
+[2026-02-11 17:53:02] Importing reflectlite.trap.gz (379 of 459)
+[2026-02-11 17:53:02] Importing routebsd.trap.gz (380 of 459)
+[2026-02-11 17:53:02] Importing atomic.trap.gz (381 of 459)
+[2026-02-11 17:53:02] Importing exithook.trap.gz (382 of 459)
+[2026-02-11 17:53:02] Importing gc.trap.gz (383 of 459)
+[2026-02-11 17:53:02] Importing maps.trap.gz (384 of 459)
+[2026-02-11 17:53:02] Importing math.trap.gz (385 of 459)
+[2026-02-11 17:53:02] Importing strconv.trap.gz (386 of 459)
+[2026-02-11 17:53:02] Importing sys.trap.gz (387 of 459)
+[2026-02-11 17:53:02] Importing saferio.trap.gz (388 of 459)
+[2026-02-11 17:53:02] Importing singleflight.trap.gz (389 of 459)
+[2026-02-11 17:53:02] Importing stringslite.trap.gz (390 of 459)
+[2026-02-11 17:53:02] Importing sync.trap.gz (391 of 459)
+[2026-02-11 17:53:02] Importing synctest.trap.gz (392 of 459)
+[2026-02-11 17:53:02] Importing execenv.trap.gz (393 of 459)
+[2026-02-11 17:53:02] Importing unix.trap.gz (394 of 459)
+[2026-02-11 17:53:02] Importing testlog.trap.gz (395 of 459)
+[2026-02-11 17:53:02] Importing tracev2.trap.gz (396 of 459)
+[2026-02-11 17:53:02] Importing unsafeheader.trap.gz (397 of 459)
+[2026-02-11 17:53:02] Importing fs.trap.gz (398 of 459)
+[2026-02-11 17:53:02] Importing io.trap.gz (399 of 459)
+[2026-02-11 17:53:02] Importing iter.trap.gz (400 of 459)
+[2026-02-11 17:53:02] Importing internal.trap.gz (401 of 459)
+[2026-02-11 17:53:02] Importing log.trap.gz (402 of 459)
+[2026-02-11 17:53:02] Importing maps.trap.gz (403 of 459)
+[2026-02-11 17:53:02] Importing big.trap.gz (404 of 459)
+[2026-02-11 17:53:02] Importing bits.trap.gz (405 of 459)
+[2026-02-11 17:53:02] Importing v2.trap.gz (406 of 459)
+[2026-02-11 17:53:02] Importing rand.trap.gz (407 of 459)
+[2026-02-11 17:53:02] Importing math.trap.gz (408 of 459)
+[2026-02-11 17:53:02] Importing metadata.trap.gz (409 of 459)
+[2026-02-11 17:53:02] Importing multipart.trap.gz (410 of 459)
+[2026-02-11 17:53:02] Importing quotedprintable.trap.gz (411 of 459)
+[2026-02-11 17:53:02] Importing mime.trap.gz (412 of 459)
+[2026-02-11 17:53:02] Importing httptrace.trap.gz (413 of 459)
+[2026-02-11 17:53:02] Importing ascii.trap.gz (414 of 459)
+[2026-02-11 17:53:02] Importing httpcommon.trap.gz (415 of 459)
+[2026-02-11 17:53:02] Importing internal.trap.gz (416 of 459)
+[2026-02-11 17:53:02] Importing http.trap.gz (417 of 459)
+[2026-02-11 17:53:02] Importing netip.trap.gz (418 of 459)
+[2026-02-11 17:53:02] Importing textproto.trap.gz (419 of 459)
+[2026-02-11 17:53:02] Importing url.trap.gz (420 of 459)
+[2026-02-11 17:53:02] Importing net.trap.gz (421 of 459)
+[2026-02-11 17:53:02] Importing exec.trap.gz (422 of 459)
+[2026-02-11 17:53:02] Importing os.trap.gz (423 of 459)
+[2026-02-11 17:53:02] Importing filepath.trap.gz (424 of 459)
+[2026-02-11 17:53:02] Importing path.trap.gz (425 of 459)
+[2026-02-11 17:53:02] Importing reflect.trap.gz (426 of 459)
+[2026-02-11 17:53:02] Importing syntax.trap.gz (427 of 459)
+[2026-02-11 17:53:02] Importing regexp.trap.gz (428 of 459)
+[2026-02-11 17:53:02] Importing runtime.trap.gz (429 of 459)
+[2026-02-11 17:53:02] Importing slices.trap.gz (430 of 459)
+[2026-02-11 17:53:02] Importing sort.trap.gz (431 of 459)
+[2026-02-11 17:53:02] Importing strconv.trap.gz (432 of 459)
+[2026-02-11 17:53:02] Importing strings.trap.gz (433 of 459)
+[2026-02-11 17:53:02] Importing atomic.trap.gz (434 of 459)
+[2026-02-11 17:53:02] Importing sync.trap.gz (435 of 459)
+[2026-02-11 17:53:02] Importing syscall.trap.gz (436 of 459)
+[2026-02-11 17:53:02] Importing time.trap.gz (437 of 459)
+[2026-02-11 17:53:02] Importing utf16.trap.gz (438 of 459)
+[2026-02-11 17:53:02] Importing utf8.trap.gz (439 of 459)
+[2026-02-11 17:53:02] Importing unicode.trap.gz (440 of 459)
+[2026-02-11 17:53:02] Importing unique.trap.gz (441 of 459)
+[2026-02-11 17:53:02] Importing universe.trap.gz (442 of 459)
+[2026-02-11 17:53:02] Importing unsafe.trap.gz (443 of 459)
+[2026-02-11 17:53:02] Importing chacha20.trap.gz (444 of 459)
+[2026-02-11 17:53:02] Importing chacha20poly1305.trap.gz (445 of 459)
+[2026-02-11 17:53:02] Importing asn1.trap.gz (446 of 459)
+[2026-02-11 17:53:02] Importing cryptobyte.trap.gz (447 of 459)
+[2026-02-11 17:53:02] Importing alias.trap.gz (448 of 459)
+[2026-02-11 17:53:02] Importing poly1305.trap.gz (449 of 459)
+[2026-02-11 17:53:02] Importing dnsmessage.trap.gz (450 of 459)
+[2026-02-11 17:53:02] Importing httpguts.trap.gz (451 of 459)
+[2026-02-11 17:53:02] Importing httpproxy.trap.gz (452 of 459)
+[2026-02-11 17:53:02] Importing hpack.trap.gz (453 of 459)
+[2026-02-11 17:53:02] Importing idna.trap.gz (454 of 459)
+[2026-02-11 17:53:02] Importing bidirule.trap.gz (455 of 459)
+[2026-02-11 17:53:02] Importing transform.trap.gz (456 of 459)
+[2026-02-11 17:53:02] Importing bidi.trap.gz (457 of 459)
+[2026-02-11 17:53:02] Importing norm.trap.gz (458 of 459)
+[2026-02-11 17:53:02] Importing weak.trap.gz (459 of 459)
+[2026-02-11 17:53:02] [PROGRESS] dataset import> Merging relations
+[2026-02-11 17:53:02] Merging 1 fragment for 'folders'.
+[2026-02-11 17:53:02] Merged 441 bytes for 'folders'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'containerparent'.
+[2026-02-11 17:53:02] Merged 1084 bytes (1.06 KiB) for 'containerparent'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'files'.
+[2026-02-11 17:53:02] Merged 772 bytes for 'files'.
+[2026-02-11 17:53:02] Merging 3 fragments for 'locations_default'.
+[2026-02-11 17:53:02] Merged 834727 bytes (815.16 KiB) for 'locations_default'.
+[2026-02-11 17:53:02] Merging 2 fragments for 'has_location'.
+[2026-02-11 17:53:02] Merged 257916 bytes (251.87 KiB) for 'has_location'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'scopes'.
+[2026-02-11 17:53:02] Merged 7656 bytes (7.48 KiB) for 'scopes'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'scopenesting'.
+[2026-02-11 17:53:02] Merged 15973 bytes (15.60 KiB) for 'scopenesting'.
+[2026-02-11 17:53:02] Merging 3 fragments for 'objects'.
+[2026-02-11 17:53:02] Merged 148614 bytes (145.13 KiB) for 'objects'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'objectscopes'.
+[2026-02-11 17:53:02] Merged 29169 bytes (28.49 KiB) for 'objectscopes'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'literals'.
+[2026-02-11 17:53:02] Merged 297236 bytes (290.27 KiB) for 'literals'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'exprs'.
+[2026-02-11 17:53:02] Merged 406209 bytes (396.69 KiB) for 'exprs'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'specs'.
+[2026-02-11 17:53:02] Merged 4732 bytes (4.62 KiB) for 'specs'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'decls'.
+[2026-02-11 17:53:02] Merged 6007 bytes (5.87 KiB) for 'decls'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'typename'.
+[2026-02-11 17:53:02] Merged 6430 bytes (6.28 KiB) for 'typename'.
+[2026-02-11 17:53:02] Merging 3 fragments for 'types'.
+[2026-02-11 17:53:02] Merged 26017 bytes (25.41 KiB) for 'types'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'element_type'.
+[2026-02-11 17:53:02] Merged 2823 bytes (2.76 KiB) for 'element_type'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'fieldstructs'.
+[2026-02-11 17:53:02] Merged 12801 bytes (12.50 KiB) for 'fieldstructs'.
+[2026-02-11 17:53:02] Merging 3 fragments for 'component_types'.
+[2026-02-11 17:53:02] Merged 126982 bytes (124.01 KiB) for 'component_types'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'struct_tags'.
+[2026-02-11 17:53:02] Merged 4125 bytes (4.03 KiB) for 'struct_tags'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'underlying_type'.
+[2026-02-11 17:53:02] Merged 6635 bytes (6.48 KiB) for 'underlying_type'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'type_objects'.
+[2026-02-11 17:53:02] Merged 5834 bytes (5.70 KiB) for 'type_objects'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'base_type'.
+[2026-02-11 17:53:02] Merged 5191 bytes (5.07 KiB) for 'base_type'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'type_of'.
+[2026-02-11 17:53:02] Merged 240470 bytes (234.83 KiB) for 'type_of'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'defs'.
+[2026-02-11 17:53:02] Merged 20583 bytes (20.10 KiB) for 'defs'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'fields'.
+[2026-02-11 17:53:02] Merged 11438 bytes (11.17 KiB) for 'fields'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'uses'.
+[2026-02-11 17:53:02] Merged 149316 bytes (145.82 KiB) for 'uses'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'scopenodes'.
+[2026-02-11 17:53:02] Merged 14782 bytes (14.44 KiB) for 'scopenodes'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'constvalues'.
+[2026-02-11 17:53:02] Merged 46956 bytes (45.86 KiB) for 'constvalues'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'stmts'.
+[2026-02-11 17:53:02] Merged 65035 bytes (63.51 KiB) for 'stmts'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'methodreceivers'.
+[2026-02-11 17:53:02] Merged 14062 bytes (13.73 KiB) for 'methodreceivers'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'methodhosts'.
+[2026-02-11 17:53:02] Merged 1435 bytes (1.40 KiB) for 'methodhosts'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'key_type'.
+[2026-02-11 17:53:02] Merged 475 bytes for 'key_type'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'variadic'.
+[2026-02-11 17:53:02] Merged 245 bytes for 'variadic'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'array_length'.
+[2026-02-11 17:53:02] Merged 1065 bytes (1.04 KiB) for 'array_length'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'interface_private_method_ids'.
+[2026-02-11 17:53:02] Merged 263 bytes for 'interface_private_method_ids'.
+[2026-02-11 17:53:02] Merging 3 fragments for 'objecttypes'.
+[2026-02-11 17:53:02] Merged 131397 bytes (128.32 KiB) for 'objecttypes'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'numlines'.
+[2026-02-11 17:53:02] Merged 576 bytes for 'numlines'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'has_ellipsis'.
+[2026-02-11 17:53:02] Merged 89 bytes for 'has_ellipsis'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'comment_groups'.
+[2026-02-11 17:53:02] Merged 357 bytes for 'comment_groups'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'comments'.
+[2026-02-11 17:53:02] Merged 424 bytes for 'comments'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'typeparam'.
+[2026-02-11 17:53:02] Merged 2179 bytes (2.13 KiB) for 'typeparam'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'doc_comments'.
+[2026-02-11 17:53:02] Merged 89 bytes for 'doc_comments'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'typeparamdecls'.
+[2026-02-11 17:53:02] Merged 54 bytes for 'typeparamdecls'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'xmllocations'.
+[2026-02-11 17:53:02] Merged 157673 bytes (153.98 KiB) for 'xmllocations'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'xmlElements'.
+[2026-02-11 17:53:02] Merged 124690 bytes (121.77 KiB) for 'xmlElements'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'xmlAttrs'.
+[2026-02-11 17:53:02] Merged 173524 bytes (169.46 KiB) for 'xmlAttrs'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'xmlChars'.
+[2026-02-11 17:53:02] Merged 91436 bytes (89.29 KiB) for 'xmlChars'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'xmlComments'.
+[2026-02-11 17:53:02] Merged 4358 bytes (4.26 KiB) for 'xmlComments'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'modtokens'.
+[2026-02-11 17:53:02] Merged 118 bytes for 'modtokens'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'modexprs'.
+[2026-02-11 17:53:02] Merged 113 bytes for 'modexprs'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'packages'.
+[2026-02-11 17:53:02] Merged 1666 bytes (1.63 KiB) for 'packages'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'compilations'.
+[2026-02-11 17:53:02] Merged 28 bytes for 'compilations'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'compilation_args'.
+[2026-02-11 17:53:02] Merged 50 bytes for 'compilation_args'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'compilation_compiling_files'.
+[2026-02-11 17:53:02] Merged 348 bytes for 'compilation_compiling_files'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'compilation_finished'.
+[2026-02-11 17:53:02] Merged 68 bytes for 'compilation_finished'.
+[2026-02-11 17:53:02] Merging 1 fragment for 'sourceLocationPrefix'.
+[2026-02-11 17:53:02] Merged 17 bytes for 'sourceLocationPrefix'.
+[2026-02-11 17:53:02] Saving string and id pools to disk.
+[2026-02-11 17:53:02] Finished importing TRAP files.
+[2026-02-11 17:53:02] Read 94.61 MiB of uncompressed TRAP data.
+[2026-02-11 17:53:02] Uncompressed relation data size: 13.01 MiB
+[2026-02-11 17:53:02] Relation data size: 3.30 MiB (merge rate: 33.45 MiB/s)
+[2026-02-11 17:53:02] String pool size: 4.78 MiB
+[2026-02-11 17:53:02] ID pool size: 13.00 MiB
+[2026-02-11 17:53:02] [PROGRESS] dataset import> Finished writing database (relations: 3.30 MiB; string pool: 4.78 MiB).
+[2026-02-11 17:53:02] Pausing evaluation to close the cache at sequence stamp o+137
+[2026-02-11 17:53:02] The disk cache is freshly trimmed; leave it be.
+[2026-02-11 17:53:02] Unpausing evaluation
+[2026-02-11 17:53:02] Plumbing command codeql dataset import completed.
+[2026-02-11 17:53:02] [PROGRESS] database finalize> TRAP import complete (1.7s).
+[2026-02-11 17:53:02] Running plumbing command: codeql database cleanup -- /Users/davidahmann/Projects/gait/.codeql/db-go
+[2026-02-11 17:53:03] [PROGRESS] database cleanup> Cleaning up existing TRAP files after import...
+[2026-02-11 17:53:03] [PROGRESS] database cleanup> TRAP files cleaned up (37ms).
+[2026-02-11 17:53:03] [PROGRESS] database cleanup> Cleaning up scratch directory...
+[2026-02-11 17:53:03] [PROGRESS] database cleanup> Scratch directory cleaned up (5ms).
+[2026-02-11 17:53:03] Running plumbing command: codeql dataset cleanup -- /Users/davidahmann/Projects/gait/.codeql/db-go/db-go
+[2026-02-11 17:53:03] [PROGRESS] dataset cleanup> Cleaning up dataset in /Users/davidahmann/Projects/gait/.codeql/db-go/db-go.
+[2026-02-11 17:53:03] Trimming disk cache at /Users/davidahmann/Projects/gait/.codeql/db-go/db-go/default/cache in mode trim.
+[2026-02-11 17:53:03] Sequence stamp origin is -5948141512290952684
+[2026-02-11 17:53:03] Pausing evaluation to quickly trim memory at sequence stamp o+0
+[2026-02-11 17:53:03] Unpausing evaluation
+[2026-02-11 17:53:03] Pausing evaluation to zealously trim disk at sequence stamp o+1
+[2026-02-11 17:53:03] Unpausing evaluation
+[2026-02-11 17:53:03] Trimming completed (0ms): Trimmed disposable data from cache.
+[2026-02-11 17:53:03] Pausing evaluation to close the cache at sequence stamp o+2
+[2026-02-11 17:53:03] The disk cache is freshly trimmed; leave it be.
+[2026-02-11 17:53:03] Unpausing evaluation
+[2026-02-11 17:53:03] [PROGRESS] dataset cleanup> Trimmed disposable data from cache.
+[2026-02-11 17:53:03] [PROGRESS] dataset cleanup> Finalizing dataset in /Users/davidahmann/Projects/gait/.codeql/db-go/db-go
+[2026-02-11 17:53:03] [DETAILS] dataset cleanup> Finished deleting ID pool from /Users/davidahmann/Projects/gait/.codeql/db-go/db-go (1ms).
+[2026-02-11 17:53:03] Plumbing command codeql dataset cleanup completed.
+[2026-02-11 17:53:03] Plumbing command codeql database cleanup completed with status 0.
+[2026-02-11 17:53:03] [PROGRESS] database finalize> Finished zipping source archive (990.93 KiB).
+[2026-02-11 17:53:03] Plumbing command codeql database finalize completed.
+[2026-02-11 17:53:03] [PROGRESS] database create> Successfully created database at /Users/davidahmann/Projects/gait/.codeql/db-go.
+[2026-02-11 17:53:03] Terminating normally.

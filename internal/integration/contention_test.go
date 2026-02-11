@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"errors"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -146,5 +147,69 @@ func TestConcurrentSessionAppendStateIsDeterministic(t *testing.T) {
 	}
 	if status.LastSequence != workers {
 		t.Fatalf("unexpected last sequence: got=%d want=%d", status.LastSequence, workers)
+	}
+}
+
+func TestSessionSwarmContentionBudget(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "swarm.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 6, 30, 0, 0, time.UTC)
+	t.Setenv("GAIT_SESSION_LOCK_PROFILE", "swarm")
+	t.Setenv("GAIT_SESSION_LOCK_TIMEOUT", "5s")
+	t.Setenv("GAIT_SESSION_LOCK_RETRY", "10ms")
+
+	if _, err := runpack.StartSession(journalPath, runpack.SessionStartOptions{
+		SessionID: "sess_swarm",
+		RunID:     "run_swarm",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start swarm session: %v", err)
+	}
+
+	const workers = 64
+	var group sync.WaitGroup
+	group.Add(workers)
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		index := i
+		go func() {
+			defer group.Done()
+			_, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
+				CreatedAt: now.Add(time.Duration(index+1) * time.Second),
+				IntentID:  "intent_swarm_" + strconv.Itoa(index),
+				ToolName:  "tool.write",
+				Verdict:   "allow",
+			})
+			if err != nil {
+				errs <- err
+			}
+		}()
+	}
+	group.Wait()
+	close(errs)
+
+	contentionErrors := 0
+	otherErrors := []error{}
+	for err := range errs {
+		var contention runpack.SessionLockContentionError
+		if errors.As(err, &contention) {
+			contentionErrors++
+			continue
+		}
+		otherErrors = append(otherErrors, err)
+	}
+	if len(otherErrors) > 0 {
+		t.Fatalf("unexpected non-contention errors: %v", otherErrors)
+	}
+	if contentionErrors > 1 {
+		t.Fatalf("contention budget exceeded: got=%d want<=1", contentionErrors)
+	}
+
+	status, err := runpack.GetSessionStatus(journalPath)
+	if err != nil {
+		t.Fatalf("swarm status: %v", err)
+	}
+	if status.EventCount < workers-contentionErrors {
+		t.Fatalf("expected at least %d events, got %d", workers-contentionErrors, status.EventCount)
 	}
 }

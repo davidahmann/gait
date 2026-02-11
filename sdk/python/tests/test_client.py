@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 from gait import client as client_module
 from gait import (
@@ -142,3 +145,57 @@ def test_internal_helpers_parse_json_and_prefix() -> None:
     assert client_module._parse_json_stdout('{"ok": true}') == {"ok": True}
     assert client_module._command_prefix("gait") == ["gait"]
     assert client_module._command_prefix(["python", "script.py"]) == ["python", "script.py"]
+
+
+def test_run_command_timeout_raises_command_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def timeout_run(*args: object, **kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd=["gait", "demo"], timeout=0.01)
+
+    monkeypatch.setattr(client_module.subprocess, "run", timeout_run)
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        client_module._run_command(["gait", "demo"], cwd=None)
+    assert "timed out" in str(raised.value)
+
+
+def test_evaluate_gate_malformed_json_raises_command_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout="not-json",
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        evaluate_gate(policy_path=tmp_path / "policy.yaml", intent=intent, gait_bin="gait")
+    assert "failed to parse JSON" in str(raised.value)
+
+
+def test_create_regress_fixture_malformed_json_raises_command_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout="{}[]",
+            stderr="",
+        ),
+    )
+
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        create_regress_fixture(from_run="run_demo", gait_bin="gait", cwd=tmp_path)
+    assert "failed to parse JSON" in str(raised.value)

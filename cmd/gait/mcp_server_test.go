@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMCPServeHandlerHealthz(t *testing.T) {
@@ -322,5 +324,517 @@ func TestMCPServeHandlerSessionJournalAndCheckpoint(t *testing.T) {
 	}
 	if !foundCheckpointWarning {
 		t.Fatalf("expected checkpoint warning in response warnings: %#v", response.Warnings)
+	}
+}
+
+func TestMCPServeHandlerRejectsClientArtifactPathOverridesByDefault(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		SessionDir:        filepath.Join(workDir, "sessions"),
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "trace_path":"/tmp/forbidden.json",
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected %d got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMCPServeHandlerAllowsClientArtifactPathOverridesWhenEnabled(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	tracePath := filepath.Join(workDir, "custom_trace.json")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:               policyPath,
+		DefaultAdapter:           "mcp",
+		TraceDir:                 filepath.Join(workDir, "traces"),
+		SessionDir:               filepath.Join(workDir, "sessions"),
+		AllowClientArtifactPaths: true,
+		MaxRequestBytes:          1 << 20,
+		HTTPVerdictStatus:        "compat",
+		KeyMode:                  "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestBody := []byte(fmt.Sprintf(`{
+	  "trace_path":"%s",
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`, tracePath))
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	if _, err := os.Stat(tracePath); err != nil {
+		t.Fatalf("expected client trace path to be written: %v", err)
+	}
+}
+
+func TestMCPServeHandlerRequiresBearerAuthorizationWhenEnabled(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		AuthMode:          "token",
+		AuthToken:         "s3cret",
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected %d got %d body=%s", http.StatusUnauthorized, recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMCPServeHandlerAcceptsBearerAuthorizationWhenEnabled(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		AuthMode:          "token",
+		AuthToken:         "s3cret",
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	request.Header.Set("authorization", "Bearer s3cret")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMCPServeHandlerRejectsOversizedRequest(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		MaxRequestBytes:   256,
+		HTTPVerdictStatus: "compat",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"` + strings.Repeat("x", 1024) + `"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected %d got %d body=%s", http.StatusRequestEntityTooLarge, recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMCPServeHandlerStrictVerdictStatusForBlock(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: block\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "openai",
+		TraceDir:          filepath.Join(workDir, "traces"),
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "strict",
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestBody := []byte(`{
+	  "call": {
+	    "type": "function",
+	    "function": {
+	      "name": "tool.delete",
+	      "arguments": "{\"path\":\"/tmp/out.txt\"}"
+	    }
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected %d got %d body=%s", http.StatusForbidden, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Executed {
+		t.Fatalf("expected executed=false in strict block response")
+	}
+}
+
+func TestMCPServeHandlerTraceRetentionMaxCount(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	traceDir := filepath.Join(workDir, "traces")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          traceDir,
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		TraceMaxCount:     1,
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	for i := 0; i < 2; i++ {
+		request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+		request.Header.Set("content-type", "application/json")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("request %d expected %d got %d body=%s", i+1, http.StatusOK, recorder.Code, recorder.Body.String())
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	matches, err := filepath.Glob(filepath.Join(traceDir, "*.json"))
+	if err != nil {
+		t.Fatalf("glob trace files: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected 1 retained trace file, got %d (%v)", len(matches), matches)
+	}
+}
+
+func TestMCPServeHandlerTraceRetentionMaxAge(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	traceDir := filepath.Join(workDir, "traces")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	if err := os.MkdirAll(traceDir, 0o750); err != nil {
+		t.Fatalf("mkdir trace dir: %v", err)
+	}
+	oldTrace := filepath.Join(traceDir, "trace_old.json")
+	mustWriteFile(t, oldTrace, "{}\n")
+	oldTime := time.Now().UTC().Add(-2 * time.Hour)
+	if err := os.Chtimes(oldTrace, oldTime, oldTime); err != nil {
+		t.Fatalf("chtimes old trace: %v", err)
+	}
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:        policyPath,
+		DefaultAdapter:    "mcp",
+		TraceDir:          traceDir,
+		MaxRequestBytes:   1 << 20,
+		HTTPVerdictStatus: "compat",
+		TraceMaxAge:       time.Hour,
+		KeyMode:           "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	if _, err := os.Stat(oldTrace); !os.IsNotExist(err) {
+		t.Fatalf("expected old trace to be pruned, stat err=%v", err)
+	}
+}
+
+func TestParseOptionalDuration(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		raw       string
+		want      time.Duration
+		expectErr bool
+	}{
+		{name: "empty", raw: "", want: 0},
+		{name: "zero", raw: "0", want: 0},
+		{name: "positive", raw: "48h", want: 48 * time.Hour},
+		{name: "negative", raw: "-1h", expectErr: true},
+		{name: "invalid", raw: "not-a-duration", expectErr: true},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := parseOptionalDuration(testCase.raw)
+			if testCase.expectErr {
+				if err == nil {
+					t.Fatalf("expected error for raw=%q", testCase.raw)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseOptionalDuration(%q): %v", testCase.raw, err)
+			}
+			if got != testCase.want {
+				t.Fatalf("duration mismatch: expected %s got %s", testCase.want, got)
+			}
+		})
+	}
+}
+
+func TestMCPServeIsLoopbackListen(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		addr      string
+		want      bool
+		expectErr bool
+	}{
+		{name: "localhost", addr: "localhost:8787", want: true},
+		{name: "ipv4 loopback", addr: "127.0.0.1:8787", want: true},
+		{name: "ipv6 loopback", addr: "[::1]:8787", want: true},
+		{name: "non loopback", addr: "0.0.0.0:8787", want: false},
+		{name: "hostname", addr: "example.com:8787", want: false},
+		{name: "missing", addr: "", expectErr: true},
+		{name: "invalid", addr: "bad-listen", expectErr: true},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := mcpServeIsLoopbackListen(testCase.addr)
+			if testCase.expectErr {
+				if err == nil {
+					t.Fatalf("expected error for addr=%q", testCase.addr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("mcpServeIsLoopbackListen(%q): %v", testCase.addr, err)
+			}
+			if got != testCase.want {
+				t.Fatalf("loopback mismatch: expected %v got %v", testCase.want, got)
+			}
+		})
+	}
+}
+
+func TestMCPRetentionMatches(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		class    string
+		fileName string
+		want     bool
+	}{
+		{name: "trace json", class: "trace", fileName: "trace_abc.json", want: true},
+		{name: "trace non-json", class: "trace", fileName: "trace_abc.txt", want: false},
+		{name: "runpack zip", class: "runpack", fileName: "runpack_abc.zip", want: true},
+		{name: "runpack json", class: "runpack", fileName: "runpack_abc.json", want: false},
+		{name: "session json", class: "session", fileName: "sess_1.json", want: true},
+		{name: "session jsonl", class: "session", fileName: "sess_1.journal.jsonl", want: true},
+		{name: "session state", class: "session", fileName: "sess_1.state", want: true},
+		{name: "session other", class: "session", fileName: "sess_1.log", want: false},
+		{name: "unknown class", class: "unknown", fileName: "any.json", want: false},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			got := mcpRetentionMatches(testCase.class, testCase.fileName)
+			if got != testCase.want {
+				t.Fatalf("mcpRetentionMatches(%q,%q): expected %v got %v", testCase.class, testCase.fileName, testCase.want, got)
+			}
+		})
+	}
+}
+
+func TestMCPServeVerdictHTTPStatus(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		mode    string
+		verdict string
+		want    int
+	}{
+		{name: "compat block", mode: "compat", verdict: "block", want: http.StatusOK},
+		{name: "strict block", mode: "strict", verdict: "block", want: http.StatusForbidden},
+		{name: "strict require approval", mode: "strict", verdict: "require_approval", want: http.StatusConflict},
+		{name: "strict dry run", mode: "strict", verdict: "dry_run", want: http.StatusConflict},
+		{name: "strict allow", mode: "strict", verdict: "allow", want: http.StatusOK},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			got := mcpServeVerdictHTTPStatus(
+				mcpServeConfig{HTTPVerdictStatus: testCase.mode},
+				mcpServeEvaluateResponse{mcpProxyOutput: mcpProxyOutput{Verdict: testCase.verdict}},
+			)
+			if got != testCase.want {
+				t.Fatalf("status mismatch: expected %d got %d", testCase.want, got)
+			}
+		})
+	}
+}
+
+func TestRunMCPServeValidationErrors(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	testCases := []struct {
+		name      string
+		envKey    string
+		envValue  string
+		arguments []string
+	}{
+		{
+			name:      "invalid trace max age",
+			arguments: []string{"--json", "--policy", policyPath, "--trace-max-age", "bad"},
+		},
+		{
+			name:      "invalid runpack max age",
+			arguments: []string{"--json", "--policy", policyPath, "--runpack-max-age", "bad"},
+		},
+		{
+			name:      "invalid session max age",
+			arguments: []string{"--json", "--policy", policyPath, "--session-max-age", "bad"},
+		},
+		{
+			name:      "invalid listen",
+			arguments: []string{"--json", "--policy", policyPath, "--listen", "bad-listen"},
+		},
+		{
+			name:      "non loopback requires token",
+			arguments: []string{"--json", "--policy", policyPath, "--listen", "0.0.0.0:8787"},
+		},
+		{
+			name:      "token mode requires auth token env flag",
+			arguments: []string{"--json", "--policy", policyPath, "--listen", "0.0.0.0:8787", "--auth-mode", "token"},
+		},
+		{
+			name:      "token mode requires non empty env",
+			arguments: []string{"--json", "--policy", policyPath, "--listen", "0.0.0.0:8787", "--auth-mode", "token", "--auth-token-env", "GAIT_EMPTY_TOKEN"},
+		},
+		{
+			name:      "invalid max request bytes",
+			arguments: []string{"--json", "--policy", policyPath, "--max-request-bytes", "0"},
+		},
+		{
+			name:      "invalid http verdict status",
+			arguments: []string{"--json", "--policy", policyPath, "--http-verdict-status", "bad"},
+		},
+		{
+			name:      "negative retention count",
+			arguments: []string{"--json", "--policy", policyPath, "--trace-max-count", "-1"},
+		},
+		{
+			name:      "invalid auth mode",
+			arguments: []string{"--json", "--policy", policyPath, "--auth-mode", "bad"},
+		},
+	}
+
+	t.Setenv("GAIT_EMPTY_TOKEN", "")
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			if testCase.envKey != "" {
+				t.Setenv(testCase.envKey, testCase.envValue)
+			}
+			code := runMCPServe(testCase.arguments)
+			if code != exitInvalidInput {
+				t.Fatalf("expected exit code %d got %d", exitInvalidInput, code)
+			}
+		})
 	}
 }

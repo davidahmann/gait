@@ -11,7 +11,9 @@ import (
 const DefaultPath = ".gait/config.yaml"
 
 type Config struct {
-	Gate GateDefaults `yaml:"gate"`
+	Gate      GateDefaults      `yaml:"gate"`
+	MCPServe  MCPServeDefaults  `yaml:"mcp_serve"`
+	Retention RetentionDefaults `yaml:"retention"`
 }
 
 type GateDefaults struct {
@@ -33,6 +35,22 @@ type GateDefaults struct {
 	CredentialCommandArgs  string `yaml:"credential_command_args"`
 	CredentialEvidencePath string `yaml:"credential_evidence_path"`
 	TracePath              string `yaml:"trace_path"`
+}
+
+type MCPServeDefaults struct {
+	Enabled                  bool   `yaml:"enabled"`
+	Listen                   string `yaml:"listen"`
+	AuthMode                 string `yaml:"auth_mode"`
+	AuthTokenEnv             string `yaml:"auth_token_env"`
+	MaxRequestBytes          int64  `yaml:"max_request_bytes"`
+	HTTPVerdictStatus        string `yaml:"http_verdict_status"`
+	AllowClientArtifactPaths bool   `yaml:"allow_client_artifact_paths"`
+}
+
+type RetentionDefaults struct {
+	TraceTTL   string `yaml:"trace_ttl"`
+	SessionTTL string `yaml:"session_ttl"`
+	ExportTTL  string `yaml:"export_ttl"`
 }
 
 func Load(path string, allowMissing bool) (Config, error) {
@@ -80,4 +98,11 @@ func (configuration *Config) normalize() {
 	configuration.Gate.CredentialCommandArgs = strings.TrimSpace(configuration.Gate.CredentialCommandArgs)
 	configuration.Gate.CredentialEvidencePath = strings.TrimSpace(configuration.Gate.CredentialEvidencePath)
 	configuration.Gate.TracePath = strings.TrimSpace(configuration.Gate.TracePath)
+	configuration.MCPServe.Listen = strings.TrimSpace(configuration.MCPServe.Listen)
+	configuration.MCPServe.AuthMode = strings.ToLower(strings.TrimSpace(configuration.MCPServe.AuthMode))
+	configuration.MCPServe.AuthTokenEnv = strings.TrimSpace(configuration.MCPServe.AuthTokenEnv)
+	configuration.MCPServe.HTTPVerdictStatus = strings.ToLower(strings.TrimSpace(configuration.MCPServe.HTTPVerdictStatus))
+	configuration.Retention.TraceTTL = strings.TrimSpace(configuration.Retention.TraceTTL)
+	configuration.Retention.SessionTTL = strings.TrimSpace(configuration.Retention.SessionTTL)
+	configuration.Retention.ExportTTL = strings.TrimSpace(configuration.Retention.ExportTTL)
 }

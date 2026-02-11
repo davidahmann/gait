@@ -250,6 +250,12 @@ gait gate eval \
 
 The demo key in `examples/scenarios/keys/` is for walkthroughs only. In production, provision your own key and replace `stub` with `env` or `command` broker.
 
+Run strict readiness checks before rollout:
+
+```bash
+gait doctor --production-readiness --json
+```
+
 Generate and validate local signing keys:
 
 ```bash
@@ -267,6 +273,7 @@ gait gate eval \
 ```
 
 References: `docs/policy_authoring.md`, `docs/approval_runbook.md`, `docs/policy_rollout.md`
+Prime-time hardening docs: `docs/hardening/v2_2_contract.md`, `docs/hardening/prime_time_runbook.md`
 
 ## Local Signal Engine
 

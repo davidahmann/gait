@@ -99,6 +99,70 @@ func TestRunMCPProxyOpenAIAdapter(t *testing.T) {
 	}
 }
 
+func TestRunMCPProxyDefaultTracePathIsUniquePerEmission(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, `default_verdict: allow`)
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
+}`)
+
+	var firstCode int
+	firstRaw := captureStdout(t, func() {
+		firstCode = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--json",
+		})
+	})
+	if firstCode != exitOK {
+		t.Fatalf("first runMCPProxy expected %d got %d", exitOK, firstCode)
+	}
+	var first mcpProxyOutput
+	if err := json.Unmarshal([]byte(firstRaw), &first); err != nil {
+		t.Fatalf("decode first output: %v (%s)", err, firstRaw)
+	}
+	time.Sleep(2 * time.Millisecond)
+	var secondCode int
+	secondRaw := captureStdout(t, func() {
+		secondCode = runMCPProxy([]string{
+			"--policy", policyPath,
+			"--call", callPath,
+			"--json",
+		})
+	})
+	if secondCode != exitOK {
+		t.Fatalf("second runMCPProxy expected %d got %d", exitOK, secondCode)
+	}
+	var second mcpProxyOutput
+	if err := json.Unmarshal([]byte(secondRaw), &second); err != nil {
+		t.Fatalf("decode second output: %v (%s)", err, secondRaw)
+	}
+	if first.TraceID == "" || second.TraceID == "" {
+		t.Fatalf("expected trace ids in outputs")
+	}
+	if first.TraceID != second.TraceID {
+		t.Fatalf("expected deterministic trace id for identical decisions")
+	}
+	if first.TracePath == "" || second.TracePath == "" {
+		t.Fatalf("expected trace paths in outputs")
+	}
+	if first.TracePath == second.TracePath {
+		t.Fatalf("expected unique default trace paths, got %s", first.TracePath)
+	}
+	if _, err := os.Stat(first.TracePath); err != nil {
+		t.Fatalf("expected first trace artifact: %v", err)
+	}
+	if _, err := os.Stat(second.TracePath); err != nil {
+		t.Fatalf("expected second trace artifact: %v", err)
+	}
+}
+
 func TestRunMCPProxyOSSProdRequiresExplicitContext(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

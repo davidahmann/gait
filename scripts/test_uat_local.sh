@@ -159,6 +159,8 @@ run_step "quality_adapter_parity" make -C "${REPO_ROOT}" test-adapter-parity
 run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_compliance_ci.sh"
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
+run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
+run_step "quality_session_soak" bash "${REPO_ROOT}/scripts/test_session_soak.sh"
 run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
 run_step "quality_perf_bench_check" make -C "${REPO_ROOT}" bench-check
 

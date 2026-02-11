@@ -76,7 +76,9 @@ flowchart LR
 
 - Working artifacts: `./gait-out/`
 - Session journals and chains: `./gait-out/sessions/*` (append-only journal + checkpoint chain)
+- Session hot-path state index: `*.journal.jsonl.state.json` (lock-protected append state cache)
 - MCP serve runtime traces: `./gait-out/mcp-serve/traces`
+- MCP serve retention/rotation applies at trace/runpack/session directory boundaries when configured
 - Regress fixtures/config: `fixtures/` and `gait.yaml`
 - Optional local caches: `~/.gait/runpacks`, `~/.gait/registry`
 - Schema contracts: `schemas/v1/*` with matching Go types/validators under `core/schema/*`

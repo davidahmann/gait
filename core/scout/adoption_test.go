@@ -1,9 +1,11 @@
 package scout
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -209,5 +211,44 @@ func TestLoadAdoptionEventsHighVolume(t *testing.T) {
 	}
 	if report.CreatedAt.IsZero() {
 		t.Fatalf("expected deterministic created_at")
+	}
+}
+
+func TestAppendAdoptionEventConcurrentIntegrity(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "adoption_concurrent.jsonl")
+	base := time.Date(2026, time.February, 7, 0, 0, 0, 0, time.UTC)
+	const workers = 300
+	var group sync.WaitGroup
+	group.Add(workers)
+	errCh := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		index := i
+		go func() {
+			defer group.Done()
+			event := NewAdoptionEvent(
+				fmt.Sprintf("verify-%d", index),
+				0,
+				5*time.Millisecond,
+				"stress-test",
+				base.Add(time.Duration(index)*time.Millisecond),
+			)
+			if err := AppendAdoptionEvent(logPath, event); err != nil {
+				errCh <- err
+			}
+		}()
+	}
+	group.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("append concurrent adoption event: %v", err)
+		}
+	}
+	events, err := LoadAdoptionEvents(logPath)
+	if err != nil {
+		t.Fatalf("load concurrent adoption events: %v", err)
+	}
+	if len(events) != workers {
+		t.Fatalf("expected %d concurrent events, got %d", workers, len(events))
 	}
 }

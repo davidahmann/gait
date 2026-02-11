@@ -15,6 +15,7 @@ type runSessionOutput struct {
 	Operation  string                           `json:"operation,omitempty"`
 	Journal    string                           `json:"journal,omitempty"`
 	ChainPath  string                           `json:"chain_path,omitempty"`
+	Compaction *runpack.SessionCompactionResult `json:"compaction,omitempty"`
 	Status     *runpack.SessionStatus           `json:"status,omitempty"`
 	Event      *schemarunpack.SessionEvent      `json:"event,omitempty"`
 	Checkpoint *schemarunpack.SessionCheckpoint `json:"checkpoint,omitempty"`
@@ -38,6 +39,8 @@ func runSession(arguments []string) int {
 		return runSessionStatus(arguments[1:])
 	case "checkpoint":
 		return runSessionCheckpoint(arguments[1:])
+	case "compact":
+		return runSessionCompact(arguments[1:])
 	default:
 		printRunSessionUsage()
 		return exitInvalidInput
@@ -354,6 +357,73 @@ func runSessionCheckpoint(arguments []string) int {
 	}, exitOK)
 }
 
+func runSessionCompact(arguments []string) int {
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"journal": true,
+		"out":     true,
+	})
+	flagSet := flag.NewFlagSet("run-session-compact", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var journal string
+	var outPath string
+	var dryRun bool
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&journal, "journal", "", "path to session journal JSONL")
+	flagSet.StringVar(&outPath, "out", "", "optional output path for compacted journal (default in-place)")
+	flagSet.BoolVar(&dryRun, "dry-run", false, "compute compaction outcome without writing changes")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeRunSessionOutput(jsonOutput, runSessionOutput{
+			OK:        false,
+			Operation: "compact",
+			Error:     err.Error(),
+		}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printRunSessionCompactUsage()
+		return exitOK
+	}
+	if len(flagSet.Args()) > 0 {
+		return writeRunSessionOutput(jsonOutput, runSessionOutput{
+			OK:        false,
+			Operation: "compact",
+			Error:     "unexpected positional arguments",
+		}, exitInvalidInput)
+	}
+	if strings.TrimSpace(journal) == "" {
+		return writeRunSessionOutput(jsonOutput, runSessionOutput{
+			OK:        false,
+			Operation: "compact",
+			Error:     "--journal is required",
+		}, exitInvalidInput)
+	}
+
+	result, err := runpack.CompactSessionJournal(journal, runpack.SessionCompactionOptions{
+		ProducerVersion: version,
+		OutputPath:      outPath,
+		DryRun:          dryRun,
+	})
+	if err != nil {
+		return writeRunSessionOutput(jsonOutput, runSessionOutput{
+			OK:        false,
+			Operation: "compact",
+			Journal:   strings.TrimSpace(journal),
+			Error:     err.Error(),
+		}, exitCodeForError(err, exitInvalidInput))
+	}
+	return writeRunSessionOutput(jsonOutput, runSessionOutput{
+		OK:         true,
+		Operation:  "compact",
+		Journal:    strings.TrimSpace(journal),
+		Compaction: &result,
+	}, exitOK)
+}
+
 func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode int) int {
 	if jsonOutput {
 		return writeJSONOutput(output, exitCode)
@@ -396,6 +466,20 @@ func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode in
 		if output.ChainPath != "" {
 			fmt.Printf("session chain: %s\n", output.ChainPath)
 		}
+	case "compact":
+		if output.Compaction != nil {
+			fmt.Printf("session compact: compacted=%t dry_run=%t events=%d->%d checkpoints=%d bytes=%d->%d\n",
+				output.Compaction.Compacted,
+				output.Compaction.DryRun,
+				output.Compaction.EventsBefore,
+				output.Compaction.EventsAfter,
+				output.Compaction.Checkpoints,
+				output.Compaction.BytesBefore,
+				output.Compaction.BytesAfter,
+			)
+			fmt.Printf("journal: %s\n", output.Compaction.JournalPath)
+			fmt.Printf("output: %s\n", output.Compaction.OutputPath)
+		}
 	default:
 		fmt.Printf("run session %s: ok\n", fallbackValue(output.Operation, "command"))
 	}
@@ -417,6 +501,7 @@ func printRunSessionUsage() {
 	fmt.Println("  gait run session append --journal <path> --tool <name> --verdict <allow|block|dry_run|require_approval> [--intent-id <id>] [--trace-id <id>] [--trace-path <path>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--reason-codes <csv>] [--violations <csv>] [--json] [--explain]")
 	fmt.Println("  gait run session status --journal <path> [--json] [--explain]")
 	fmt.Println("  gait run session checkpoint --journal <path> --out <runpack.zip> [--chain-out <session_chain.json>] [--json] [--explain]")
+	fmt.Println("  gait run session compact --journal <path> [--out <journal.jsonl>] [--dry-run] [--json] [--explain]")
 }
 
 func printRunSessionStartUsage() {
@@ -437,4 +522,9 @@ func printRunSessionStatusUsage() {
 func printRunSessionCheckpointUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait run session checkpoint --journal <path> --out <runpack.zip> [--chain-out <session_chain.json>] [--json] [--explain]")
+}
+
+func printRunSessionCompactUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait run session compact --journal <path> [--out <journal.jsonl>] [--dry-run] [--json] [--explain]")
 }

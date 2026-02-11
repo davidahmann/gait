@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davidahmann/gait/core/projectconfig"
 	"github.com/davidahmann/gait/core/sign"
 )
 
@@ -283,6 +284,52 @@ func TestHardeningDoctorChecks(t *testing.T) {
 	registryCheck := checkRegistryCacheHealth()
 	if registryCheck.Status != statusWarn && registryCheck.Status != statusPass {
 		t.Fatalf("unexpected registry cache check status: %#v", registryCheck)
+	}
+}
+
+func TestProductionReadinessChecks(t *testing.T) {
+	missingConfigChecks := checkProductionReadiness(t.TempDir())
+	if !checkStatus(missingConfigChecks, "production_readiness_config", statusFail) {
+		t.Fatalf("expected production_readiness_config fail when config is missing: %#v", missingConfigChecks)
+	}
+
+	goodService := checkProductionServiceBoundary(projectconfig.MCPServeDefaults{
+		Enabled:                  true,
+		Listen:                   "0.0.0.0:8787",
+		AuthMode:                 "token",
+		AuthTokenEnv:             "GAIT_TOKEN",
+		MaxRequestBytes:          1 << 20,
+		HTTPVerdictStatus:        "strict",
+		AllowClientArtifactPaths: false,
+	})
+	if goodService.Status != statusPass {
+		t.Fatalf("expected production service boundary pass, got %#v", goodService)
+	}
+
+	badService := checkProductionServiceBoundary(projectconfig.MCPServeDefaults{
+		Enabled:         true,
+		Listen:          "0.0.0.0:8787",
+		AuthMode:        "off",
+		MaxRequestBytes: 0,
+	})
+	if badService.Status != statusFail {
+		t.Fatalf("expected production service boundary fail, got %#v", badService)
+	}
+
+	goodRetention := checkProductionRetention(projectconfig.RetentionDefaults{
+		TraceTTL:   "168h",
+		SessionTTL: "336h",
+		ExportTTL:  "168h",
+	})
+	if goodRetention.Status != statusPass {
+		t.Fatalf("expected production retention pass, got %#v", goodRetention)
+	}
+
+	badRetention := checkProductionRetention(projectconfig.RetentionDefaults{
+		TraceTTL: "bad",
+	})
+	if badRetention.Status != statusFail {
+		t.Fatalf("expected production retention fail, got %#v", badRetention)
 	}
 }
 

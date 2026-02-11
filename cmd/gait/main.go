@@ -1,15 +1,37 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/davidahmann/gait/core/fsx"
 	"github.com/davidahmann/gait/core/scout"
 )
 
 const version = "0.0.0-dev"
+
+type telemetryStreamHealth struct {
+	Attempts int64 `json:"attempts"`
+	Success  int64 `json:"success"`
+	Failed   int64 `json:"failed"`
+}
+
+type telemetryHealthSnapshot struct {
+	SchemaID        string                           `json:"schema_id"`
+	SchemaVersion   string                           `json:"schema_version"`
+	CreatedAt       string                           `json:"created_at"`
+	ProducerVersion string                           `json:"producer_version"`
+	Streams         map[string]telemetryStreamHealth `json:"streams"`
+}
+
+var telemetryState struct {
+	sync.Mutex
+	streams map[string]telemetryStreamHealth
+}
 
 func main() {
 	os.Exit(run(os.Args))
@@ -116,7 +138,7 @@ func writeAdoptionEvent(command string, exitCode int, elapsed time.Duration, now
 		return
 	}
 	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now)
-	_ = scout.AppendAdoptionEvent(adoptionPath, event)
+	recordTelemetryWriteOutcome("adoption", scout.AppendAdoptionEvent(adoptionPath, event))
 }
 
 func writeOperationalEventStart(command string, correlationID string, now time.Time) {
@@ -125,7 +147,7 @@ func writeOperationalEventStart(command string, correlationID string, now time.T
 		return
 	}
 	event := scout.NewOperationalStartEvent(command, correlationID, version, now)
-	_ = scout.AppendOperationalEvent(operationalPath, event)
+	recordTelemetryWriteOutcome("operational_start", scout.AppendOperationalEvent(operationalPath, event))
 }
 
 func writeOperationalEventEnd(command string, correlationID string, exitCode int, elapsed time.Duration, now time.Time) {
@@ -141,5 +163,63 @@ func writeOperationalEventEnd(command string, correlationID string, exitCode int
 		retryable = defaultRetryable(resolvedCategory)
 	}
 	event := scout.NewOperationalEndEvent(command, correlationID, version, exitCode, category, retryable, elapsed, now)
-	_ = scout.AppendOperationalEvent(operationalPath, event)
+	recordTelemetryWriteOutcome("operational_end", scout.AppendOperationalEvent(operationalPath, event))
+}
+
+func reportTelemetryWriteFailure(stream string, err error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("GAIT_TELEMETRY_WARN")), "off") {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "gait warning: telemetry stream=%s write failed: %v\n", stream, err)
+}
+
+func recordTelemetryWriteOutcome(stream string, err error) {
+	trimmedStream := strings.TrimSpace(stream)
+	if trimmedStream == "" {
+		trimmedStream = "unknown"
+	}
+	telemetryState.Lock()
+	if telemetryState.streams == nil {
+		telemetryState.streams = map[string]telemetryStreamHealth{}
+	}
+	stats := telemetryState.streams[trimmedStream]
+	stats.Attempts++
+	if err == nil {
+		stats.Success++
+	} else {
+		stats.Failed++
+	}
+	telemetryState.streams[trimmedStream] = stats
+	snapshot := telemetryHealthSnapshot{
+		SchemaID:        "gait.scout.telemetry_health",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
+		ProducerVersion: version,
+		Streams:         make(map[string]telemetryStreamHealth, len(telemetryState.streams)),
+	}
+	for key, value := range telemetryState.streams {
+		snapshot.Streams[key] = value
+	}
+	telemetryState.Unlock()
+
+	if err != nil {
+		reportTelemetryWriteFailure(trimmedStream, err)
+	}
+	writeTelemetryHealthSnapshot(snapshot)
+}
+
+func writeTelemetryHealthSnapshot(snapshot telemetryHealthSnapshot) {
+	healthPath := strings.TrimSpace(os.Getenv("GAIT_TELEMETRY_HEALTH_PATH"))
+	if healthPath == "" {
+		return
+	}
+	encoded, err := json.MarshalIndent(snapshot, "", "  ")
+	if err != nil {
+		reportTelemetryWriteFailure("telemetry_health", err)
+		return
+	}
+	encoded = append(encoded, '\n')
+	if err := fsx.WriteFileAtomic(healthPath, encoded, 0o600); err != nil {
+		reportTelemetryWriteFailure("telemetry_health", err)
+	}
 }

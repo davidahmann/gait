@@ -55,3 +55,24 @@ gait gate eval --intent examples/policy/intents/intent_delete.json --json
 - Missing default `.gait/config.yaml` is ignored.
 - Missing explicit `--config <path>` returns an input error.
 - Keep sensitive key files out of git and prefer `*_env` options in shared repos.
+
+## Hardened OSS Template
+
+Use the hardened template for production starts:
+
+```bash
+mkdir -p .gait
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
+```
+
+Template path:
+
+- `examples/config/oss_prod_template.yaml`
+
+## Migration Notes (Permissive -> Strict)
+
+1. Set `gate.profile: oss-prod`.
+2. Set `gate.key_mode: prod` and move key material to env-backed sources.
+3. Configure `mcp_serve` with token auth and strict verdict status.
+4. Add retention TTL values (`trace_ttl`, `session_ttl`, `export_ttl`).
+5. Validate with `gait doctor --production-readiness --json`.

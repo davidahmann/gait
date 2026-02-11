@@ -50,3 +50,13 @@ make test
 make test-adapter-parity
 make test-adoption
 ```
+
+## Production Maintainer Checklist
+
+Before merging adapter changes intended for production use:
+
+1. Non-allow decisions remain fail-closed (`executed=false`) with no side effects.
+2. Service-mode adapters use auth for non-loopback bindings.
+3. Service-mode adapters use strict verdict HTTP semantics where supported.
+4. Service-mode adapters configure payload and retention caps.
+5. SDK/adapter subprocess calls remain time-bounded and fail-closed.

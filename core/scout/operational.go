@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
 	coreerrors "github.com/davidahmann/gait/core/errors"
+	"github.com/davidahmann/gait/core/fsx"
 	schemascout "github.com/davidahmann/gait/core/schema/v1/scout"
 )
 
@@ -69,25 +69,8 @@ func AppendOperationalEvent(path string, event schemascout.OperationalEvent) err
 	if err != nil {
 		return fmt.Errorf("marshal operational event: %w", err)
 	}
-	dir := filepath.Dir(trimmedPath)
-	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0o750); err != nil {
-			return fmt.Errorf("create operational log directory: %w", err)
-		}
-	}
-	// #nosec G304 -- operational log path is explicit local user input.
-	file, err := os.OpenFile(trimmedPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
-	if err != nil {
-		return fmt.Errorf("open operational log: %w", err)
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-	if _, err := file.Write(encoded); err != nil {
-		return fmt.Errorf("write operational log: %w", err)
-	}
-	if _, err := file.Write([]byte{'\n'}); err != nil {
-		return fmt.Errorf("write operational newline: %w", err)
+	if err := fsx.AppendLineLocked(trimmedPath, encoded, 0o600); err != nil {
+		return fmt.Errorf("append operational log: %w", err)
 	}
 	return nil
 }

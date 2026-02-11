@@ -588,7 +588,7 @@ func printUsage() {
 	fmt.Println("  gait delegate mint --delegator <identity> --delegate <identity> --scope <csv> --ttl <duration> [--scope-class <value>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
 	fmt.Println("  gait delegate verify --token <token.json> [--delegator <identity>] [--delegate <identity>] [--scope <csv>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
 	fmt.Println("  gait demo [--json] [--explain]")
-	fmt.Println("  gait doctor [--json] [--explain]")
+	fmt.Println("  gait doctor [--production-readiness] [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--credential-broker off|stub|env|command] [--json] [--explain]")
 	fmt.Println("  gait policy init <baseline-lowrisk|baseline-mediumrisk|baseline-highrisk> [--out gait.policy.yaml] [--force] [--json] [--explain]")

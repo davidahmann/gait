@@ -49,6 +49,7 @@ func runDoctor(arguments []string) int {
 	var privateKeyEnv string
 	var publicKeyPath string
 	var publicKeyEnv string
+	var productionReadiness bool
 	var jsonOutput bool
 	var helpFlag bool
 
@@ -59,6 +60,7 @@ func runDoctor(arguments []string) int {
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private key")
 	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
 	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
+	flagSet.BoolVar(&productionReadiness, "production-readiness", false, "run strict production readiness checks (fails on unsafe configuration)")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -84,14 +86,20 @@ func runDoctor(arguments []string) int {
 			PublicKeyPath:  publicKeyPath,
 			PublicKeyEnv:   publicKeyEnv,
 		},
+		ProductionReadiness: productionReadiness,
 	})
 
 	exitCode := exitOK
+	ok := !result.NonFixable
 	if result.NonFixable {
 		exitCode = exitMissingDependency
 	}
+	if productionReadiness && result.Status == "fail" {
+		exitCode = exitVerifyFailed
+		ok = false
+	}
 	return writeDoctorOutput(jsonOutput, doctorOutput{
-		OK:              !result.NonFixable,
+		OK:              ok,
 		SchemaID:        result.SchemaID,
 		SchemaVersion:   result.SchemaVersion,
 		CreatedAt:       result.CreatedAt,
@@ -185,7 +193,7 @@ func writeDoctorAdoptionOutput(jsonOutput bool, output doctorAdoptionOutput, exi
 
 func printDoctorUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait doctor [--workdir <path>] [--output-dir <path>] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--public-key <path>|--public-key-env <VAR>] [--production-readiness] [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
 }
 

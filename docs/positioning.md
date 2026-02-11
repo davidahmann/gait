@@ -45,6 +45,11 @@ Avoid:
 - "AI governance suite"
 - "black-box risk scoring"
 
+OSS vs Enterprise framing:
+
+- OSS includes hardened runtime enforcement, deterministic artifacts, and local operability gates.
+- Enterprise adds fleet-wide policy distribution, org workflows, and centralized governance controls.
+
 ## Adjacent Stack Language
 
 - "Gait integrates with your existing identity, vault, gateway, and SIEM stack."

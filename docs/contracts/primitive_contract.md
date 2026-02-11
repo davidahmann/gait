@@ -110,11 +110,19 @@ Producer obligations:
 - SHOULD include signature data for tamper-evident traces in production paths.
 - SHOULD carry `skill_provenance` through from intent when present.
 - SHOULD carry `delegation_ref` when delegated execution evidence is present.
+- SHOULD include `observed_at` for runtime wall-clock incident reconstruction.
+- SHOULD include `event_id` as a per-emission runtime identity.
 
 Consumer obligations:
 
 - MUST verify trace integrity when verification is required by policy/profile.
 - MUST treat signature verification failure as non-passing.
+
+Time-field semantics:
+
+- `created_at`: deterministic decision timestamp used in cryptographic binding.
+- `observed_at`: operational runtime timestamp for timeline reconstruction only.
+- `event_id`: emission identity for retained runtime events; multiple events may share one deterministic `trace_id`.
 
 ## Runpack (`gait.runpack.*`, `1.0.0`)
 

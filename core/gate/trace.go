@@ -75,6 +75,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		SchemaID:         "gait.gate.trace",
 		SchemaVersion:    "1.0.0",
 		CreatedAt:        createdAt,
+		ObservedAt:       time.Now().UTC(),
 		ProducerVersion:  producerVersion,
 		TraceID:          computeTraceID(policyDigest, normalizedIntent.IntentDigest, verdict),
 		CorrelationID:    strings.TrimSpace(opts.CorrelationID),
@@ -88,6 +89,7 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ApprovalTokenRef: strings.TrimSpace(opts.ApprovalTokenRef),
 		SkillProvenance:  normalizedIntent.SkillProvenance,
 	}
+	trace.EventID = computeTraceEventID(trace.TraceID, trace.ObservedAt)
 	if normalizedIntent.Delegation != nil {
 		delegationTokenRef := strings.TrimSpace(opts.DelegationTokenRef)
 		if delegationTokenRef == "" && len(normalizedIntent.Delegation.TokenRefs) > 0 {
@@ -220,6 +222,11 @@ func VerifyTraceRecordSignature(trace schemagate.TraceRecord, publicKey ed25519.
 
 func computeTraceID(policyDigest, intentDigest, verdict string) string {
 	sum := sha256.Sum256([]byte(policyDigest + ":" + intentDigest + ":" + verdict))
+	return hex.EncodeToString(sum[:12])
+}
+
+func computeTraceEventID(traceID string, observedAt time.Time) string {
+	sum := sha256.Sum256([]byte(traceID + ":" + observedAt.UTC().Format(time.RFC3339Nano)))
 	return hex.EncodeToString(sum[:12])
 }
 

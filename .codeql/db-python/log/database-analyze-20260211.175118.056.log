@@ -1,0 +1,14 @@
+[2026-02-11 17:51:18] This is codeql database analyze .codeql/db-python codeql/python-queries:code-scanning --format=sarif-latest --output=.codeql/python.sarif --threads=0
+[2026-02-11 17:51:18] Log file was started late.
+[2026-02-11 17:51:18] [PROGRESS] database analyze> Running queries.
+[2026-02-11 17:51:18] Running plumbing command: codeql database run-queries --evaluator-log-level=5 --threads=0 --warnings=show --qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml --dynamic-join-order-mode=none --no-rerun --interpret-passthrough=null,--format=sarif-latest,-o=/Users/davidahmann/Projects/gait/.codeql/python.sarif,--max-paths=4,--csv-location-format=line-column,--print-diagnostics-summary,--print-metrics-summary,--threads=0,--qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml,--,/Users/davidahmann/Projects/gait/.codeql/db-python,codeql/python-queries:code-scanning -- /Users/davidahmann/Projects/gait/.codeql/db-python codeql/python-queries:code-scanning
+[2026-02-11 17:51:18] Calling plumbing command: codeql resolve ram --dataset=/Users/davidahmann/Projects/gait/.codeql/db-python/db-python --format=json
+[2026-02-11 17:51:18] [PROGRESS] resolve ram> Stringpool size measured as 2326938
+[2026-02-11 17:51:18] Plumbing command codeql resolve ram completed:
+                      [
+                        "-J-Xmx5139M",
+                        "--off-heap-ram=6149"
+                      ]
+[2026-02-11 17:51:18] Chaining via /var/folders/xf/nh2svl1x1_94jfvlmhz4njzh0000gn/T/codeql.XXXXXXXX.6Xph0j73JY to plumbing: execute queries -J-Xmx5139M --off-heap-ram=6149 --verbosity=progress --logdir=/Users/davidahmann/Projects/gait/.codeql/db-python/log --evaluator-log-level=5 --threads=0 --warnings=show --qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml --dynamic-join-order-mode=none --no-rerun --interpret-passthrough=null,--format=sarif-latest,-o=/Users/davidahmann/Projects/gait/.codeql/python.sarif,--max-paths=4,--csv-location-format=line-column,--print-diagnostics-summary,--print-metrics-summary,--threads=0,--qlconfig-file=/Users/davidahmann/Projects/gait/qlconfig.yml,--,/Users/davidahmann/Projects/gait/.codeql/db-python,codeql/python-queries:code-scanning --output=/Users/davidahmann/Projects/gait/.codeql/db-python/results -- /Users/davidahmann/Projects/gait/.codeql/db-python/db-python codeql/python-queries:code-scanning
+[2026-02-11 17:51:18] Plumbing command codeql database run-queries completed with status 70.
+[2026-02-11 17:51:18] Exiting with code 70

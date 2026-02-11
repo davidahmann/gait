@@ -2,9 +2,11 @@ package mcp
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/davidahmann/gait/core/gate"
@@ -255,6 +257,38 @@ func TestAppendJSONLErrorBranches(t *testing.T) {
 	}
 	if err := appendJSONL(dirPath, []byte(`{"ok":false}`)); err == nil {
 		t.Fatalf("expected appendJSONL to fail when target path is a directory")
+	}
+}
+
+func TestAppendJSONLConcurrentIntegrity(t *testing.T) {
+	workDir := t.TempDir()
+	logPath := filepath.Join(workDir, "events.jsonl")
+	const workers = 200
+	var group sync.WaitGroup
+	group.Add(workers)
+	for i := 0; i < workers; i++ {
+		line := []byte(fmt.Sprintf(`{"index":%d}`, i))
+		go func(payload []byte) {
+			defer group.Done()
+			if err := appendJSONL(logPath, payload); err != nil {
+				t.Errorf("appendJSONL: %v", err)
+			}
+		}(line)
+	}
+	group.Wait()
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read events log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
+	if len(lines) != workers {
+		t.Fatalf("unexpected lines count: got=%d want=%d", len(lines), workers)
+	}
+	for index, line := range lines {
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(line), &parsed); err != nil {
+			t.Fatalf("line %d invalid json: %v (%q)", index+1, err, line)
+		}
 	}
 }
 

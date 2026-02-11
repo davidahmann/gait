@@ -390,6 +390,14 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 	}); code != exitMissingDependency {
 		t.Fatalf("doctor missing schemas: expected %d got %d", exitMissingDependency, code)
 	}
+	if code := runDoctor([]string{
+		"--workdir", workDir,
+		"--output-dir", filepath.Join(workDir, "gait-out"),
+		"--production-readiness",
+		"--json",
+	}); code != exitVerifyFailed {
+		t.Fatalf("doctor production readiness failure: expected %d got %d", exitVerifyFailed, code)
+	}
 }
 
 func TestPolicySimulateCommand(t *testing.T) {
@@ -2247,6 +2255,40 @@ func TestTicketFooterContract(t *testing.T) {
 		"GAIT run_id=run_demo manifest=sha256:" + strings.Repeat("a", 64) + " verify=\"gait verify run_other\"",
 	) {
 		t.Fatalf("expected mismatched run_id verify target to fail contract")
+	}
+}
+
+func TestTelemetryHealthSnapshotTracksWriteOutcomes(t *testing.T) {
+	healthPath := filepath.Join(t.TempDir(), "telemetry_health.json")
+	t.Setenv("GAIT_TELEMETRY_HEALTH_PATH", healthPath)
+	t.Setenv("GAIT_TELEMETRY_WARN", "off")
+
+	telemetryState.Lock()
+	telemetryState.streams = map[string]telemetryStreamHealth{}
+	telemetryState.Unlock()
+
+	recordTelemetryWriteOutcome("adoption", nil)
+	recordTelemetryWriteOutcome("operational_end", os.ErrPermission)
+	recordTelemetryWriteOutcome("operational_end", nil)
+
+	raw, err := os.ReadFile(healthPath)
+	if err != nil {
+		t.Fatalf("read telemetry health snapshot: %v", err)
+	}
+	var snapshot telemetryHealthSnapshot
+	if err := json.Unmarshal(raw, &snapshot); err != nil {
+		t.Fatalf("decode telemetry health snapshot: %v", err)
+	}
+	if snapshot.SchemaID != "gait.scout.telemetry_health" {
+		t.Fatalf("unexpected telemetry schema id: %s", snapshot.SchemaID)
+	}
+	adoption := snapshot.Streams["adoption"]
+	if adoption.Attempts != 1 || adoption.Success != 1 || adoption.Failed != 0 {
+		t.Fatalf("unexpected adoption telemetry counters: %#v", adoption)
+	}
+	operationalEnd := snapshot.Streams["operational_end"]
+	if operationalEnd.Attempts != 2 || operationalEnd.Success != 1 || operationalEnd.Failed != 1 {
+		t.Fatalf("unexpected operational_end telemetry counters: %#v", operationalEnd)
 	}
 }
 

@@ -2,6 +2,7 @@ package runpack
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -28,6 +29,8 @@ const (
 	sessionChainSchemaVersion   = "1.0.0"
 	sessionCheckpointSchemaID   = "gait.runpack.session_checkpoint"
 	sessionCheckpointSchemaV1   = "1.0.0"
+	sessionStateSchemaID        = "gait.runpack.session_state"
+	sessionStateSchemaVersion   = "1.0.0"
 	sessionLockTimeout          = 2 * time.Second
 	sessionLockRetry            = 50 * time.Millisecond
 	sessionLockStaleAfter       = 5 * time.Minute
@@ -75,6 +78,26 @@ type SessionCheckpointResult struct {
 	Chain      schemarunpack.SessionChain      `json:"chain"`
 }
 
+type SessionCompactionOptions struct {
+	Now             time.Time
+	ProducerVersion string
+	OutputPath      string
+	DryRun          bool
+}
+
+type SessionCompactionResult struct {
+	JournalPath            string `json:"journal_path"`
+	OutputPath             string `json:"output_path"`
+	DryRun                 bool   `json:"dry_run"`
+	Compacted              bool   `json:"compacted"`
+	EventsBefore           int    `json:"events_before"`
+	EventsAfter            int    `json:"events_after"`
+	Checkpoints            int    `json:"checkpoints"`
+	LastCheckpointSequence int64  `json:"last_checkpoint_sequence"`
+	BytesBefore            int64  `json:"bytes_before"`
+	BytesAfter             int64  `json:"bytes_after"`
+}
+
 type SessionChainVerifyOptions struct {
 	RequireSignature bool
 	PublicKey        ed25519.PublicKey
@@ -104,6 +127,52 @@ type sessionJournalRecord struct {
 	Header     *schemarunpack.SessionJournal    `json:"header,omitempty"`
 	Event      *schemarunpack.SessionEvent      `json:"event,omitempty"`
 	Checkpoint *schemarunpack.SessionCheckpoint `json:"checkpoint,omitempty"`
+}
+
+type sessionState struct {
+	SchemaID               string    `json:"schema_id"`
+	SchemaVersion          string    `json:"schema_version"`
+	UpdatedAt              time.Time `json:"updated_at"`
+	ProducerVersion        string    `json:"producer_version"`
+	SessionID              string    `json:"session_id"`
+	RunID                  string    `json:"run_id"`
+	CreatedAt              time.Time `json:"created_at"`
+	StartedAt              time.Time `json:"started_at"`
+	EventCount             int       `json:"event_count"`
+	LastSequence           int64     `json:"last_sequence"`
+	CheckpointCount        int       `json:"checkpoint_count"`
+	LastCheckpointIndex    int       `json:"last_checkpoint_index"`
+	LastCheckpointSequence int64     `json:"last_checkpoint_sequence"`
+	LastCheckpointDigest   string    `json:"last_checkpoint_digest,omitempty"`
+	JournalSizeBytes       int64     `json:"journal_size_bytes"`
+}
+
+type sessionLockConfig struct {
+	Profile    string
+	Timeout    time.Duration
+	Retry      time.Duration
+	StaleAfter time.Duration
+}
+
+type SessionLockContentionError struct {
+	LockPath string
+	Waited   time.Duration
+	Attempts int
+	Timeout  time.Duration
+	Retry    time.Duration
+	Profile  string
+}
+
+func (err SessionLockContentionError) Error() string {
+	return fmt.Sprintf(
+		"session state contention: lock timeout (path=%s waited=%s attempts=%d timeout=%s retry=%s profile=%s)",
+		err.LockPath,
+		err.Waited.Truncate(time.Millisecond),
+		err.Attempts,
+		err.Timeout,
+		err.Retry,
+		err.Profile,
+	)
 }
 
 // StartSession creates a new append-only session journal or returns the existing session status.
@@ -139,7 +208,8 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 				if journal.SessionID != sessionID || journal.RunID != runID {
 					return fmt.Errorf("session journal already initialized with different session/run")
 				}
-				return nil
+				_, rebuildErr := loadOrRebuildSessionState(normalizedPath)
+				return rebuildErr
 			}
 		} else if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
 			if _, statErr := os.Stat(normalizedPath); statErr == nil {
@@ -150,7 +220,8 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 				if journal.SessionID != sessionID || journal.RunID != runID {
 					return fmt.Errorf("session journal already initialized with different session/run")
 				}
-				return nil
+				_, rebuildErr := loadOrRebuildSessionState(normalizedPath)
+				return rebuildErr
 			}
 		} else if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
 			if _, statErr := os.Stat(normalizedPath); statErr == nil {
@@ -161,7 +232,8 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 				if journal.SessionID != sessionID || journal.RunID != runID {
 					return fmt.Errorf("session journal already initialized with different session/run")
 				}
-				return nil
+				_, rebuildErr := loadOrRebuildSessionState(normalizedPath)
+				return rebuildErr
 			}
 		} else {
 			return fmt.Errorf("session journal path must be local relative or absolute")
@@ -180,7 +252,29 @@ func StartSession(path string, opts SessionStartOptions) (SessionStatus, error) 
 			RecordType: "header",
 			Header:     &header,
 		}
-		return appendJournalRecord(normalizedPath, record)
+		if err := appendJournalRecord(normalizedPath, record); err != nil {
+			return err
+		}
+		state := sessionState{
+			SchemaID:               sessionStateSchemaID,
+			SchemaVersion:          sessionStateSchemaVersion,
+			UpdatedAt:              now,
+			ProducerVersion:        producerVersion,
+			SessionID:              sessionID,
+			RunID:                  runID,
+			CreatedAt:              now,
+			StartedAt:              now,
+			EventCount:             0,
+			LastSequence:           0,
+			CheckpointCount:        0,
+			LastCheckpointIndex:    0,
+			LastCheckpointSequence: 0,
+			LastCheckpointDigest:   "",
+		}
+		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+			state.JournalSizeBytes = info.Size()
+		}
+		return writeSessionState(sessionStatePath(normalizedPath), state)
 	}); err != nil {
 		return SessionStatus{}, err
 	}
@@ -195,9 +289,9 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 	}
 	var appended schemarunpack.SessionEvent
 	err = withSessionLock(normalizedPath, func() error {
-		journal, readErr := ReadSessionJournal(normalizedPath)
-		if readErr != nil {
-			return readErr
+		state, stateErr := loadOrRebuildSessionState(normalizedPath)
+		if stateErr != nil {
+			return stateErr
 		}
 		now := opts.CreatedAt.UTC()
 		if now.IsZero() {
@@ -205,19 +299,19 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 		}
 		producerVersion := strings.TrimSpace(opts.ProducerVersion)
 		if producerVersion == "" {
-			producerVersion = journal.ProducerVersion
+			producerVersion = state.ProducerVersion
 		}
 		if producerVersion == "" {
 			producerVersion = "0.0.0-dev"
 		}
-		sequence := int64(len(journal.Events) + 1)
+		sequence := state.LastSequence + 1
 		appended = schemarunpack.SessionEvent{
 			SchemaID:        sessionEventSchemaID,
 			SchemaVersion:   sessionEventSchemaVersion,
 			CreatedAt:       now,
 			ProducerVersion: producerVersion,
-			SessionID:       journal.SessionID,
-			RunID:           journal.RunID,
+			SessionID:       state.SessionID,
+			RunID:           state.RunID,
 			Sequence:        sequence,
 			IntentID:        strings.TrimSpace(opts.IntentID),
 			ToolName:        strings.TrimSpace(opts.ToolName),
@@ -233,7 +327,17 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 			RecordType: "event",
 			Event:      &appended,
 		}
-		return appendJournalRecord(normalizedPath, record)
+		if err := appendJournalRecord(normalizedPath, record); err != nil {
+			return err
+		}
+		state.UpdatedAt = now
+		state.ProducerVersion = producerVersion
+		state.LastSequence = sequence
+		state.EventCount++
+		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+			state.JournalSizeBytes = info.Size()
+		}
+		return writeSessionState(sessionStatePath(normalizedPath), state)
 	})
 	if err != nil {
 		return schemarunpack.SessionEvent{}, err
@@ -242,23 +346,30 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 }
 
 func GetSessionStatus(path string) (SessionStatus, error) {
-	journal, err := ReadSessionJournal(path)
+	normalizedPath, err := normalizeOutputPath(path)
 	if err != nil {
 		return SessionStatus{}, err
 	}
-	lastSequence := int64(0)
-	if len(journal.Events) > 0 {
-		lastSequence = journal.Events[len(journal.Events)-1].Sequence
+	var status SessionStatus
+	if err := withSessionLock(normalizedPath, func() error {
+		state, stateErr := loadOrRebuildSessionState(normalizedPath)
+		if stateErr != nil {
+			return stateErr
+		}
+		status = SessionStatus{
+			SessionID:       state.SessionID,
+			RunID:           state.RunID,
+			CreatedAt:       state.CreatedAt.UTC(),
+			StartedAt:       state.StartedAt.UTC(),
+			EventCount:      state.EventCount,
+			CheckpointCount: state.CheckpointCount,
+			LastSequence:    state.LastSequence,
+		}
+		return nil
+	}); err != nil {
+		return SessionStatus{}, err
 	}
-	return SessionStatus{
-		SessionID:       journal.SessionID,
-		RunID:           journal.RunID,
-		CreatedAt:       journal.CreatedAt.UTC(),
-		StartedAt:       journal.StartedAt.UTC(),
-		EventCount:      len(journal.Events),
-		CheckpointCount: len(journal.Checkpoints),
-		LastSequence:    lastSequence,
-	}, nil
+	return status, nil
 }
 
 func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts SessionCheckpointOptions) (SessionCheckpointResult, error) {
@@ -413,13 +524,27 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 			return appendErr
 		}
 
-		updated, updErr := ReadSessionJournal(normalizedPath)
-		if updErr != nil {
-			return updErr
+		updatedJournal := journal
+		updatedJournal.Checkpoints = append(updatedJournal.Checkpoints, checkpoint)
+		state, stateErr := loadOrRebuildSessionState(normalizedPath)
+		if stateErr != nil {
+			return stateErr
+		}
+		state.UpdatedAt = createdAt
+		state.ProducerVersion = producerVersion
+		state.CheckpointCount = checkpoint.CheckpointIndex
+		state.LastCheckpointIndex = checkpoint.CheckpointIndex
+		state.LastCheckpointSequence = checkpoint.SequenceEnd
+		state.LastCheckpointDigest = checkpoint.CheckpointDigest
+		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+			state.JournalSizeBytes = info.Size()
+		}
+		if writeErr := writeSessionState(sessionStatePath(normalizedPath), state); writeErr != nil {
+			return writeErr
 		}
 		result = SessionCheckpointResult{
 			Checkpoint: checkpoint,
-			Chain:      journalToSessionChain(updated),
+			Chain:      journalToSessionChain(updatedJournal),
 		}
 		return nil
 	})
@@ -546,6 +671,9 @@ func ReadSessionJournal(path string) (schemarunpack.SessionJournal, error) {
 			lastCheckpointIdx = checkpoint.CheckpointIndex
 			lastCheckpointDigest = checkpoint.CheckpointDigest
 			lastCheckpointSequence = checkpoint.SequenceEnd
+			if expectedSequence <= checkpoint.SequenceEnd {
+				expectedSequence = checkpoint.SequenceEnd + 1
+			}
 		default:
 			return schemarunpack.SessionJournal{}, fmt.Errorf("session journal line %d has unsupported record_type %q", lineNo, record.RecordType)
 		}
@@ -796,6 +924,165 @@ func appendJournalRecord(path string, record sessionJournalRecord) error {
 	return nil
 }
 
+func sessionStatePath(journalPath string) string {
+	return journalPath + ".state.json"
+}
+
+func readSessionState(path string) (sessionState, error) {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return sessionState{}, err
+	}
+	// #nosec G304 -- session state path is derived from validated local journal path.
+	content, err := os.ReadFile(normalizedPath)
+	if err != nil {
+		return sessionState{}, fmt.Errorf("read session state: %w", err)
+	}
+	var state sessionState
+	if err := json.Unmarshal(content, &state); err != nil {
+		return sessionState{}, fmt.Errorf("parse session state: %w", err)
+	}
+	if strings.TrimSpace(state.SchemaID) != sessionStateSchemaID {
+		return sessionState{}, fmt.Errorf("invalid session state schema_id")
+	}
+	if strings.TrimSpace(state.SchemaVersion) != sessionStateSchemaVersion {
+		return sessionState{}, fmt.Errorf("invalid session state schema_version")
+	}
+	if strings.TrimSpace(state.SessionID) == "" || strings.TrimSpace(state.RunID) == "" {
+		return sessionState{}, fmt.Errorf("session state missing session_id/run_id")
+	}
+	if state.EventCount < 0 || state.CheckpointCount < 0 {
+		return sessionState{}, fmt.Errorf("session state counters must be non-negative")
+	}
+	if state.LastSequence < 0 || state.LastCheckpointSequence < 0 || state.JournalSizeBytes < 0 {
+		return sessionState{}, fmt.Errorf("session state numeric fields must be non-negative")
+	}
+	state.UpdatedAt = state.UpdatedAt.UTC()
+	state.CreatedAt = state.CreatedAt.UTC()
+	state.StartedAt = state.StartedAt.UTC()
+	state.ProducerVersion = strings.TrimSpace(state.ProducerVersion)
+	if state.ProducerVersion == "" {
+		state.ProducerVersion = "0.0.0-dev"
+	}
+	return state, nil
+}
+
+func writeSessionState(path string, state sessionState) error {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return err
+	}
+	canonical := state
+	canonical.SchemaID = sessionStateSchemaID
+	canonical.SchemaVersion = sessionStateSchemaVersion
+	canonical.UpdatedAt = canonical.UpdatedAt.UTC()
+	if canonical.UpdatedAt.IsZero() {
+		canonical.UpdatedAt = time.Now().UTC()
+	}
+	canonical.CreatedAt = canonical.CreatedAt.UTC()
+	canonical.StartedAt = canonical.StartedAt.UTC()
+	canonical.ProducerVersion = strings.TrimSpace(canonical.ProducerVersion)
+	if canonical.ProducerVersion == "" {
+		canonical.ProducerVersion = "0.0.0-dev"
+	}
+	canonical.SessionID = strings.TrimSpace(canonical.SessionID)
+	canonical.RunID = strings.TrimSpace(canonical.RunID)
+	if canonical.SessionID == "" || canonical.RunID == "" {
+		return fmt.Errorf("session state missing session_id/run_id")
+	}
+	if canonical.EventCount < 0 || canonical.CheckpointCount < 0 || canonical.LastSequence < 0 || canonical.LastCheckpointSequence < 0 || canonical.JournalSizeBytes < 0 {
+		return fmt.Errorf("session state contains negative counters")
+	}
+	raw, err := json.MarshalIndent(canonical, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal session state: %w", err)
+	}
+	raw = append(raw, '\n')
+	return fsx.WriteFileAtomic(normalizedPath, raw, 0o600)
+}
+
+func buildSessionStateFromJournal(path string, journal schemarunpack.SessionJournal, now time.Time) (sessionState, error) {
+	updatedAt := now.UTC()
+	if updatedAt.IsZero() {
+		updatedAt = time.Now().UTC()
+	}
+	lastSequence := int64(0)
+	if len(journal.Events) > 0 {
+		lastSequence = journal.Events[len(journal.Events)-1].Sequence
+	}
+	lastCheckpointIndex := 0
+	lastCheckpointSequence := int64(0)
+	lastCheckpointDigest := ""
+	if len(journal.Checkpoints) > 0 {
+		last := journal.Checkpoints[len(journal.Checkpoints)-1]
+		lastCheckpointIndex = last.CheckpointIndex
+		lastCheckpointSequence = last.SequenceEnd
+		lastCheckpointDigest = strings.TrimSpace(last.CheckpointDigest)
+	}
+	sizeBytes := int64(0)
+	if info, err := os.Stat(path); err == nil {
+		sizeBytes = info.Size()
+	}
+	producerVersion := strings.TrimSpace(journal.ProducerVersion)
+	if producerVersion == "" {
+		producerVersion = "0.0.0-dev"
+	}
+	createdAt := journal.CreatedAt.UTC()
+	startedAt := journal.StartedAt.UTC()
+	if createdAt.IsZero() {
+		createdAt = startedAt
+	}
+	if createdAt.IsZero() {
+		createdAt = updatedAt
+	}
+	if startedAt.IsZero() {
+		startedAt = createdAt
+	}
+	return sessionState{
+		SchemaID:               sessionStateSchemaID,
+		SchemaVersion:          sessionStateSchemaVersion,
+		UpdatedAt:              updatedAt,
+		ProducerVersion:        producerVersion,
+		SessionID:              journal.SessionID,
+		RunID:                  journal.RunID,
+		CreatedAt:              createdAt,
+		StartedAt:              startedAt,
+		EventCount:             len(journal.Events),
+		LastSequence:           lastSequence,
+		CheckpointCount:        len(journal.Checkpoints),
+		LastCheckpointIndex:    lastCheckpointIndex,
+		LastCheckpointSequence: lastCheckpointSequence,
+		LastCheckpointDigest:   lastCheckpointDigest,
+		JournalSizeBytes:       sizeBytes,
+	}, nil
+}
+
+func loadOrRebuildSessionState(journalPath string) (sessionState, error) {
+	statePath := sessionStatePath(journalPath)
+	currentSize := int64(-1)
+	if info, err := os.Stat(journalPath); err == nil {
+		currentSize = info.Size()
+	}
+	state, err := readSessionState(statePath)
+	if err == nil {
+		if currentSize >= 0 && state.JournalSizeBytes == currentSize {
+			return state, nil
+		}
+	}
+	journal, journalErr := ReadSessionJournal(journalPath)
+	if journalErr != nil {
+		return sessionState{}, journalErr
+	}
+	rebuilt, buildErr := buildSessionStateFromJournal(journalPath, journal, time.Now().UTC())
+	if buildErr != nil {
+		return sessionState{}, buildErr
+	}
+	if writeErr := writeSessionState(statePath, rebuilt); writeErr != nil {
+		return sessionState{}, writeErr
+	}
+	return rebuilt, nil
+}
+
 func digestObject(value map[string]any) (string, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
@@ -832,6 +1119,7 @@ func uniqueSortedStrings(values []string) []string {
 }
 
 func withSessionLock(journalPath string, fn func() error) error {
+	lockConfig := resolveSessionLockConfig()
 	lockPath := journalPath + ".lock"
 	lockDir := filepath.Dir(lockPath)
 	if lockDir != "." && lockDir != "" {
@@ -852,7 +1140,9 @@ func withSessionLock(journalPath string, fn func() error) error {
 		}
 	}
 	start := time.Now()
+	attempts := 0
 	for {
+		attempts++
 		var lockFile *os.File
 		var err error
 		if filepath.IsLocal(lockPath) {
@@ -885,7 +1175,7 @@ func withSessionLock(journalPath string, fn func() error) error {
 		if !os.IsExist(err) {
 			return fmt.Errorf("acquire session lock: %w", err)
 		}
-		if shouldRecoverStaleSessionLock(lockPath, time.Now().UTC()) {
+		if shouldRecoverStaleSessionLockWithThreshold(lockPath, time.Now().UTC(), lockConfig.StaleAfter) {
 			if filepath.IsLocal(lockPath) {
 				_ = os.Remove(lockPath)
 			} else if strings.HasPrefix(lockPath, string(filepath.Separator)) {
@@ -897,14 +1187,25 @@ func withSessionLock(journalPath string, fn func() error) error {
 			}
 			continue
 		}
-		if time.Since(start) >= sessionLockTimeout {
-			return fmt.Errorf("session state contention: lock timeout")
+		if time.Since(start) >= lockConfig.Timeout {
+			return SessionLockContentionError{
+				LockPath: lockPath,
+				Waited:   time.Since(start),
+				Attempts: attempts,
+				Timeout:  lockConfig.Timeout,
+				Retry:    lockConfig.Retry,
+				Profile:  lockConfig.Profile,
+			}
 		}
-		time.Sleep(sessionLockRetry)
+		time.Sleep(lockConfig.Retry)
 	}
 }
 
 func shouldRecoverStaleSessionLock(lockPath string, now time.Time) bool {
+	return shouldRecoverStaleSessionLockWithThreshold(lockPath, now, sessionLockStaleAfter)
+}
+
+func shouldRecoverStaleSessionLockWithThreshold(lockPath string, now time.Time, staleAfter time.Duration) bool {
 	var (
 		content []byte
 		err     error
@@ -934,7 +1235,57 @@ func shouldRecoverStaleSessionLock(lockPath string, now time.Time) bool {
 	if err != nil {
 		return false
 	}
-	return now.Sub(createdAt) > sessionLockStaleAfter
+	return now.Sub(createdAt) > staleAfter
+}
+
+func resolveSessionLockConfig() sessionLockConfig {
+	profile := strings.ToLower(strings.TrimSpace(os.Getenv("GAIT_SESSION_LOCK_PROFILE")))
+	timeout := sessionLockTimeout
+	retry := sessionLockRetry
+	staleAfter := sessionLockStaleAfter
+	switch profile {
+	case "", "standard":
+		profile = "standard"
+	case "swarm":
+		timeout = 10 * time.Second
+		retry = 20 * time.Millisecond
+		staleAfter = 10 * time.Minute
+	default:
+		profile = "standard"
+	}
+	timeout = parseSessionLockDuration("GAIT_SESSION_LOCK_TIMEOUT", timeout)
+	retry = parseSessionLockDuration("GAIT_SESSION_LOCK_RETRY", retry)
+	staleAfter = parseSessionLockDuration("GAIT_SESSION_LOCK_STALE_AFTER", staleAfter)
+	if timeout <= 0 {
+		timeout = sessionLockTimeout
+	}
+	if retry <= 0 {
+		retry = sessionLockRetry
+	}
+	if staleAfter <= 0 {
+		staleAfter = sessionLockStaleAfter
+	}
+	if retry > timeout {
+		retry = timeout
+	}
+	return sessionLockConfig{
+		Profile:    profile,
+		Timeout:    timeout,
+		Retry:      retry,
+		StaleAfter: staleAfter,
+	}
+}
+
+func parseSessionLockDuration(envName string, fallback time.Duration) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(envName))
+	if raw == "" {
+		return fallback
+	}
+	parsed, err := time.ParseDuration(raw)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func sessionChainFromJournalPath(journalPath string) string {
@@ -956,6 +1307,130 @@ func SessionCheckpointAndWriteChain(journalPath string, runpackOut string, opts 
 		return SessionCheckpointResult{}, "", err
 	}
 	return result, chainPath, nil
+}
+
+func CompactSessionJournal(path string, opts SessionCompactionOptions) (SessionCompactionResult, error) {
+	normalizedPath, err := normalizeOutputPath(path)
+	if err != nil {
+		return SessionCompactionResult{}, err
+	}
+	outputPath := strings.TrimSpace(opts.OutputPath)
+	if outputPath == "" {
+		outputPath = normalizedPath
+	}
+	normalizedOutputPath, err := normalizeOutputPath(outputPath)
+	if err != nil {
+		return SessionCompactionResult{}, err
+	}
+	var result SessionCompactionResult
+	lockErr := withSessionLock(normalizedPath, func() error {
+		journal, readErr := ReadSessionJournal(normalizedPath)
+		if readErr != nil {
+			return readErr
+		}
+		now := opts.Now.UTC()
+		if now.IsZero() {
+			now = time.Now().UTC()
+		}
+		lastCheckpointSequence := int64(0)
+		if len(journal.Checkpoints) > 0 {
+			lastCheckpointSequence = journal.Checkpoints[len(journal.Checkpoints)-1].SequenceEnd
+		}
+		retainedEvents := make([]schemarunpack.SessionEvent, 0, len(journal.Events))
+		for _, event := range journal.Events {
+			if event.Sequence > lastCheckpointSequence {
+				retainedEvents = append(retainedEvents, event)
+			}
+		}
+
+		records := make([]sessionJournalRecord, 0, 1+len(journal.Checkpoints)+len(retainedEvents))
+		header := schemarunpack.SessionJournal{
+			SchemaID:        sessionJournalSchemaID,
+			SchemaVersion:   sessionJournalSchemaVersion,
+			CreatedAt:       journal.CreatedAt.UTC(),
+			ProducerVersion: journal.ProducerVersion,
+			SessionID:       journal.SessionID,
+			RunID:           journal.RunID,
+			StartedAt:       journal.StartedAt.UTC(),
+		}
+		records = append(records, sessionJournalRecord{
+			RecordType: "header",
+			Header:     &header,
+		})
+		for i := range journal.Checkpoints {
+			checkpoint := journal.Checkpoints[i]
+			records = append(records, sessionJournalRecord{
+				RecordType: "checkpoint",
+				Checkpoint: &checkpoint,
+			})
+		}
+		for i := range retainedEvents {
+			event := retainedEvents[i]
+			records = append(records, sessionJournalRecord{
+				RecordType: "event",
+				Event:      &event,
+			})
+		}
+		var compacted bytes.Buffer
+		for _, record := range records {
+			encoded, marshalErr := json.Marshal(record)
+			if marshalErr != nil {
+				return fmt.Errorf("marshal compacted session journal record: %w", marshalErr)
+			}
+			compacted.Write(encoded)
+			compacted.WriteByte('\n')
+		}
+
+		bytesBefore := int64(0)
+		if info, statErr := os.Stat(normalizedPath); statErr == nil {
+			bytesBefore = info.Size()
+		}
+		bytesAfter := int64(compacted.Len())
+		compactedChanged := len(retainedEvents) != len(journal.Events) || normalizedOutputPath != normalizedPath || bytesAfter != bytesBefore
+
+		if !opts.DryRun {
+			if compactedChanged {
+				if writeErr := fsx.WriteFileAtomic(normalizedOutputPath, compacted.Bytes(), 0o600); writeErr != nil {
+					return fmt.Errorf("write compacted session journal: %w", writeErr)
+				}
+				if normalizedOutputPath == normalizedPath {
+					updatedJournal := journal
+					updatedJournal.Events = retainedEvents
+					updatedJournal.Checkpoints = append([]schemarunpack.SessionCheckpoint{}, journal.Checkpoints...)
+					state, buildErr := buildSessionStateFromJournal(normalizedPath, updatedJournal, now)
+					if buildErr != nil {
+						return buildErr
+					}
+					producerVersion := strings.TrimSpace(opts.ProducerVersion)
+					if producerVersion != "" {
+						state.ProducerVersion = producerVersion
+					}
+					state.UpdatedAt = now
+					if writeErr := writeSessionState(sessionStatePath(normalizedPath), state); writeErr != nil {
+						return writeErr
+					}
+				}
+			}
+		}
+
+		result = SessionCompactionResult{
+			JournalPath:            normalizedPath,
+			OutputPath:             normalizedOutputPath,
+			DryRun:                 opts.DryRun,
+			Compacted:              compactedChanged,
+			EventsBefore:           len(journal.Events),
+			EventsAfter:            len(retainedEvents),
+			Checkpoints:            len(journal.Checkpoints),
+			LastCheckpointSequence: lastCheckpointSequence,
+			BytesBefore:            bytesBefore,
+			BytesAfter:             bytesAfter,
+		}
+		return nil
+	})
+	if lockErr != nil {
+		return SessionCompactionResult{}, lockErr
+	}
+	return result, nil
 }
 
 func ContainsSessionChainPath(path string) bool {
