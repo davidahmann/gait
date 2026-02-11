@@ -87,9 +87,6 @@ Required outcome:
   - `context.auth_context`
   - `context.credential_scopes`
   - `context.environment_fingerprint`
-- Intents SHOULD carry stable session metadata for long-running flows:
-  - `context.session_id`
-  - `context.request_id`
 
 Canonical wrapper path:
 
@@ -211,27 +208,6 @@ gait gate eval --policy examples/policy-test/block.yaml --intent examples/policy
 Evidence to capture:
 
 - `./gait-out/trace_check.json` exists and is non-empty.
-
-## Step 3B: v2.1 Readiness (Session + Delegation Additive)
-
-Required outcome:
-
-- Integrations are prepared for additive v2.1 governance fields without breaking current behavior.
-
-Validation:
-
-- Confirm intent forwarding code tolerates unknown optional fields.
-- Confirm serializer preserves known context passthrough fields (`session_id`, `request_id`, `auth_context`, `credential_scopes`, `environment_fingerprint`).
-- Confirm non-`allow` behavior remains fail-closed regardless of extra optional fields.
-
-Evidence to capture:
-
-- One serialized intent sample containing session + passthrough context.
-- Adapter test output proving allow/block semantics remain unchanged with enriched context.
-
-Reference:
-
-- `docs/contracts/v2_1_additive_readiness.md`
 
 ## Step 4: Runpack Recording And Verification
 

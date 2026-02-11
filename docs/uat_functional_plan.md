@@ -9,7 +9,6 @@ Prove that a user can:
 - install Gait via each distribution path
 - execute the core command surface successfully
 - verify deterministic contracts (runpack, regress, gate, evidence, signal)
-- verify docs-site integrity for published navigation/doc paths
 - pass existing quality gates (lint, tests, coverage, acceptance)
 
 ## Install Paths In Scope
@@ -48,7 +47,6 @@ The acceptance suites together exercise command families including:
 - `guard pack`, `guard verify`, `incident pack`
 - `registry install`, `registry verify`
 - `mcp bridge/proxy/serve` coverage through adapter and acceptance suites
-- docs-site navigation/doc slug validation (`scripts/validate_docs_navigation.py`)
 - OpenClaw installable skill package path
 - Gas Town adapter parity path
 - Beads bridge dry-run/live simulation path
@@ -58,7 +56,6 @@ The acceptance suites together exercise command families including:
 
 - Go toolchain available
 - Python/uv toolchain available for SDK/adapter checks
-- Node.js/npm available for docs-site lint/build checks
 - `gh` authenticated (required for release installer path)
 - Homebrew installed (required for brew path)
 - Network access for release asset and brew fetch
@@ -93,7 +90,6 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 ## Pass Criteria
 
 - All quality gates pass: `make lint`, `make test`, `make test-e2e`, `make test-adoption`, `make test-contracts`, `make test-hardening-acceptance`
-- Docs-site gates pass: `make docs-site-lint`, `make docs-site-build`
 - Runtime SLO budget check passes: `make test-runtime-slo`
 - All install-path command suites pass for:
   - source binary

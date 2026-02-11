@@ -11,7 +11,6 @@ Run on every pull request:
 - `make test-adoption` for onboarding and integration-path smoke checks
 - `make test-ecosystem-automation` for community index and release-note automation checks
 - `python3 scripts/validate_community_index.py` for ecosystem listing contract checks
-- `python3 scripts/validate_docs_navigation.py` for docs-site sidebar/doc slug integrity
 - `bash scripts/policy_compliance_ci.sh` for canonical policy fixtures and reason-code summaries
 - `gait regress run --json --junit=...` when regress fixtures are in scope
 
@@ -29,8 +28,6 @@ Run nightly:
 - `make test-e2e`
 - `make test-acceptance`
 - `make bench-check`
-- `make docs-site-lint`
-- `make docs-site-build`
 - Windows lint workflow (`.github/workflows/windows-lint-nightly.yml`)
 
 Nightly objective:

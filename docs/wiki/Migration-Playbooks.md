@@ -30,18 +30,6 @@ Reference: `docs/ci_regress_kit.md`
 
 Reference: `docs/policy_rollout.md`
 
-## Playbook 4: v2.1 Additive Readiness (No Breaking Changes)
-
-1. Preserve existing v1 boundary behavior (`allow` executes, non-`allow` blocks).
-2. Enrich intents with context passthrough fields:
-   - `session_id`, `request_id`
-   - `auth_context`, `credential_scopes`, `environment_fingerprint`
-3. Verify adapter/sidecar serializers tolerate unknown optional fields.
-4. Add CI fixtures that include enriched context and keep reason-code expectations stable.
-5. Track session/delegation artifact rollout as additive migration steps, not cutover events.
-
-Reference: `docs/contracts/v2_1_additive_readiness.md`
-
 ## Exit Criteria
 
 - No side-effecting path bypasses Gate.

@@ -19,13 +19,6 @@ Within a major version, these contracts are backward-compatible.
 - Semantic changes to required fields MUST NOT occur without a version bump.
 - Optional fields MAY be added in minor/patch versions if consumers can ignore unknown fields safely.
 
-## v2.1 additive compatibility note
-
-- Integrations SHOULD treat context and trace contracts as append-only within `v1.x`.
-- Integrations SHOULD avoid strict decoders that reject unknown optional fields.
-- Planned session/delegation additions are expected to arrive as additive fields/artifacts, not required-field rewrites.
-- Current readiness baseline is documented in `docs/contracts/v2_1_additive_readiness.md`.
-
 ## IntentRequest (`gait.gate.intent_request`, `1.0.0`)
 
 Purpose: normalized tool-call intent at the execution boundary.
@@ -57,7 +50,6 @@ Consumer obligations:
 
 - MUST fail closed for high-risk paths when intent cannot be evaluated.
 - MUST NOT execute side effects on non-`allow` outcomes.
-- SHOULD preserve unknown optional context keys when forwarding intent payloads through wrappers/sidecars.
 
 ## GateResult (`gait.gate.result`, `1.0.0`)
 

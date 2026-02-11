@@ -96,23 +96,6 @@ Rollout gate:
 
 - Require explicit approval or block for unknown publisher/source combinations before production enforce.
 
-## Stage 3C: Session/Delegation Readiness Gate (Additive)
-
-Before multi-agent expansion, enforce a readiness gate in CI:
-
-- fixture intents include stable `context.session_id`
-- fixture intents include representative passthrough context (`auth_context`, `credential_scopes`, `environment_fingerprint`)
-- policy tests remain deterministic with enriched context payloads
-
-Current OSS status:
-
-- delegation-token CLI/policy primitives are planned for additive v2.1 delivery
-- use current readiness checks to prevent integration churn before those fields land
-
-Reference:
-
-- `docs/contracts/v2_1_additive_readiness.md`
-
 ## Stage 4: Full Enforce Mode
 
 Enforce block/allow decisions at runtime in wrapped tools:
