@@ -33,6 +33,18 @@ Applies to:
 - Within `v1.x`, artifact schemas are append-only for required behavior.
 - Breaking field removals/renames require a major version increment.
 - New optional fields are allowed when existing readers can ignore them safely.
+- Planned session checkpoint-chain artifacts are additive extensions to this graph model.
+- Existing runpack/trace/regress/evidence readers should continue operating when session-chain artifacts are absent.
+
+## v2.1 readiness
+
+Session and delegation governance work is expected to extend this graph with:
+
+- append-only session journal/checkpoint artifacts
+- checkpoint linkage verification metadata
+- delegation authorization references in decision traces
+
+These are forward-compatible additions and should not invalidate existing artifact verification paths.
 
 ## Why This Exists
 

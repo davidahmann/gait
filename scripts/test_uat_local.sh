@@ -129,6 +129,7 @@ require_cmd go
 require_cmd python3
 require_cmd uv
 require_cmd gh
+require_cmd npm
 
 if [[ "${SKIP_BREW}" != "true" ]]; then
   require_cmd brew
@@ -145,6 +146,8 @@ else
 fi
 
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
+run_step "quality_docs_site_lint" make -C "${REPO_ROOT}" docs-site-lint
+run_step "quality_docs_site_build" make -C "${REPO_ROOT}" docs-site-build
 run_step "quality_test" make -C "${REPO_ROOT}" test
 run_step "quality_e2e" make -C "${REPO_ROOT}" test-e2e
 run_step "quality_adoption" make -C "${REPO_ROOT}" test-adoption

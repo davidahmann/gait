@@ -227,6 +227,7 @@ required_files=(
   "$REPO_ROOT/docs/zero_trust_stack.md"
   "$REPO_ROOT/docs/external_tool_registry_policy.md"
   "$REPO_ROOT/docs/siem_ingestion_recipes.md"
+  "$REPO_ROOT/docs/contracts/v2_1_additive_readiness.md"
 )
 for file in "${required_files[@]}"; do
   if [[ ! -f "$file" ]]; then

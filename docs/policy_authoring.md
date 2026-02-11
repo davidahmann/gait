@@ -65,6 +65,18 @@ This gives fast feedback for enum values and unknown keys before runtime.
 - Keep policy files formatted by `policy fmt --write` before review.
 - Review policy changes with fixture deltas and matched-rule evidence, not raw YAML diff alone.
 
+## v2.1 Additive Readiness (Current Best Practice)
+
+Even before delegation/session-chain features fully land, include representative context in fixtures:
+
+- `context.session_id`
+- `context.request_id`
+- `context.auth_context`
+- `context.credential_scopes`
+- `context.environment_fingerprint`
+
+This keeps policy tests stable while integration payloads evolve.
+
 ## Signing Key Lifecycle (Local)
 
 For production verification profiles and trace signing workflows, manage keys with CLI primitives:

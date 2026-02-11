@@ -29,6 +29,7 @@ fmt:
 lint:
 	$(PYTHON) scripts/validate_repo_skills.py
 	$(PYTHON) scripts/validate_community_index.py
+	$(PYTHON) scripts/validate_docs_navigation.py
 	bash scripts/check_repo_hygiene.sh
 	bash scripts/check_hooks_config.sh
 	$(GO) vet ./...

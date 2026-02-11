@@ -5,6 +5,7 @@ Enforce policy, capture signed proof, and regression-test every AI agent tool ca
 Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
 Changelog: [CHANGELOG.md](CHANGELOG.md)
+v2.1 additive readiness: `docs/contracts/v2_1_additive_readiness.md`
 
 ## Gait In 60s
 

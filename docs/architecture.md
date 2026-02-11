@@ -81,3 +81,22 @@ flowchart LR
 - Default-safe behavior is enforced in command handlers: non-`allow` gate outcomes do not execute side effects.
 - High-risk production profile (`oss-prod`) remains fail-closed when policy or credentials cannot be evaluated.
 - Verification and regression failures return stable non-zero exit codes for automation.
+
+## v2.1 Readiness (Additive)
+
+Current OSS architecture already carries context needed for future multi-step and multi-agent governance:
+
+- `context.session_id` and `context.request_id` for correlation
+- `auth_context`, `credential_scopes`, `environment_fingerprint` passthrough fields
+
+Planned v2.1 extensions are additive to this model:
+
+- append-only session journals and sealed checkpoints
+- session-chain verify/diff/regress compatibility
+- delegation metadata and delegation-token enforcement
+
+Design constraint:
+
+- existing `v1.x` artifacts and readers remain valid; new fields/artifacts must compose without breaking prior workflows.
+
+Reference: `docs/contracts/v2_1_additive_readiness.md`
