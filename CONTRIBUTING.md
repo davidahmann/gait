@@ -30,12 +30,16 @@ Enable the repo pre-push hook (authoritative path in this repo):
 make hooks
 ```
 
-This runs `make lint` and `make test` on every push.
+This runs `make lint`, `make test`, and `make codeql` on every push.
 `make lint` now enforces hook activation (`core.hooksPath=.githooks`) and prints remediation:
 
 ```
 make hooks
 ```
+
+`make codeql` requires the CodeQL CLI in your `PATH`.
+Install guide: <https://codeql.github.com/docs/codeql-cli/getting-started-with-the-codeql-cli/>.
+Emergency bypass (not recommended for normal flow): `GAIT_SKIP_CODEQL=1 git push`.
 
 ## Repo hygiene guards
 

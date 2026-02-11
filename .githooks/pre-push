@@ -6,3 +6,6 @@ make lint
 
 echo "[gait] running pre-push checks: make test"
 make test
+
+echo "[gait] running pre-push checks: make codeql"
+make codeql

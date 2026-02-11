@@ -39,3 +39,10 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+      - id: make-codeql
+        name: make codeql
+        entry: make codeql
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
