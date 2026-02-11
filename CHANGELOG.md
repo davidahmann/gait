@@ -10,6 +10,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.4] - 2026-02-11
+
+### Added
+
+- Added `gait policy simulate` for deterministic baseline-versus-candidate policy comparison across fixture corpora, including rollout-stage recommendation output.
+- Added signing key lifecycle commands: `gait keys init`, `gait keys rotate`, and `gait keys verify`.
+- Added normative artifact-graph contract documentation (`docs/contracts/artifact_graph.md`) and docs-site navigation exposure.
+- Added Python SDK decorator ergonomics via `gate_tool` with framework-style examples for OpenAI/LangChain tool wrappers.
+
+### Changed
+
+- Expanded policy authoring and integration docs with policy simulation and key workflow guidance.
+- Expanded acceptance/UAT coverage to exercise new policy simulation and key lifecycle paths.
+- Updated homepage quickstart to the one-command regression bootstrap path.
+
 ## [1.0.3] - 2026-02-11
 
 ### Added
