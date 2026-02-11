@@ -360,6 +360,9 @@ make docs-site-install
 make docs-site-build
 ```
 
+`make test-uat-local` now includes policy compliance, adapter parity, integration, perf regression (`bench-check`), and docs-site lint/build checks.
+Use `bash scripts/test_uat_local.sh --skip-docs-site` when npm is unavailable locally.
+
 90-second terminal demo: `bash scripts/demo_90s.sh`
 
 Enable required pre-push hook: `make hooks`

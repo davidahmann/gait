@@ -73,6 +73,7 @@ Options:
 ```bash
 GAIT_UAT_RELEASE_VERSION=vX.Y.Z bash scripts/test_uat_local.sh --output-dir ./gait-out/uat_local
 bash scripts/test_uat_local.sh --skip-brew
+bash scripts/test_uat_local.sh --skip-docs-site
 ```
 
 Legacy fallback when validating an older release tag that predates the extended suites:
@@ -89,8 +90,10 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 ## Pass Criteria
 
-- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `make test-adoption`, `make test-contracts`, `make test-hardening-acceptance`
+- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-hardening-acceptance`
 - Runtime SLO budget check passes: `make test-runtime-slo`
+- Performance regression checks pass: `make bench-check`
+- Docs site lint/build passes (`make docs-site-lint docs-site-build`) unless explicitly skipped with `--skip-docs-site`
 - All install-path command suites pass for:
   - source binary
   - release-installer binary

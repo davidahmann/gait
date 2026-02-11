@@ -7,6 +7,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 OUTPUT_DIR="${REPO_ROOT}/gait-out/uat_local"
 RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-}"
 SKIP_BREW="false"
+SKIP_DOCS_SITE="false"
 FULL_CONTRACTS_ALL_PATHS="true"
 
 usage() {
@@ -14,12 +15,13 @@ usage() {
 Run local end-to-end UAT across source, release-installer, and Homebrew install paths.
 
 Usage:
-  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--baseline-install-paths]
+  test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--skip-docs-site] [--baseline-install-paths]
 
 Options:
   --output-dir <path>      UAT artifacts directory (default: gait-out/uat_local)
   --release-version <tag>  GitHub release tag for installer path (default: latest published release)
   --skip-brew              Skip Homebrew install path checks
+  --skip-docs-site         Skip docs-site lint/build checks in local quality gate
   --baseline-install-paths  Run baseline suites on release/brew install paths (legacy releases only)
   --full-contracts-all-paths
                             Deprecated alias for full coverage on all install paths (default behavior)
@@ -41,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-brew)
       SKIP_BREW="true"
+      shift
+      ;;
+    --skip-docs-site)
+      SKIP_DOCS_SITE="true"
       shift
       ;;
     --full-contracts-all-paths)
@@ -147,10 +153,22 @@ fi
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
 run_step "quality_test" make -C "${REPO_ROOT}" test
 run_step "quality_e2e" make -C "${REPO_ROOT}" test-e2e
+run_step "quality_integration" go test "${REPO_ROOT}/internal/integration" -count=1
 run_step "quality_adoption" make -C "${REPO_ROOT}" test-adoption
+run_step "quality_adapter_parity" make -C "${REPO_ROOT}" test-adapter-parity
+run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_compliance_ci.sh"
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
+run_step "quality_perf_bench_check" make -C "${REPO_ROOT}" bench-check
+
+if [[ "${SKIP_DOCS_SITE}" == "true" ]]; then
+  log "SKIP quality_docs_site (requested)"
+elif command -v npm >/dev/null 2>&1; then
+  run_step "quality_docs_site" make -C "${REPO_ROOT}" docs-site-lint docs-site-build
+else
+  log "SKIP quality_docs_site (npm missing)"
+fi
 
 SOURCE_BIN="${REPO_ROOT}/gait"
 run_step "build_source_binary" go build -o "${SOURCE_BIN}" "${REPO_ROOT}/cmd/gait"
