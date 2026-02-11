@@ -30,20 +30,22 @@ const (
 	ApprovalCodeExpired             = "approval_token_expired"
 	ApprovalCodeIntentMismatch      = "approval_token_intent_mismatch"
 	ApprovalCodePolicyMismatch      = "approval_token_policy_mismatch"
+	ApprovalCodeDelegationMismatch  = "approval_token_delegation_binding_mismatch"
 	ApprovalCodeScopeMismatch       = "approval_token_scope_mismatch"
 )
 
 type MintApprovalTokenOptions struct {
-	ProducerVersion   string
-	ApproverIdentity  string
-	ReasonCode        string
-	IntentDigest      string
-	PolicyDigest      string
-	Scope             []string
-	TTL               time.Duration
-	Now               time.Time
-	SigningPrivateKey ed25519.PrivateKey
-	TokenPath         string
+	ProducerVersion         string
+	ApproverIdentity        string
+	ReasonCode              string
+	IntentDigest            string
+	PolicyDigest            string
+	DelegationBindingDigest string
+	Scope                   []string
+	TTL                     time.Duration
+	Now                     time.Time
+	SigningPrivateKey       ed25519.PrivateKey
+	TokenPath               string
 }
 
 type MintApprovalTokenResult struct {
@@ -52,10 +54,11 @@ type MintApprovalTokenResult struct {
 }
 
 type ApprovalValidationOptions struct {
-	Now                  time.Time
-	ExpectedIntentDigest string
-	ExpectedPolicyDigest string
-	RequiredScope        []string
+	Now                             time.Time
+	ExpectedIntentDigest            string
+	ExpectedPolicyDigest            string
+	ExpectedDelegationBindingDigest string
+	RequiredScope                   []string
 }
 
 type ApprovalTokenError struct {
@@ -95,6 +98,10 @@ func MintApprovalToken(opts MintApprovalTokenOptions) (MintApprovalTokenResult, 
 	if !isDigestHex(policyDigest) {
 		return MintApprovalTokenResult{}, fmt.Errorf("policy_digest must be sha256 hex")
 	}
+	delegationBindingDigest := strings.ToLower(strings.TrimSpace(opts.DelegationBindingDigest))
+	if delegationBindingDigest != "" && !isDigestHex(delegationBindingDigest) {
+		return MintApprovalTokenResult{}, fmt.Errorf("delegation_binding_digest must be sha256 hex when set")
+	}
 	approver := strings.TrimSpace(opts.ApproverIdentity)
 	if approver == "" {
 		return MintApprovalTokenResult{}, fmt.Errorf("approver identity is required")
@@ -118,17 +125,18 @@ func MintApprovalToken(opts MintApprovalTokenOptions) (MintApprovalTokenResult, 
 	}
 
 	token := schemagate.ApprovalToken{
-		SchemaID:         approvalTokenSchemaID,
-		SchemaVersion:    approvalTokenSchemaV1,
-		CreatedAt:        createdAt,
-		ProducerVersion:  producerVersion,
-		TokenID:          computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode, scope, createdAt.Add(opts.TTL)),
-		ApproverIdentity: approver,
-		ReasonCode:       reasonCode,
-		IntentDigest:     intentDigest,
-		PolicyDigest:     policyDigest,
-		Scope:            scope,
-		ExpiresAt:        createdAt.Add(opts.TTL),
+		SchemaID:                approvalTokenSchemaID,
+		SchemaVersion:           approvalTokenSchemaV1,
+		CreatedAt:               createdAt,
+		ProducerVersion:         producerVersion,
+		TokenID:                 computeApprovalTokenID(intentDigest, policyDigest, approver, reasonCode, scope, createdAt.Add(opts.TTL)),
+		ApproverIdentity:        approver,
+		ReasonCode:              reasonCode,
+		IntentDigest:            intentDigest,
+		PolicyDigest:            policyDigest,
+		DelegationBindingDigest: delegationBindingDigest,
+		Scope:                   scope,
+		ExpiresAt:               createdAt.Add(opts.TTL),
 	}
 
 	signable := token
@@ -231,6 +239,10 @@ func ValidateApprovalToken(token schemagate.ApprovalToken, publicKey ed25519.Pub
 	if expectedPolicy != "" && normalized.PolicyDigest != expectedPolicy {
 		return &ApprovalTokenError{Code: ApprovalCodePolicyMismatch, Err: fmt.Errorf("policy digest mismatch")}
 	}
+	expectedDelegationBindingDigest := strings.ToLower(strings.TrimSpace(opts.ExpectedDelegationBindingDigest))
+	if expectedDelegationBindingDigest != "" && normalized.DelegationBindingDigest != expectedDelegationBindingDigest {
+		return &ApprovalTokenError{Code: ApprovalCodeDelegationMismatch, Err: fmt.Errorf("delegation binding digest mismatch")}
+	}
 	now := opts.Now.UTC()
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -291,6 +303,10 @@ func normalizeApprovalToken(token schemagate.ApprovalToken) (schemagate.Approval
 	normalized.PolicyDigest = strings.ToLower(strings.TrimSpace(normalized.PolicyDigest))
 	if !isDigestHex(normalized.PolicyDigest) {
 		return schemagate.ApprovalToken{}, fmt.Errorf("policy_digest must be sha256 hex")
+	}
+	normalized.DelegationBindingDigest = strings.ToLower(strings.TrimSpace(normalized.DelegationBindingDigest))
+	if normalized.DelegationBindingDigest != "" && !isDigestHex(normalized.DelegationBindingDigest) {
+		return schemagate.ApprovalToken{}, fmt.Errorf("delegation_binding_digest must be sha256 hex when set")
 	}
 	normalized.Scope = normalizeStringListLower(normalized.Scope)
 	if len(normalized.Scope) == 0 {

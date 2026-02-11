@@ -62,6 +62,24 @@
       "p95_ms": 1600.0,
       "p99_ms": 2200.0,
       "max_error_rate": 0.0
+    },
+    "session_checkpoint_emit": {
+      "p50_ms": 900.0,
+      "p95_ms": 1700.0,
+      "p99_ms": 2400.0,
+      "max_error_rate": 0.0
+    },
+    "session_chain_verify": {
+      "p50_ms": 700.0,
+      "p95_ms": 1400.0,
+      "p99_ms": 2000.0,
+      "max_error_rate": 0.0
+    },
+    "gate_eval_delegation_verify": {
+      "p50_ms": 950.0,
+      "p95_ms": 1800.0,
+      "p99_ms": 2400.0,
+      "max_error_rate": 0.0
     }
   }
 }

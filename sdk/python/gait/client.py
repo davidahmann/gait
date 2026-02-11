@@ -82,6 +82,12 @@ def evaluate_gate(
     approval_public_key_env: str | None = None,
     approval_private_key: str | Path | None = None,
     approval_private_key_env: str | None = None,
+    delegation_token: str | Path | None = None,
+    delegation_token_chain: Sequence[str | Path] | None = None,
+    delegation_public_key: str | Path | None = None,
+    delegation_public_key_env: str | None = None,
+    delegation_private_key: str | Path | None = None,
+    delegation_private_key_env: str | None = None,
 ) -> GateEvalResult:
     with tempfile.TemporaryDirectory(prefix="gait-intent-") as tmp_dir:
         intent_path = Path(tmp_dir) / "intent.json"
@@ -103,6 +109,11 @@ def evaluate_gate(
             command.extend(["--trace-out", str(trace_out)])
         if approval_token is not None:
             command.extend(["--approval-token", str(approval_token)])
+        if delegation_token is not None:
+            command.extend(["--delegation-token", str(delegation_token)])
+        if delegation_token_chain:
+            chain = ",".join(str(value) for value in delegation_token_chain)
+            command.extend(["--delegation-token-chain", chain])
         if private_key is not None:
             command.extend(["--private-key", str(private_key)])
         if private_key_env:
@@ -115,6 +126,14 @@ def evaluate_gate(
             command.extend(["--approval-private-key", str(approval_private_key)])
         if approval_private_key_env:
             command.extend(["--approval-private-key-env", approval_private_key_env])
+        if delegation_public_key is not None:
+            command.extend(["--delegation-public-key", str(delegation_public_key)])
+        if delegation_public_key_env:
+            command.extend(["--delegation-public-key-env", delegation_public_key_env])
+        if delegation_private_key is not None:
+            command.extend(["--delegation-private-key", str(delegation_private_key)])
+        if delegation_private_key_env:
+            command.extend(["--delegation-private-key-env", delegation_private_key_env])
 
         result = _run_command(command, cwd=cwd)
         payload = _parse_json_stdout(result.stdout)

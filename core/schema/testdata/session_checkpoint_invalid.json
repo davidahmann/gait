@@ -1,0 +1,14 @@
+{
+  "schema_id": "gait.runpack.session_checkpoint",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-05T00:10:00Z",
+  "producer_version": "0.0.0-dev",
+  "session_id": "sess_demo",
+  "run_id": "run_demo",
+  "checkpoint_index": 0,
+  "sequence_start": 0,
+  "sequence_end": 0,
+  "runpack_path": "",
+  "manifest_digest": "short",
+  "checkpoint_digest": "short"
+}

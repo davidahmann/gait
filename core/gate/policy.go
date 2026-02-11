@@ -35,6 +35,7 @@ var (
 		"targets":        {},
 		"arg_provenance": {},
 		"endpoint_class": {},
+		"delegation":     {},
 	}
 	allowedRateLimitScopes = map[string]struct{}{
 		"tool":          {},
@@ -113,20 +114,25 @@ type EndpointPolicy struct {
 }
 
 type PolicyMatch struct {
-	ToolNames         []string `yaml:"tool_names"`
-	RiskClasses       []string `yaml:"risk_classes"`
-	TargetKinds       []string `yaml:"target_kinds"`
-	TargetValues      []string `yaml:"target_values"`
-	EndpointClasses   []string `yaml:"endpoint_classes"`
-	SkillPublishers   []string `yaml:"skill_publishers"`
-	SkillSources      []string `yaml:"skill_sources"`
-	DataClasses       []string `yaml:"data_classes"`
-	DestinationKinds  []string `yaml:"destination_kinds"`
-	DestinationValues []string `yaml:"destination_values"`
-	DestinationOps    []string `yaml:"destination_operations"`
-	ProvenanceSources []string `yaml:"provenance_sources"`
-	Identities        []string `yaml:"identities"`
-	WorkspacePrefixes []string `yaml:"workspace_prefixes"`
+	ToolNames                  []string `yaml:"tool_names"`
+	RiskClasses                []string `yaml:"risk_classes"`
+	TargetKinds                []string `yaml:"target_kinds"`
+	TargetValues               []string `yaml:"target_values"`
+	EndpointClasses            []string `yaml:"endpoint_classes"`
+	SkillPublishers            []string `yaml:"skill_publishers"`
+	SkillSources               []string `yaml:"skill_sources"`
+	DataClasses                []string `yaml:"data_classes"`
+	DestinationKinds           []string `yaml:"destination_kinds"`
+	DestinationValues          []string `yaml:"destination_values"`
+	DestinationOps             []string `yaml:"destination_operations"`
+	ProvenanceSources          []string `yaml:"provenance_sources"`
+	Identities                 []string `yaml:"identities"`
+	WorkspacePrefixes          []string `yaml:"workspace_prefixes"`
+	RequireDelegation          bool     `yaml:"require_delegation"`
+	AllowedDelegatorIdentities []string `yaml:"allowed_delegator_identities"`
+	AllowedDelegateIdentities  []string `yaml:"allowed_delegate_identities"`
+	DelegationScopes           []string `yaml:"delegation_scopes"`
+	MaxDelegationDepth         *int     `yaml:"max_delegation_depth"`
 }
 
 type EvalOptions struct {
@@ -139,6 +145,7 @@ type EvalOutcome struct {
 	MinApprovals             int
 	RequireDistinctApprovers bool
 	RequireBrokerCredential  bool
+	RequireDelegation        bool
 	BrokerReference          string
 	BrokerScopes             []string
 	RateLimit                RateLimitPolicy
@@ -266,6 +273,7 @@ func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts
 			MinApprovals:             minApprovals,
 			RequireDistinctApprovers: rule.RequireDistinctApprovers,
 			RequireBrokerCredential:  rule.RequireBrokerCredential,
+			RequireDelegation:        rule.Match.RequireDelegation,
 			BrokerReference:          rule.BrokerReference,
 			BrokerScopes:             uniqueSorted(rule.BrokerScopes),
 			RateLimit:                rule.RateLimit,
@@ -338,6 +346,21 @@ func policyDigestPayload(policy Policy) map[string]any {
 		}
 		if len(rule.Match.DestinationOps) > 0 {
 			matchPayload["DestinationOps"] = rule.Match.DestinationOps
+		}
+		if rule.Match.RequireDelegation {
+			matchPayload["RequireDelegation"] = true
+		}
+		if len(rule.Match.AllowedDelegatorIdentities) > 0 {
+			matchPayload["AllowedDelegatorIdentities"] = rule.Match.AllowedDelegatorIdentities
+		}
+		if len(rule.Match.AllowedDelegateIdentities) > 0 {
+			matchPayload["AllowedDelegateIdentities"] = rule.Match.AllowedDelegateIdentities
+		}
+		if len(rule.Match.DelegationScopes) > 0 {
+			matchPayload["DelegationScopes"] = rule.Match.DelegationScopes
+		}
+		if rule.Match.MaxDelegationDepth != nil {
+			matchPayload["MaxDelegationDepth"] = *rule.Match.MaxDelegationDepth
 		}
 
 		rulePayload := map[string]any{
@@ -501,6 +524,12 @@ func normalizePolicy(input Policy) (Policy, error) {
 		rule.Match.ProvenanceSources = normalizeStringListLower(rule.Match.ProvenanceSources)
 		rule.Match.Identities = normalizeStringList(rule.Match.Identities)
 		rule.Match.WorkspacePrefixes = normalizeStringList(rule.Match.WorkspacePrefixes)
+		rule.Match.AllowedDelegatorIdentities = normalizeStringList(rule.Match.AllowedDelegatorIdentities)
+		rule.Match.AllowedDelegateIdentities = normalizeStringList(rule.Match.AllowedDelegateIdentities)
+		rule.Match.DelegationScopes = normalizeStringListLower(rule.Match.DelegationScopes)
+		if rule.Match.MaxDelegationDepth != nil && *rule.Match.MaxDelegationDepth < 0 {
+			return Policy{}, fmt.Errorf("max_delegation_depth must be >= 0 for %s", rule.Name)
+		}
 		rule.ReasonCodes = uniqueSorted(rule.ReasonCodes)
 		rule.Violations = uniqueSorted(rule.Violations)
 		if rule.MinApprovals < 0 {
@@ -741,6 +770,72 @@ func ruleMatches(match PolicyMatch, intent schemagate.IntentRequest) bool {
 			return false
 		}
 	}
+	if !delegationMatches(match, intent.Delegation) {
+		return false
+	}
+	return true
+}
+
+func delegationMatches(match PolicyMatch, delegation *schemagate.IntentDelegation) bool {
+	delegationConstrained := match.RequireDelegation ||
+		len(match.AllowedDelegatorIdentities) > 0 ||
+		len(match.AllowedDelegateIdentities) > 0 ||
+		len(match.DelegationScopes) > 0 ||
+		match.MaxDelegationDepth != nil
+	if !delegationConstrained {
+		return true
+	}
+	if delegation == nil {
+		return false
+	}
+
+	if match.MaxDelegationDepth != nil && len(delegation.Chain) > *match.MaxDelegationDepth {
+		return false
+	}
+
+	if len(match.AllowedDelegatorIdentities) > 0 {
+		matchedDelegator := false
+		for _, link := range delegation.Chain {
+			if contains(match.AllowedDelegatorIdentities, strings.TrimSpace(link.DelegatorIdentity)) {
+				matchedDelegator = true
+				break
+			}
+		}
+		if !matchedDelegator {
+			return false
+		}
+	}
+
+	if len(match.AllowedDelegateIdentities) > 0 {
+		matchedDelegate := contains(match.AllowedDelegateIdentities, strings.TrimSpace(delegation.RequesterIdentity))
+		if !matchedDelegate {
+			for _, link := range delegation.Chain {
+				if contains(match.AllowedDelegateIdentities, strings.TrimSpace(link.DelegateIdentity)) {
+					matchedDelegate = true
+					break
+				}
+			}
+		}
+		if !matchedDelegate {
+			return false
+		}
+	}
+
+	if len(match.DelegationScopes) > 0 {
+		matchedScope := contains(match.DelegationScopes, strings.ToLower(strings.TrimSpace(delegation.ScopeClass)))
+		if !matchedScope {
+			for _, link := range delegation.Chain {
+				if contains(match.DelegationScopes, strings.ToLower(strings.TrimSpace(link.ScopeClass))) {
+					matchedScope = true
+					break
+				}
+			}
+		}
+		if !matchedScope {
+			return false
+		}
+	}
+
 	return true
 }
 
@@ -835,6 +930,11 @@ func evaluateFailClosedRequiredFields(requiredFields []string, intent schemagate
 					violations = append(violations, "missing_endpoint_class")
 					break
 				}
+			}
+		case "delegation":
+			if intent.Delegation == nil {
+				reasons = append(reasons, "fail_closed_missing_delegation")
+				violations = append(violations, "missing_delegation")
 			}
 		}
 	}

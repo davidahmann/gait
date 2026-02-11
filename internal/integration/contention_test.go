@@ -1,12 +1,15 @@
 package integration
 
 import (
+	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	coreerrors "github.com/davidahmann/gait/core/errors"
 	"github.com/davidahmann/gait/core/gate"
+	"github.com/davidahmann/gait/core/runpack"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 )
 
@@ -91,5 +94,57 @@ rules:
 	}
 	if allowCount+blockCount != workers {
 		t.Fatalf("expected all workers accounted for, allowed=%d blocked=%d workers=%d", allowCount, blockCount, workers)
+	}
+}
+
+func TestConcurrentSessionAppendStateIsDeterministic(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "session.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 5, 0, 0, 0, time.UTC)
+
+	if _, err := runpack.StartSession(journalPath, runpack.SessionStartOptions{
+		SessionID: "sess_integration",
+		RunID:     "run_integration",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	const workers = 10
+	var group sync.WaitGroup
+	group.Add(workers)
+	errs := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		worker := i
+		go func() {
+			defer group.Done()
+			_, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
+				CreatedAt: now.Add(time.Duration(worker+1) * time.Second),
+				IntentID:  "intent_" + strconv.Itoa(worker),
+				ToolName:  "tool.write",
+				Verdict:   "allow",
+			})
+			if err != nil {
+				errs <- err
+			}
+		}()
+	}
+	group.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("append session event: %v", err)
+		}
+	}
+
+	status, err := runpack.GetSessionStatus(journalPath)
+	if err != nil {
+		t.Fatalf("session status: %v", err)
+	}
+	if status.EventCount != workers {
+		t.Fatalf("unexpected event count: got=%d want=%d", status.EventCount, workers)
+	}
+	if status.LastSequence != workers {
+		t.Fatalf("unexpected last sequence: got=%d want=%d", status.LastSequence, workers)
 	}
 }

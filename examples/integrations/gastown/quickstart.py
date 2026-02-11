@@ -54,7 +54,7 @@ def build_gastown_tool_call(scenario: str) -> dict[str, Any]:
     }
 
 
-def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
+def to_intent_payload(tool_call: dict[str, Any], scenario: str) -> dict[str, Any]:
     polecat = dict(tool_call["polecat"])
     tool = dict(polecat["tool"])
     arguments = dict(tool["args"])
@@ -84,10 +84,30 @@ def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
             "digest": str(skill.get("digest", "")),
             "signature_key_id": str(skill.get("signature_key_id", "")),
         },
+        "delegation": {
+            "requester_identity": f"gastown-{polecat['worker_id']}",
+            "scope_class": "write",
+            "token_refs": [f"delegation-{FRAMEWORK}-{scenario}"],
+            "chain": [
+                {
+                    "delegator_identity": "agent.lead",
+                    "delegate_identity": f"gastown-{polecat['worker_id']}",
+                    "scope_class": "write",
+                    "token_ref": f"delegation-{FRAMEWORK}-{scenario}",
+                }
+            ],
+        },
         "context": {
             "identity": f"gastown-{polecat['worker_id']}",
             "workspace": "/tmp/gait-gastown",
             "risk_class": "high",
+            "session_id": f"sess-{FRAMEWORK}-{scenario}",
+            "auth_context": {
+                "framework": FRAMEWORK,
+                "convoy_id": str(polecat["convoy_id"]),
+            },
+            "credential_scopes": ["files.write", "network.egress"],
+            "environment_fingerprint": f"{FRAMEWORK}:local:{scenario}",
         },
     }
 
@@ -148,7 +168,7 @@ def main() -> int:
     executor_path = run_dir / f"executor_{scenario}.json"
 
     gastown_call = build_gastown_tool_call(scenario)
-    intent_payload = to_intent_payload(gastown_call)
+    intent_payload = to_intent_payload(gastown_call, scenario)
     intent_path.write_text(
         json.dumps(intent_payload, indent=2) + "\n", encoding="utf-8"
     )

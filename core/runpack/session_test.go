@@ -1,0 +1,539 @@
+package runpack
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+)
+
+func TestSessionJournalLifecycleAndCheckpointChain(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "demo.journal.jsonl")
+	startedAt := time.Date(2026, time.February, 11, 0, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID:       "sess_demo",
+		RunID:           "run_demo",
+		ProducerVersion: "test",
+		Now:             startedAt,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_demo",
+		RunID:     "run_demo",
+		Now:       startedAt,
+	}); err != nil {
+		t.Fatalf("start existing session should succeed: %v", err)
+	}
+
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    startedAt.Add(1 * time.Second),
+		IntentID:     "intent_1",
+		ToolName:     "tool.read",
+		IntentDigest: strings.Repeat("a", 64),
+		PolicyDigest: strings.Repeat("b", 64),
+		TraceID:      "trace_1",
+		TracePath:    filepath.Join(workDir, "traces", "trace_1.json"),
+		Verdict:      "allow",
+		ReasonCodes:  []string{"ok", "ok", "policy_allow"},
+		Violations:   []string{"", "none"},
+	}); err != nil {
+		t.Fatalf("append session event 1: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    startedAt.Add(2 * time.Second),
+		IntentID:     "intent_2",
+		ToolName:     "tool.write",
+		IntentDigest: strings.Repeat("c", 64),
+		PolicyDigest: strings.Repeat("d", 64),
+		TraceID:      "trace_2",
+		TracePath:    filepath.Join(workDir, "traces", "trace_2.json"),
+		Verdict:      "block",
+		ReasonCodes:  []string{"policy_block"},
+		Violations:   []string{"unauthorized_target"},
+	}); err != nil {
+		t.Fatalf("append session event 2: %v", err)
+	}
+
+	status, err := GetSessionStatus(journalPath)
+	if err != nil {
+		t.Fatalf("get session status: %v", err)
+	}
+	if status.EventCount != 2 || status.LastSequence != 2 {
+		t.Fatalf("unexpected status after append: %#v", status)
+	}
+
+	checkpoint1Path := filepath.Join(workDir, "gait-out", "session_cp_0001.zip")
+	checkpoint1, chainPath, err := SessionCheckpointAndWriteChain(journalPath, checkpoint1Path, SessionCheckpointOptions{
+		Now:             startedAt.Add(5 * time.Second),
+		ProducerVersion: "test",
+	})
+	if err != nil {
+		t.Fatalf("checkpoint 1: %v", err)
+	}
+	if checkpoint1.Checkpoint.CheckpointIndex != 1 {
+		t.Fatalf("unexpected first checkpoint index: %d", checkpoint1.Checkpoint.CheckpointIndex)
+	}
+	if !ContainsSessionChainPath(chainPath) {
+		t.Fatalf("expected json session chain path, got %s", chainPath)
+	}
+	firstChainPath := filepath.Join(workDir, "sessions", "chain_first.json")
+	if err := WriteSessionChain(firstChainPath, checkpoint1.Chain); err != nil {
+		t.Fatalf("write first chain snapshot: %v", err)
+	}
+
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    startedAt.Add(7 * time.Second),
+		IntentID:     "intent_3",
+		ToolName:     "tool.delete",
+		IntentDigest: strings.Repeat("e", 64),
+		PolicyDigest: strings.Repeat("f", 64),
+		TraceID:      "trace_3",
+		Verdict:      "require_approval",
+		ReasonCodes:  []string{"approval_required"},
+	}); err != nil {
+		t.Fatalf("append session event 3: %v", err)
+	}
+	checkpoint2Path := filepath.Join(workDir, "gait-out", "session_cp_0002.zip")
+	checkpoint2, _, err := SessionCheckpointAndWriteChain(journalPath, checkpoint2Path, SessionCheckpointOptions{
+		Now:             startedAt.Add(10 * time.Second),
+		ProducerVersion: "test",
+	})
+	if err != nil {
+		t.Fatalf("checkpoint 2: %v", err)
+	}
+	if checkpoint2.Checkpoint.CheckpointIndex != 2 {
+		t.Fatalf("unexpected second checkpoint index: %d", checkpoint2.Checkpoint.CheckpointIndex)
+	}
+	if checkpoint2.Checkpoint.PrevCheckpointDigest != checkpoint1.Checkpoint.CheckpointDigest {
+		t.Fatalf("checkpoint digest linkage mismatch")
+	}
+
+	chain, err := ReadSessionChain(chainPath)
+	if err != nil {
+		t.Fatalf("read session chain: %v", err)
+	}
+	if len(chain.Checkpoints) != 2 {
+		t.Fatalf("expected 2 checkpoints in chain, got %d", len(chain.Checkpoints))
+	}
+
+	verifyResult, err := VerifySessionChain(chainPath, SessionChainVerifyOptions{})
+	if err != nil {
+		t.Fatalf("verify session chain: %v", err)
+	}
+	if len(verifyResult.LinkageErrors) != 0 || len(verifyResult.CheckpointErrors) != 0 {
+		t.Fatalf("expected clean session chain verify result, got %#v", verifyResult)
+	}
+
+	latest, err := ResolveSessionCheckpointRunpack(chainPath, "latest")
+	if err != nil {
+		t.Fatalf("resolve latest checkpoint: %v", err)
+	}
+	if latest.CheckpointIndex != 2 {
+		t.Fatalf("expected latest checkpoint index 2, got %d", latest.CheckpointIndex)
+	}
+	first, err := ResolveSessionCheckpointRunpack(chainPath, "1")
+	if err != nil {
+		t.Fatalf("resolve checkpoint 1: %v", err)
+	}
+	if first.CheckpointIndex != 1 {
+		t.Fatalf("expected checkpoint index 1, got %d", first.CheckpointIndex)
+	}
+
+	if _, err := EmitSessionCheckpoint(journalPath, filepath.Join(workDir, "gait-out", "session_cp_0003.zip"), SessionCheckpointOptions{
+		Now:             startedAt.Add(11 * time.Second),
+		ProducerVersion: "test",
+	}); err == nil || !strings.Contains(err.Error(), "no new session events") {
+		t.Fatalf("expected no new events error, got %v", err)
+	}
+
+	diff := DiffSessionChains(checkpoint1.Chain, checkpoint2.Chain)
+	if !diff.ChangedCheckpoints || len(diff.RightOnlyIndexes) != 1 || diff.RightOnlyIndexes[0] != 2 {
+		t.Fatalf("unexpected session chain diff summary: %#v", diff)
+	}
+
+	compareResult, err := CompareRunpackOrSessionChain(firstChainPath, chainPath, DiffPrivacyMetadata)
+	if err != nil {
+		t.Fatalf("compare session chains: %v", err)
+	}
+	if !compareResult.Summary.ManifestChanged {
+		t.Fatalf("expected manifest changed in session chain compare summary")
+	}
+}
+
+func TestSessionJournalValidationErrors(t *testing.T) {
+	workDir := t.TempDir()
+
+	parsePath := filepath.Join(workDir, "parse_error.journal.jsonl")
+	if err := os.WriteFile(parsePath, []byte("{\n"), 0o600); err != nil {
+		t.Fatalf("write parse error journal: %v", err)
+	}
+	if _, err := ReadSessionJournal(parsePath); err == nil || !strings.Contains(err.Error(), "parse line") {
+		t.Fatalf("expected parse line error, got %v", err)
+	}
+
+	eventBeforeHeaderPath := filepath.Join(workDir, "event_before_header.journal.jsonl")
+	content := `{"record_type":"event","event":{"session_id":"sess","run_id":"run","sequence":1}}
+`
+	if err := os.WriteFile(eventBeforeHeaderPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write event-before-header journal: %v", err)
+	}
+	if _, err := ReadSessionJournal(eventBeforeHeaderPath); err == nil || !strings.Contains(err.Error(), "event encountered before header") {
+		t.Fatalf("expected event-before-header error, got %v", err)
+	}
+
+	unsupportedRecordPath := filepath.Join(workDir, "unsupported_record.journal.jsonl")
+	unsupportedRecord := `{"record_type":"header","header":{"session_id":"sess","run_id":"run","created_at":"2026-02-11T00:00:00Z","started_at":"2026-02-11T00:00:00Z"}}
+{"record_type":"unsupported"}
+`
+	if err := os.WriteFile(unsupportedRecordPath, []byte(unsupportedRecord), 0o600); err != nil {
+		t.Fatalf("write unsupported record journal: %v", err)
+	}
+	if _, err := ReadSessionJournal(unsupportedRecordPath); err == nil || !strings.Contains(err.Error(), "unsupported record_type") {
+		t.Fatalf("expected unsupported record_type error, got %v", err)
+	}
+
+	duplicateHeaderPath := filepath.Join(workDir, "duplicate_header.journal.jsonl")
+	duplicateHeader := `{"record_type":"header","header":{"session_id":"sess","run_id":"run","created_at":"2026-02-11T00:00:00Z","started_at":"2026-02-11T00:00:00Z"}}
+{"record_type":"header","header":{"session_id":"sess","run_id":"run","created_at":"2026-02-11T00:00:00Z","started_at":"2026-02-11T00:00:00Z"}}
+`
+	if err := os.WriteFile(duplicateHeaderPath, []byte(duplicateHeader), 0o600); err != nil {
+		t.Fatalf("write duplicate header journal: %v", err)
+	}
+	if _, err := ReadSessionJournal(duplicateHeaderPath); err == nil || !strings.Contains(err.Error(), "duplicate header") {
+		t.Fatalf("expected duplicate header error, got %v", err)
+	}
+}
+
+func TestSessionInputAndChainValidation(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "input.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 2, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession("", SessionStartOptions{
+		SessionID: "sess_input",
+		RunID:     "run_input",
+	}); err == nil {
+		t.Fatalf("expected missing journal path error")
+	}
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "",
+		RunID:     "run_input",
+		Now:       now,
+	}); err == nil {
+		t.Fatalf("expected missing session_id error")
+	}
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_input",
+		RunID:     "run_input",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_other",
+		RunID:     "run_input",
+		Now:       now,
+	}); err == nil || !strings.Contains(err.Error(), "different session/run") {
+		t.Fatalf("expected mismatched session/run error, got %v", err)
+	}
+
+	orphanJournal := filepath.Join(workDir, "sessions", "orphan.journal.jsonl")
+	if _, err := AppendSessionEvent(orphanJournal, SessionAppendOptions{
+		IntentID: "intent_orphan",
+	}); err == nil {
+		t.Fatalf("expected append without header to fail")
+	}
+
+	chainPath := filepath.Join(workDir, "sessions", "chain_defaults.json")
+	chain := schemarunpack.SessionChain{
+		SessionID: "sess_input",
+		RunID:     "run_input",
+		Checkpoints: []schemarunpack.SessionCheckpoint{
+			{
+				CheckpointIndex:  1,
+				SequenceStart:    1,
+				SequenceEnd:      1,
+				RunpackPath:      filepath.Join(workDir, "runpack.zip"),
+				ManifestDigest:   strings.Repeat("a", 64),
+				CheckpointDigest: computeCheckpointDigest(strings.Repeat("a", 64), "", 1, 1, 1),
+			},
+		},
+	}
+	if err := WriteSessionChain(chainPath, chain); err != nil {
+		t.Fatalf("write chain with defaults: %v", err)
+	}
+	loaded, err := ReadSessionChain(chainPath)
+	if err != nil {
+		t.Fatalf("read chain written with defaults: %v", err)
+	}
+	if loaded.SchemaID != sessionChainSchemaID || loaded.SchemaVersion != sessionChainSchemaVersion {
+		t.Fatalf("expected default schema fields to be applied, got %#v", loaded)
+	}
+}
+
+func TestReadSessionChainValidationErrors(t *testing.T) {
+	workDir := t.TempDir()
+
+	unsupportedSchemaPath := filepath.Join(workDir, "unsupported_chain.json")
+	unsupportedSchema := `{
+  "schema_id":"unsupported",
+  "schema_version":"1.0.0",
+  "session_id":"sess",
+  "run_id":"run",
+  "checkpoints":[{"checkpoint_index":1,"sequence_start":1,"sequence_end":1,"runpack_path":"runpack.zip","manifest_digest":"abc","checkpoint_digest":"def"}]
+}`
+	if err := os.WriteFile(unsupportedSchemaPath, []byte(unsupportedSchema), 0o600); err != nil {
+		t.Fatalf("write unsupported schema chain: %v", err)
+	}
+	if _, err := ReadSessionChain(unsupportedSchemaPath); err == nil || !strings.Contains(err.Error(), "unsupported session chain schema") {
+		t.Fatalf("expected unsupported schema error, got %v", err)
+	}
+
+	noCheckpointsPath := filepath.Join(workDir, "no_checkpoints_chain.json")
+	noCheckpoints := `{
+  "schema_id":"gait.runpack.session_chain",
+  "schema_version":"1.0.0",
+  "session_id":"sess",
+  "run_id":"run",
+  "checkpoints":[]
+}`
+	if err := os.WriteFile(noCheckpointsPath, []byte(noCheckpoints), 0o600); err != nil {
+		t.Fatalf("write no checkpoints chain: %v", err)
+	}
+	if _, err := ReadSessionChain(noCheckpointsPath); err == nil || !strings.Contains(err.Error(), "has no checkpoints") {
+		t.Fatalf("expected no checkpoints validation error, got %v", err)
+	}
+
+	missingIdentityPath := filepath.Join(workDir, "missing_identity_chain.json")
+	missingIdentity := `{
+  "schema_id":"gait.runpack.session_chain",
+  "schema_version":"1.0.0",
+  "session_id":"",
+  "run_id":"",
+  "checkpoints":[{"checkpoint_index":1,"sequence_start":1,"sequence_end":1,"runpack_path":"runpack.zip","manifest_digest":"abc","checkpoint_digest":"def"}]
+}`
+	if err := os.WriteFile(missingIdentityPath, []byte(missingIdentity), 0o600); err != nil {
+		t.Fatalf("write missing identity chain: %v", err)
+	}
+	if _, err := ReadSessionChain(missingIdentityPath); err == nil || !strings.Contains(err.Error(), "missing session_id/run_id") {
+		t.Fatalf("expected missing identity validation error, got %v", err)
+	}
+}
+
+func TestSessionChainVerifyDetectsTamper(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "tamper.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 1, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_tamper",
+		RunID:     "run_tamper",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    now.Add(1 * time.Second),
+		IntentID:     "intent_tamper",
+		ToolName:     "tool.write",
+		IntentDigest: strings.Repeat("1", 64),
+		PolicyDigest: strings.Repeat("2", 64),
+		Verdict:      "allow",
+	}); err != nil {
+		t.Fatalf("append session event: %v", err)
+	}
+	checkpoint, chainPath, err := SessionCheckpointAndWriteChain(journalPath, filepath.Join(workDir, "gait-out", "tamper_cp_0001.zip"), SessionCheckpointOptions{
+		Now: now.Add(2 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("checkpoint session: %v", err)
+	}
+
+	tampered := checkpoint.Chain
+	tampered.Checkpoints[0].CheckpointDigest = strings.Repeat("0", 64)
+	tampered.Checkpoints[0].RunpackPath = filepath.Join(workDir, "missing", "checkpoint.zip")
+	tamperedPath := filepath.Join(workDir, "sessions", "tampered_chain.json")
+	if err := WriteSessionChain(tamperedPath, tampered); err != nil {
+		t.Fatalf("write tampered chain: %v", err)
+	}
+
+	result, err := VerifySessionChain(tamperedPath, SessionChainVerifyOptions{})
+	if err != nil {
+		t.Fatalf("verify tampered session chain should return structured result: %v", err)
+	}
+	if len(result.LinkageErrors) == 0 {
+		t.Fatalf("expected linkage errors for tampered chain")
+	}
+	if len(result.CheckpointErrors) == 0 {
+		t.Fatalf("expected checkpoint verification errors for tampered chain")
+	}
+
+	if _, err := ResolveSessionCheckpointRunpack(chainPath, "invalid"); err == nil {
+		t.Fatalf("expected invalid checkpoint ref error")
+	}
+	if _, err := ResolveSessionCheckpointRunpack(chainPath, "99"); err == nil {
+		t.Fatalf("expected missing checkpoint error")
+	}
+}
+
+func TestSessionLockRecoveryAndHelpers(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "lock.journal.jsonl")
+	lockPath := journalPath + ".lock"
+	if err := os.MkdirAll(filepath.Dir(lockPath), 0o750); err != nil {
+		t.Fatalf("create lock dir: %v", err)
+	}
+	staleCreatedAt := time.Now().UTC().Add(-10 * time.Minute).Format(time.RFC3339)
+	if err := os.WriteFile(lockPath, []byte(`{"created_at":"`+staleCreatedAt+`"}`), 0o600); err != nil {
+		t.Fatalf("write stale lock file: %v", err)
+	}
+	if !shouldRecoverStaleSessionLock(lockPath, time.Now().UTC()) {
+		t.Fatalf("expected stale lock to be recoverable")
+	}
+
+	called := false
+	if err := withSessionLock(journalPath, func() error {
+		called = true
+		return nil
+	}); err != nil {
+		t.Fatalf("withSessionLock should recover stale lock: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected lock callback to run")
+	}
+
+	freshLockPath := filepath.Join(workDir, "sessions", "fresh.lock")
+	if err := os.WriteFile(freshLockPath, []byte(`{"created_at":"`+time.Now().UTC().Format(time.RFC3339)+`"}`), 0o600); err != nil {
+		t.Fatalf("write fresh lock file: %v", err)
+	}
+	if shouldRecoverStaleSessionLock(freshLockPath, time.Now().UTC()) {
+		t.Fatalf("did not expect fresh lock to be recoverable")
+	}
+
+	if got := sessionChainFromJournalPath(journalPath); !strings.HasSuffix(got, "_chain.json") {
+		t.Fatalf("unexpected chain path: %s", got)
+	}
+	if sessionChainLooksLike(filepath.Join(workDir, "chain.zip")) {
+		t.Fatalf("expected non-json path not to look like session chain")
+	}
+	if maybe, ok := maybeReadSessionChain(filepath.Join(workDir, "does_not_exist.json")); ok || len(maybe.Checkpoints) != 0 {
+		t.Fatalf("expected non-readable chain probe to return false")
+	}
+}
+
+func TestVerifySessionChainRequireSignature(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "require_signature.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 4, 0, 0, 0, time.UTC)
+
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_require_signature",
+		RunID:     "run_require_signature",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+	if _, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+		CreatedAt:    now.Add(1 * time.Second),
+		IntentID:     "intent_signature",
+		ToolName:     "tool.write",
+		IntentDigest: strings.Repeat("1", 64),
+		PolicyDigest: strings.Repeat("2", 64),
+		Verdict:      "allow",
+	}); err != nil {
+		t.Fatalf("append session event: %v", err)
+	}
+	_, chainPath, err := SessionCheckpointAndWriteChain(journalPath, filepath.Join(workDir, "gait-out", "require_signature_cp_0001.zip"), SessionCheckpointOptions{
+		Now: now.Add(2 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("checkpoint session: %v", err)
+	}
+
+	result, err := VerifySessionChain(chainPath, SessionChainVerifyOptions{
+		RequireSignature: true,
+	})
+	if err != nil {
+		t.Fatalf("verify session chain require signature: %v", err)
+	}
+	if len(result.CheckpointErrors) == 0 {
+		t.Fatalf("expected signature verification failure when signatures are required")
+	}
+}
+
+func TestCompareRunpackOrSessionChainFallsBackToRunpackDiff(t *testing.T) {
+	leftPath := writeTestRunpack(t, "run_compare_left", buildIntents("intent_1"), buildResults("intent_1"))
+	rightPath := writeTestRunpack(t, "run_compare_right", buildIntents("intent_1"), buildResults("intent_1"))
+
+	result, err := CompareRunpackOrSessionChain(leftPath, rightPath, DiffPrivacyMetadata)
+	if err != nil {
+		t.Fatalf("compare runpack fallback: %v", err)
+	}
+	if result.Summary.RunIDLeft == "" || result.Summary.RunIDRight == "" {
+		t.Fatalf("expected run ids in compare result summary: %#v", result.Summary)
+	}
+}
+
+func TestSessionConcurrentAppendsAreDeterministic(t *testing.T) {
+	workDir := t.TempDir()
+	journalPath := filepath.Join(workDir, "sessions", "concurrent.journal.jsonl")
+	now := time.Date(2026, time.February, 11, 5, 0, 0, 0, time.UTC)
+	if _, err := StartSession(journalPath, SessionStartOptions{
+		SessionID: "sess_concurrent",
+		RunID:     "run_concurrent",
+		Now:       now,
+	}); err != nil {
+		t.Fatalf("start session: %v", err)
+	}
+
+	const workers = 12
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	errCh := make(chan error, workers)
+	for i := 0; i < workers; i++ {
+		worker := i
+		go func() {
+			defer wg.Done()
+			_, err := AppendSessionEvent(journalPath, SessionAppendOptions{
+				CreatedAt:    now.Add(time.Duration(worker+1) * time.Second),
+				IntentID:     "intent_" + strconv.Itoa(worker),
+				ToolName:     "tool.write",
+				IntentDigest: strings.Repeat("a", 64),
+				PolicyDigest: strings.Repeat("b", 64),
+				Verdict:      "allow",
+			})
+			if err != nil {
+				errCh <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			t.Fatalf("append session event in concurrent worker: %v", err)
+		}
+	}
+
+	journal, err := ReadSessionJournal(journalPath)
+	if err != nil {
+		t.Fatalf("read session journal: %v", err)
+	}
+	if len(journal.Events) != workers {
+		t.Fatalf("expected %d events, got %d", workers, len(journal.Events))
+	}
+	for i, event := range journal.Events {
+		want := int64(i + 1)
+		if event.Sequence != want {
+			t.Fatalf("sequence mismatch at index %d: got %d want %d", i, event.Sequence, want)
+		}
+	}
+}

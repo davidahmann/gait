@@ -49,14 +49,18 @@ flowchart LR
 
     subgraph artifacts["Artifact Surface (durable contract)"]
         runpackZip["gait-out/runpack_{run_id}.zip"]
+        sessionChain["gait-out/sessions/*_chain.json"]
         traceJson["trace_{id}.json"]
+        delegationAudit["delegation_audit_{id}.json"]
         regressJson["regress_result.json"]
         junitXml["junit.xml"]
         evidenceZip["Evidence packs (gait guard/incident pack)"]
     end
 
     runpack --> runpackZip
+    runpack --> sessionChain
     gate --> traceJson
+    gate --> delegationAudit
     regress --> regressJson
     regress --> junitXml
     guard --> evidenceZip
@@ -71,6 +75,7 @@ flowchart LR
 ## State And Persistence
 
 - Working artifacts: `./gait-out/`
+- Session journals and chains: `./gait-out/sessions/*` (append-only journal + checkpoint chain)
 - MCP serve runtime traces: `./gait-out/mcp-serve/traces`
 - Regress fixtures/config: `fixtures/` and `gait.yaml`
 - Optional local caches: `~/.gait/runpacks`, `~/.gait/registry`
@@ -80,4 +85,5 @@ flowchart LR
 
 - Default-safe behavior is enforced in command handlers: non-`allow` gate outcomes do not execute side effects.
 - High-risk production profile (`oss-prod`) remains fail-closed when policy or credentials cannot be evaluated.
+- Delegation-constrained policies remain fail-closed when required delegation evidence is absent/invalid.
 - Verification and regression failures return stable non-zero exit codes for automation.

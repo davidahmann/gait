@@ -17,6 +17,7 @@ type TraceRecord struct {
 	Violations       []string         `json:"violations,omitempty"`
 	LatencyMS        float64          `json:"latency_ms,omitempty"`
 	ApprovalTokenRef string           `json:"approval_token_ref,omitempty"`
+	DelegationRef    *DelegationRef   `json:"delegation_ref,omitempty"`
 	SkillProvenance  *SkillProvenance `json:"skill_provenance,omitempty"`
 	Signature        *Signature       `json:"signature,omitempty"`
 }
@@ -40,6 +41,7 @@ type IntentRequest struct {
 	Targets         []IntentTarget        `json:"targets"`
 	ArgProvenance   []IntentArgProvenance `json:"arg_provenance,omitempty"`
 	SkillProvenance *SkillProvenance      `json:"skill_provenance,omitempty"`
+	Delegation      *IntentDelegation     `json:"delegation,omitempty"`
 	Context         IntentContext         `json:"context"`
 }
 
@@ -71,6 +73,33 @@ type IntentContext struct {
 	EnvironmentFingerprint string         `json:"environment_fingerprint,omitempty"`
 }
 
+type IntentDelegation struct {
+	RequesterIdentity string           `json:"requester_identity"`
+	ScopeClass        string           `json:"scope_class,omitempty"`
+	TokenRefs         []string         `json:"token_refs,omitempty"`
+	Chain             []DelegationLink `json:"chain,omitempty"`
+	IssuedAt          time.Time        `json:"issued_at,omitempty"`
+	ExpiresAt         time.Time        `json:"expires_at,omitempty"`
+}
+
+type DelegationLink struct {
+	DelegatorIdentity string    `json:"delegator_identity"`
+	DelegateIdentity  string    `json:"delegate_identity"`
+	ScopeClass        string    `json:"scope_class,omitempty"`
+	TokenRef          string    `json:"token_ref,omitempty"`
+	IssuedAt          time.Time `json:"issued_at,omitempty"`
+	ExpiresAt         time.Time `json:"expires_at,omitempty"`
+}
+
+type DelegationRef struct {
+	DelegationTokenRef string   `json:"delegation_token_ref,omitempty"`
+	RequesterIdentity  string   `json:"requester_identity,omitempty"`
+	DelegationDepth    int      `json:"delegation_depth,omitempty"`
+	ScopeClass         string   `json:"scope_class,omitempty"`
+	ChainDigest        string   `json:"chain_digest,omitempty"`
+	ReasonCodes        []string `json:"reason_codes,omitempty"`
+}
+
 type SkillProvenance struct {
 	SkillName      string `json:"skill_name"`
 	SkillVersion   string `json:"skill_version,omitempty"`
@@ -91,18 +120,61 @@ type GateResult struct {
 }
 
 type ApprovalToken struct {
-	SchemaID         string     `json:"schema_id"`
-	SchemaVersion    string     `json:"schema_version"`
-	CreatedAt        time.Time  `json:"created_at"`
-	ProducerVersion  string     `json:"producer_version"`
-	TokenID          string     `json:"token_id"`
-	ApproverIdentity string     `json:"approver_identity"`
-	ReasonCode       string     `json:"reason_code"`
-	IntentDigest     string     `json:"intent_digest"`
-	PolicyDigest     string     `json:"policy_digest"`
-	Scope            []string   `json:"scope"`
-	ExpiresAt        time.Time  `json:"expires_at"`
-	Signature        *Signature `json:"signature,omitempty"`
+	SchemaID                string     `json:"schema_id"`
+	SchemaVersion           string     `json:"schema_version"`
+	CreatedAt               time.Time  `json:"created_at"`
+	ProducerVersion         string     `json:"producer_version"`
+	TokenID                 string     `json:"token_id"`
+	ApproverIdentity        string     `json:"approver_identity"`
+	ReasonCode              string     `json:"reason_code"`
+	IntentDigest            string     `json:"intent_digest"`
+	PolicyDigest            string     `json:"policy_digest"`
+	DelegationBindingDigest string     `json:"delegation_binding_digest,omitempty"`
+	Scope                   []string   `json:"scope"`
+	ExpiresAt               time.Time  `json:"expires_at"`
+	Signature               *Signature `json:"signature,omitempty"`
+}
+
+type DelegationToken struct {
+	SchemaID          string     `json:"schema_id"`
+	SchemaVersion     string     `json:"schema_version"`
+	CreatedAt         time.Time  `json:"created_at"`
+	ProducerVersion   string     `json:"producer_version"`
+	TokenID           string     `json:"token_id"`
+	DelegatorIdentity string     `json:"delegator_identity"`
+	DelegateIdentity  string     `json:"delegate_identity"`
+	Scope             []string   `json:"scope"`
+	ScopeClass        string     `json:"scope_class,omitempty"`
+	IntentDigest      string     `json:"intent_digest,omitempty"`
+	PolicyDigest      string     `json:"policy_digest,omitempty"`
+	ExpiresAt         time.Time  `json:"expires_at"`
+	Signature         *Signature `json:"signature,omitempty"`
+}
+
+type DelegationAuditEntry struct {
+	TokenID           string    `json:"token_id,omitempty"`
+	DelegatorIdentity string    `json:"delegator_identity,omitempty"`
+	DelegateIdentity  string    `json:"delegate_identity,omitempty"`
+	Scope             []string  `json:"scope,omitempty"`
+	ExpiresAt         time.Time `json:"expires_at,omitempty"`
+	Valid             bool      `json:"valid"`
+	ErrorCode         string    `json:"error_code,omitempty"`
+}
+
+type DelegationAuditRecord struct {
+	SchemaID           string                 `json:"schema_id"`
+	SchemaVersion      string                 `json:"schema_version"`
+	CreatedAt          time.Time              `json:"created_at"`
+	ProducerVersion    string                 `json:"producer_version"`
+	TraceID            string                 `json:"trace_id"`
+	ToolName           string                 `json:"tool_name"`
+	IntentDigest       string                 `json:"intent_digest"`
+	PolicyDigest       string                 `json:"policy_digest"`
+	DelegationRequired bool                   `json:"delegation_required"`
+	ValidDelegations   int                    `json:"valid_delegations"`
+	Delegated          bool                   `json:"delegated"`
+	DelegationRef      string                 `json:"delegation_ref,omitempty"`
+	Entries            []DelegationAuditEntry `json:"entries"`
 }
 
 type ApprovalAuditEntry struct {

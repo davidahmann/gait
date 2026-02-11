@@ -12,6 +12,7 @@ type ToolCall struct {
 	Targets       []Target        `json:"targets,omitempty"`
 	ArgProvenance []ArgProvenance `json:"arg_provenance,omitempty"`
 	Context       CallContext     `json:"context,omitempty"`
+	Delegation    *Delegation     `json:"delegation,omitempty"`
 	CreatedAt     time.Time       `json:"created_at,omitempty"`
 }
 
@@ -30,12 +31,29 @@ type ArgProvenance struct {
 }
 
 type CallContext struct {
-	Identity  string `json:"identity,omitempty"`
-	Workspace string `json:"workspace,omitempty"`
-	RiskClass string `json:"risk_class,omitempty"`
-	SessionID string `json:"session_id,omitempty"`
-	RequestID string `json:"request_id,omitempty"`
-	RunID     string `json:"run_id,omitempty"`
+	Identity               string         `json:"identity,omitempty"`
+	Workspace              string         `json:"workspace,omitempty"`
+	RiskClass              string         `json:"risk_class,omitempty"`
+	SessionID              string         `json:"session_id,omitempty"`
+	RequestID              string         `json:"request_id,omitempty"`
+	RunID                  string         `json:"run_id,omitempty"`
+	AuthContext            map[string]any `json:"auth_context,omitempty"`
+	CredentialScopes       []string       `json:"credential_scopes,omitempty"`
+	EnvironmentFingerprint string         `json:"environment_fingerprint,omitempty"`
+}
+
+type Delegation struct {
+	RequesterIdentity string           `json:"requester_identity"`
+	ScopeClass        string           `json:"scope_class,omitempty"`
+	TokenRefs         []string         `json:"token_refs,omitempty"`
+	Chain             []DelegationLink `json:"chain,omitempty"`
+}
+
+type DelegationLink struct {
+	DelegatorIdentity string `json:"delegator_identity"`
+	DelegateIdentity  string `json:"delegate_identity"`
+	ScopeClass        string `json:"scope_class,omitempty"`
+	TokenRef          string `json:"token_ref,omitempty"`
 }
 
 type ToolResult struct {

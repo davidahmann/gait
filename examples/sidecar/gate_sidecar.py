@@ -24,6 +24,26 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--key-mode", default="dev", choices=["dev", "prod"])
     parser.add_argument("--profile", default="standard", choices=["standard", "oss-prod"])
     parser.add_argument("--trace-out", default="", help="Optional trace output path")
+    parser.add_argument(
+        "--delegation-token",
+        default="",
+        help="Optional delegation token path for delegated runtime actions.",
+    )
+    parser.add_argument(
+        "--delegation-token-chain",
+        default="",
+        help="Optional comma-separated delegation token chain paths.",
+    )
+    parser.add_argument(
+        "--delegation-public-key",
+        default="",
+        help="Optional base64 public key path for delegation token verification.",
+    )
+    parser.add_argument(
+        "--delegation-private-key",
+        default="",
+        help="Optional base64 private key path for delegation token verification (public derived).",
+    )
     return parser.parse_args()
 
 
@@ -70,6 +90,14 @@ def main() -> int:
         ]
         if args.trace_out:
             command.extend(["--trace-out", args.trace_out])
+        if args.delegation_token:
+            command.extend(["--delegation-token", args.delegation_token])
+        if args.delegation_token_chain:
+            command.extend(["--delegation-token-chain", args.delegation_token_chain])
+        if args.delegation_public_key:
+            command.extend(["--delegation-public-key", args.delegation_public_key])
+        if args.delegation_private_key:
+            command.extend(["--delegation-private-key", args.delegation_private_key])
 
         completed = subprocess.run(  # nosec B603
             command,

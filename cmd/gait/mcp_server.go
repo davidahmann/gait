@@ -11,14 +11,18 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/davidahmann/gait/core/runpack"
 )
 
 type mcpServeConfig struct {
 	PolicyPath     string
 	ListenAddr     string
 	DefaultAdapter string
+	Profile        string
 	TraceDir       string
 	RunpackDir     string
+	SessionDir     string
 	LogExportPath  string
 	OTelExport     string
 	KeyMode        string
@@ -27,12 +31,15 @@ type mcpServeConfig struct {
 }
 
 type mcpServeEvaluateRequest struct {
-	Adapter     string         `json:"adapter,omitempty"`
-	Call        map[string]any `json:"call"`
-	RunID       string         `json:"run_id,omitempty"`
-	TracePath   string         `json:"trace_path,omitempty"`
-	RunpackOut  string         `json:"runpack_out,omitempty"`
-	EmitRunpack bool           `json:"emit_runpack,omitempty"`
+	Adapter            string         `json:"adapter,omitempty"`
+	Call               map[string]any `json:"call"`
+	RunID              string         `json:"run_id,omitempty"`
+	SessionID          string         `json:"session_id,omitempty"`
+	SessionJournal     string         `json:"session_journal,omitempty"`
+	CheckpointInterval int            `json:"checkpoint_interval,omitempty"`
+	TracePath          string         `json:"trace_path,omitempty"`
+	RunpackOut         string         `json:"runpack_out,omitempty"`
+	EmitRunpack        bool           `json:"emit_runpack,omitempty"`
 }
 
 type mcpServeEvaluateResponse struct {
@@ -48,8 +55,10 @@ func runMCPServe(arguments []string) int {
 		"policy":          true,
 		"listen":          true,
 		"adapter":         true,
+		"profile":         true,
 		"trace-dir":       true,
 		"runpack-dir":     true,
+		"session-dir":     true,
 		"export-log-out":  true,
 		"export-otel-out": true,
 		"key-mode":        true,
@@ -62,8 +71,10 @@ func runMCPServe(arguments []string) int {
 	var policyPath string
 	var listenAddr string
 	var adapter string
+	var profile string
 	var traceDir string
 	var runpackDir string
+	var sessionDir string
 	var logExportPath string
 	var otelExportPath string
 	var keyMode string
@@ -75,8 +86,10 @@ func runMCPServe(arguments []string) int {
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
 	flagSet.StringVar(&listenAddr, "listen", "127.0.0.1:8787", "listen address")
 	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain")
+	flagSet.StringVar(&profile, "profile", "standard", "runtime profile: standard|oss-prod")
 	flagSet.StringVar(&traceDir, "trace-dir", "./gait-out/mcp-serve/traces", "directory for emitted traces")
 	flagSet.StringVar(&runpackDir, "runpack-dir", "", "optional directory for emitted runpacks")
+	flagSet.StringVar(&sessionDir, "session-dir", "./gait-out/mcp-serve/sessions", "directory for session journals")
 	flagSet.StringVar(&logExportPath, "export-log-out", "", "optional JSONL log export path")
 	flagSet.StringVar(&otelExportPath, "export-otel-out", "", "optional OTEL-style JSONL export path")
 	flagSet.StringVar(&keyMode, "key-mode", "dev", "signing key mode: dev or prod")
@@ -105,8 +118,10 @@ func runMCPServe(arguments []string) int {
 		PolicyPath:     policyPath,
 		ListenAddr:     strings.TrimSpace(listenAddr),
 		DefaultAdapter: strings.ToLower(strings.TrimSpace(adapter)),
+		Profile:        strings.ToLower(strings.TrimSpace(profile)),
 		TraceDir:       strings.TrimSpace(traceDir),
 		RunpackDir:     strings.TrimSpace(runpackDir),
+		SessionDir:     strings.TrimSpace(sessionDir),
 		LogExportPath:  strings.TrimSpace(logExportPath),
 		OTelExport:     strings.TrimSpace(otelExportPath),
 		KeyMode:        strings.TrimSpace(keyMode),
@@ -124,6 +139,7 @@ func runMCPServe(arguments []string) int {
 			"listen":  config.ListenAddr,
 			"policy":  config.PolicyPath,
 			"adapter": config.DefaultAdapter,
+			"profile": config.Profile,
 		}, exitOK); code != exitOK {
 			return code
 		}
@@ -160,6 +176,11 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 	if config.RunpackDir != "" {
 		if err := os.MkdirAll(config.RunpackDir, 0o750); err != nil {
 			return nil, fmt.Errorf("create runpack directory: %w", err)
+		}
+	}
+	if config.SessionDir != "" {
+		if err := os.MkdirAll(config.SessionDir, 0o750); err != nil {
+			return nil, fmt.Errorf("create session directory: %w", err)
 		}
 	}
 
@@ -241,6 +262,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, request *http.Request) (mcpS
 
 	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
 		Adapter:       adapter,
+		Profile:       config.Profile,
 		RunID:         input.RunID,
 		TracePath:     tracePath,
 		RunpackOut:    runpackPath,
@@ -252,6 +274,54 @@ func evaluateMCPServeRequest(config mcpServeConfig, request *http.Request) (mcpS
 	})
 	if evalErr != nil {
 		return mcpServeEvaluateResponse{}, evalErr
+	}
+
+	sessionID := strings.TrimSpace(input.SessionID)
+	if sessionID == "" {
+		sessionID = strings.TrimSpace(output.SessionID)
+	}
+	if sessionID != "" {
+		journalPath := strings.TrimSpace(input.SessionJournal)
+		if journalPath == "" {
+			base := sanitizeSessionFileBase(sessionID)
+			journalPath = filepath.Join(config.SessionDir, base+".journal.jsonl")
+		}
+		if _, err := runpack.StartSession(journalPath, runpack.SessionStartOptions{
+			SessionID:       sessionID,
+			RunID:           output.RunID,
+			ProducerVersion: version,
+		}); err != nil {
+			return mcpServeEvaluateResponse{}, err
+		}
+		event, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
+			ProducerVersion: version,
+			ToolName:        output.ToolName,
+			IntentDigest:    output.IntentDigest,
+			PolicyDigest:    output.PolicyDigest,
+			TraceID:         output.TraceID,
+			TracePath:       output.TracePath,
+			Verdict:         output.Verdict,
+			ReasonCodes:     output.ReasonCodes,
+			Violations:      output.Violations,
+		})
+		if err != nil {
+			return mcpServeEvaluateResponse{}, err
+		}
+		output.SessionID = sessionID
+		if output.Warnings == nil {
+			output.Warnings = []string{}
+		}
+		output.Warnings = append(output.Warnings, fmt.Sprintf("session_journal=%s sequence=%d", journalPath, event.Sequence))
+		if input.CheckpointInterval > 0 && event.Sequence%int64(input.CheckpointInterval) == 0 && config.RunpackDir != "" {
+			checkpointOut := filepath.Join(config.RunpackDir, fmt.Sprintf("%s_cp_%06d.zip", sanitizeSessionFileBase(sessionID), event.Sequence))
+			_, chainPath, checkpointErr := runpack.SessionCheckpointAndWriteChain(journalPath, checkpointOut, runpack.SessionCheckpointOptions{
+				ProducerVersion: version,
+			})
+			if checkpointErr != nil {
+				return mcpServeEvaluateResponse{}, checkpointErr
+			}
+			output.Warnings = append(output.Warnings, fmt.Sprintf("session_checkpoint=%s chain=%s", checkpointOut, chainPath))
+		}
 	}
 	return mcpServeEvaluateResponse{
 		mcpProxyOutput: output,
@@ -303,6 +373,15 @@ func writeMCPServeStream(writer http.ResponseWriter, payload mcpServeEvaluateRes
 
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--trace-dir <dir>] [--runpack-dir <dir>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain] [--profile standard|oss-prod] [--trace-dir <dir>] [--runpack-dir <dir>] [--session-dir <dir>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
+}
+
+func sanitizeSessionFileBase(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "session"
+	}
+	mapped := strings.NewReplacer("/", "_", "\\", "_", " ", "_", ":", "_").Replace(trimmed)
+	return strings.Trim(mapped, "._")
 }

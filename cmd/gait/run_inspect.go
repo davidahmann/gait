@@ -36,15 +36,28 @@ type runInspectUnmatchedResult struct {
 
 type runInspectOutput struct {
 	OK               bool                        `json:"ok"`
+	ArtifactType     string                      `json:"artifact_type,omitempty"`
 	RunID            string                      `json:"run_id,omitempty"`
+	SessionID        string                      `json:"session_id,omitempty"`
 	Path             string                      `json:"path,omitempty"`
 	CaptureMode      string                      `json:"capture_mode,omitempty"`
 	IntentsTotal     int                         `json:"intents_total,omitempty"`
 	ResultsTotal     int                         `json:"results_total,omitempty"`
+	CheckpointCount  int                         `json:"checkpoint_count,omitempty"`
+	Checkpoints      []runInspectCheckpoint      `json:"checkpoints,omitempty"`
 	Entries          []runInspectEntry           `json:"entries,omitempty"`
 	UnmatchedResults []runInspectUnmatchedResult `json:"unmatched_results,omitempty"`
 	Warnings         []string                    `json:"warnings,omitempty"`
 	Error            string                      `json:"error,omitempty"`
+}
+
+type runInspectCheckpoint struct {
+	CheckpointIndex      int    `json:"checkpoint_index"`
+	RunpackPath          string `json:"runpack_path"`
+	SequenceStart        int64  `json:"sequence_start"`
+	SequenceEnd          int64  `json:"sequence_end"`
+	CheckpointDigest     string `json:"checkpoint_digest"`
+	PrevCheckpointDigest string `json:"prev_checkpoint_digest,omitempty"`
 }
 
 func runInspect(arguments []string) int {
@@ -91,83 +104,110 @@ func runInspect(arguments []string) int {
 	}
 
 	pack, err := runpack.ReadRunpack(resolvedPath)
-	if err != nil {
+	if err == nil {
+		entries := make([]runInspectEntry, 0, len(pack.Intents))
+		intentIDs := make(map[string]struct{}, len(pack.Intents))
+		resultsByIntent := make(map[string]runInspectUnmatchedResult, len(pack.Results))
+		duplicateResultByIntent := make(map[string]int)
+
+		for _, result := range pack.Results {
+			resultEntry := buildUnmatchedResult(result)
+			intentID := strings.TrimSpace(result.IntentID)
+			if intentID == "" {
+				intentID = "(empty)"
+			}
+			if _, exists := resultsByIntent[result.IntentID]; exists {
+				duplicateResultByIntent[intentID]++
+				continue
+			}
+			resultsByIntent[result.IntentID] = resultEntry
+		}
+
+		for idx, intent := range pack.Intents {
+			intentIDs[intent.IntentID] = struct{}{}
+			entry := runInspectEntry{
+				Index:      idx + 1,
+				IntentID:   intent.IntentID,
+				ToolName:   intent.ToolName,
+				CreatedAt:  intent.CreatedAt.UTC(),
+				ArgsDigest: intent.ArgsDigest,
+			}
+			if result, ok := resultsByIntent[intent.IntentID]; ok {
+				entry.Status = result.Status
+				entry.ResultDigest = result.ResultDigest
+				entry.Verdict = result.Verdict
+				entry.ReasonCodes = result.ReasonCodes
+				entry.Violations = result.Violations
+			}
+			entries = append(entries, entry)
+		}
+
+		unmatched := make([]runInspectUnmatchedResult, 0)
+		for _, result := range pack.Results {
+			if _, ok := intentIDs[result.IntentID]; ok {
+				continue
+			}
+			unmatched = append(unmatched, buildUnmatchedResult(result))
+		}
+		sort.Slice(unmatched, func(i, j int) bool {
+			if unmatched[i].IntentID == unmatched[j].IntentID {
+				return unmatched[i].ResultDigest < unmatched[j].ResultDigest
+			}
+			return unmatched[i].IntentID < unmatched[j].IntentID
+		})
+
+		warnings := make([]string, 0, len(duplicateResultByIntent))
+		if len(duplicateResultByIntent) > 0 {
+			keys := make([]string, 0, len(duplicateResultByIntent))
+			for intentID := range duplicateResultByIntent {
+				keys = append(keys, intentID)
+			}
+			sort.Strings(keys)
+			for _, intentID := range keys {
+				warnings = append(warnings, fmt.Sprintf("multiple result records for intent_id=%s (kept first)", intentID))
+			}
+		}
+
+		return writeRunInspectOutput(jsonOutput, runInspectOutput{
+			OK:               true,
+			ArtifactType:     "runpack",
+			RunID:            pack.Run.RunID,
+			Path:             resolvedPath,
+			CaptureMode:      pack.Manifest.CaptureMode,
+			IntentsTotal:     len(pack.Intents),
+			ResultsTotal:     len(pack.Results),
+			Entries:          entries,
+			UnmatchedResults: unmatched,
+			Warnings:         warnings,
+		}, exitOK)
+	}
+
+	chain, chainErr := runpack.ReadSessionChain(resolvedPath)
+	if chainErr != nil {
 		return writeRunInspectOutput(jsonOutput, runInspectOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-
-	entries := make([]runInspectEntry, 0, len(pack.Intents))
-	intentIDs := make(map[string]struct{}, len(pack.Intents))
-	resultsByIntent := make(map[string]runInspectUnmatchedResult, len(pack.Results))
-	duplicateResultByIntent := make(map[string]int)
-
-	for _, result := range pack.Results {
-		resultEntry := buildUnmatchedResult(result)
-		intentID := strings.TrimSpace(result.IntentID)
-		if intentID == "" {
-			intentID = "(empty)"
-		}
-		if _, exists := resultsByIntent[result.IntentID]; exists {
-			duplicateResultByIntent[intentID]++
-			continue
-		}
-		resultsByIntent[result.IntentID] = resultEntry
+	checkpoints := make([]runInspectCheckpoint, 0, len(chain.Checkpoints))
+	for _, checkpoint := range chain.Checkpoints {
+		checkpoints = append(checkpoints, runInspectCheckpoint{
+			CheckpointIndex:      checkpoint.CheckpointIndex,
+			RunpackPath:          checkpoint.RunpackPath,
+			SequenceStart:        checkpoint.SequenceStart,
+			SequenceEnd:          checkpoint.SequenceEnd,
+			CheckpointDigest:     checkpoint.CheckpointDigest,
+			PrevCheckpointDigest: checkpoint.PrevCheckpointDigest,
+		})
 	}
-
-	for idx, intent := range pack.Intents {
-		intentIDs[intent.IntentID] = struct{}{}
-		entry := runInspectEntry{
-			Index:      idx + 1,
-			IntentID:   intent.IntentID,
-			ToolName:   intent.ToolName,
-			CreatedAt:  intent.CreatedAt.UTC(),
-			ArgsDigest: intent.ArgsDigest,
-		}
-		if result, ok := resultsByIntent[intent.IntentID]; ok {
-			entry.Status = result.Status
-			entry.ResultDigest = result.ResultDigest
-			entry.Verdict = result.Verdict
-			entry.ReasonCodes = result.ReasonCodes
-			entry.Violations = result.Violations
-		}
-		entries = append(entries, entry)
-	}
-
-	unmatched := make([]runInspectUnmatchedResult, 0)
-	for _, result := range pack.Results {
-		if _, ok := intentIDs[result.IntentID]; ok {
-			continue
-		}
-		unmatched = append(unmatched, buildUnmatchedResult(result))
-	}
-	sort.Slice(unmatched, func(i, j int) bool {
-		if unmatched[i].IntentID == unmatched[j].IntentID {
-			return unmatched[i].ResultDigest < unmatched[j].ResultDigest
-		}
-		return unmatched[i].IntentID < unmatched[j].IntentID
+	sort.Slice(checkpoints, func(i, j int) bool {
+		return checkpoints[i].CheckpointIndex < checkpoints[j].CheckpointIndex
 	})
-
-	warnings := make([]string, 0, len(duplicateResultByIntent))
-	if len(duplicateResultByIntent) > 0 {
-		keys := make([]string, 0, len(duplicateResultByIntent))
-		for intentID := range duplicateResultByIntent {
-			keys = append(keys, intentID)
-		}
-		sort.Strings(keys)
-		for _, intentID := range keys {
-			warnings = append(warnings, fmt.Sprintf("multiple result records for intent_id=%s (kept first)", intentID))
-		}
-	}
-
 	return writeRunInspectOutput(jsonOutput, runInspectOutput{
-		OK:               true,
-		RunID:            pack.Run.RunID,
-		Path:             resolvedPath,
-		CaptureMode:      pack.Manifest.CaptureMode,
-		IntentsTotal:     len(pack.Intents),
-		ResultsTotal:     len(pack.Results),
-		Entries:          entries,
-		UnmatchedResults: unmatched,
-		Warnings:         warnings,
+		OK:              true,
+		ArtifactType:    "session_chain",
+		RunID:           chain.RunID,
+		SessionID:       chain.SessionID,
+		Path:            resolvedPath,
+		CheckpointCount: len(checkpoints),
+		Checkpoints:     checkpoints,
 	}, exitOK)
 }
 
@@ -262,7 +302,19 @@ func writeRunInspectOutput(jsonOutput bool, output runInspectOutput, exitCode in
 		fmt.Printf("inspect error: %s\n", output.Error)
 		return exitCode
 	}
-
+	if output.ArtifactType == "session_chain" {
+		fmt.Printf("run inspect: artifact=session_chain session_id=%s run_id=%s checkpoints=%d\n", output.SessionID, output.RunID, output.CheckpointCount)
+		fmt.Printf("path: %s\n", output.Path)
+		for _, checkpoint := range output.Checkpoints {
+			fmt.Printf("%d. runpack=%s seq=%d..%d\n",
+				checkpoint.CheckpointIndex,
+				checkpoint.RunpackPath,
+				checkpoint.SequenceStart,
+				checkpoint.SequenceEnd,
+			)
+		}
+		return exitCode
+	}
 	fmt.Printf("run inspect: run_id=%s intents=%d results=%d capture_mode=%s\n", output.RunID, output.IntentsTotal, output.ResultsTotal, output.CaptureMode)
 	fmt.Printf("path: %s\n", output.Path)
 	for _, entry := range output.Entries {

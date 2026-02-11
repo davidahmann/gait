@@ -234,6 +234,67 @@ func TestNormalizeIntentSkillProvenance(t *testing.T) {
 	}
 }
 
+func TestNormalizeIntentDelegationDigesting(t *testing.T) {
+	base := schemagate.IntentRequest{
+		ToolName: "tool.write",
+		Args:     map[string]any{"path": "/tmp/out.txt"},
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/out.txt", Operation: "write"},
+		},
+		Delegation: &schemagate.IntentDelegation{
+			RequesterIdentity: " agent.specialist ",
+			ScopeClass:        " WRITE ",
+			TokenRefs:         []string{" token_b ", "token_a", "token_a"},
+			Chain: []schemagate.DelegationLink{
+				{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.specialist", ScopeClass: "write", TokenRef: "token_b"},
+			},
+		},
+		Context: schemagate.IntentContext{
+			Identity:  "agent.specialist",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+			SessionID: "sess-1",
+		},
+	}
+	normalizedA, err := NormalizeIntent(base)
+	if err != nil {
+		t.Fatalf("normalize intent with delegation: %v", err)
+	}
+	normalizedB, err := NormalizeIntent(base)
+	if err != nil {
+		t.Fatalf("normalize equivalent intent with delegation: %v", err)
+	}
+	if normalizedA.IntentDigest != normalizedB.IntentDigest {
+		t.Fatalf("expected equivalent delegation payloads to produce same digest")
+	}
+	if normalizedA.Delegation == nil {
+		t.Fatalf("expected delegation in normalized payload")
+	}
+	if normalizedA.Delegation.ScopeClass != "write" {
+		t.Fatalf("expected lowercased delegation scope class, got %q", normalizedA.Delegation.ScopeClass)
+	}
+	if len(normalizedA.Delegation.TokenRefs) != 2 || normalizedA.Delegation.TokenRefs[0] != "token_a" || normalizedA.Delegation.TokenRefs[1] != "token_b" {
+		t.Fatalf("unexpected normalized delegation token refs: %#v", normalizedA.Delegation.TokenRefs)
+	}
+
+	modified := base
+	modified.Delegation = &schemagate.IntentDelegation{
+		RequesterIdentity: "agent.specialist",
+		ScopeClass:        "write",
+		TokenRefs:         []string{"token_a"},
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.root", DelegateIdentity: "agent.specialist", ScopeClass: "write", TokenRef: "token_a"},
+		},
+	}
+	normalizedModified, err := NormalizeIntent(modified)
+	if err != nil {
+		t.Fatalf("normalize modified delegation intent: %v", err)
+	}
+	if normalizedA.IntentDigest == normalizedModified.IntentDigest {
+		t.Fatalf("expected delegation change to alter intent digest")
+	}
+}
+
 func TestNormalizeIntentValidationErrors(t *testing.T) {
 	tests := []struct {
 		name   string

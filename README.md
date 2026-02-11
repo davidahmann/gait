@@ -113,6 +113,24 @@ When regress fails, JSON output includes `top_failure_reason`, `next_command`, a
 
 Canonical CI template: `.github/workflows/adoption-regress-template.yml`
 
+## Long-Running Sessions And Delegation (v2.1)
+
+Checkpoint long-running runs without losing deterministic verification:
+
+```bash
+gait run session start --journal ./gait-out/sessions/demo.journal.jsonl --session-id sess_demo --run-id run_demo --json
+gait run session append --journal ./gait-out/sessions/demo.journal.jsonl --tool tool.write --verdict allow --intent-id intent_1 --json
+gait run session checkpoint --journal ./gait-out/sessions/demo.journal.jsonl --out ./gait-out/runpack_demo_cp_0001.zip --json
+gait verify session-chain --chain ./gait-out/sessions/demo.journal_chain.json --json
+```
+
+Use delegation tokens when high-risk tool actions are delegated between agents:
+
+```bash
+gait delegate mint --delegator agent.lead --delegate agent.specialist --scope tool:tool.write --scope-class write --ttl 1h --private-key ./delegation_private.key --out ./gait-out/delegation_token.json --json
+gait gate eval --policy examples/policy/base_high_risk.yaml --intent examples/policy/intents/intent_delegated_egress_valid.json --delegation-token ./gait-out/delegation_token.json --delegation-public-key ./delegation_public.key --json
+```
+
 ## Block Dangerous Tool Calls (5 Minutes)
 
 Gate examples use fixture files from this repository:

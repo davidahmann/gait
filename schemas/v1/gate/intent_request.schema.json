@@ -83,6 +83,37 @@
       },
       "additionalProperties": false
     },
+    "delegation": {
+      "type": "object",
+      "required": ["requester_identity"],
+      "properties": {
+        "requester_identity": { "type": "string", "minLength": 1 },
+        "scope_class": { "type": "string" },
+        "token_refs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "chain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["delegator_identity", "delegate_identity"],
+            "properties": {
+              "delegator_identity": { "type": "string", "minLength": 1 },
+              "delegate_identity": { "type": "string", "minLength": 1 },
+              "scope_class": { "type": "string" },
+              "token_ref": { "type": "string" },
+              "issued_at": { "type": "string", "format": "date-time" },
+              "expires_at": { "type": "string", "format": "date-time" }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "context": {
       "type": "object",
       "required": ["identity", "workspace", "risk_class"],

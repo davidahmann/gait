@@ -1,6 +1,6 @@
-# Runtime SLO Contract (v1.7)
+# Runtime SLO Contract (v2.1)
 
-This document defines the measurable runtime contract for Gate evaluation in OSS v1.7.
+This document defines the measurable runtime contract for Gate evaluation in OSS v2.1.
 
 ## Scope
 
@@ -11,6 +11,9 @@ Applies to local, offline Gate execution and related safety checks in the defaul
 - `gait verify`
 - `gait regress run`
 - `gait guard pack`
+- `gait run session checkpoint`
+- `gait verify session-chain`
+- `gait gate eval` with delegation token verification
 
 ## Measurement Command
 
@@ -45,6 +48,12 @@ Gate endpoint-class budgets are evaluated for:
 - `net.http`
 - `net.dns`
 
+Session/delegation governance budgets are also evaluated for:
+
+- `session_checkpoint_emit`
+- `session_chain_verify`
+- `gate_eval_delegation_verify`
+
 Budget checks are enforced on all of: p50, p95, and p99.
 
 ## Error-Budget Envelope
@@ -77,5 +86,6 @@ The runtime SLO check is enforced in CI through:
 
 - `make bench-budgets`
 - v1.7 acceptance gate (`scripts/test_v1_7_acceptance.sh`)
+- nightly perf profile (`.github/workflows/perf-nightly.yml`)
 
 Any SLO or fail-closed regression should block merge.

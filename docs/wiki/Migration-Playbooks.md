@@ -30,6 +30,28 @@ Reference: `docs/ci_regress_kit.md`
 
 Reference: `docs/policy_rollout.md`
 
+## Playbook 4: v2.1 Session + Delegation Adoption
+
+1. Add additive intent fields in your runtime adapter:
+   - `context.session_id`
+   - `context.auth_context`
+   - `context.credential_scopes`
+   - `context.environment_fingerprint`
+   - `delegation.*` when delegated execution is used
+2. Validate adapter parity:
+   - `bash scripts/test_adapter_parity.sh`
+3. Enable long-running checkpoint capture for runtime lanes that execute continuously:
+   - `gait run session start ...`
+   - `gait run session append ...`
+   - `gait run session checkpoint ...`
+   - `gait verify session-chain --chain ... --json`
+4. Add policy fixtures for delegation-valid, delegation-invalid, and tainted-egress cases.
+
+References:
+
+- `docs/integration_checklist.md`
+- `docs/policy_rollout.md`
+
 ## Exit Criteria
 
 - No side-effecting path bypasses Gate.

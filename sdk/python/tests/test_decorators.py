@@ -13,7 +13,9 @@ from helpers import create_fake_gait_script
 def test_gate_tool_executes_allow_and_writes_trace(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
-    adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)])
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)]
+    )
     trace_path = tmp_path / "trace_allow.json"
 
     @gate_tool(
@@ -33,7 +35,9 @@ def test_gate_tool_executes_allow_and_writes_trace(tmp_path: Path) -> None:
 def test_gate_tool_blocks_non_allow_without_execution(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
-    adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)])
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)]
+    )
     calls = {"count": 0}
 
     @gate_tool(
@@ -53,7 +57,9 @@ def test_gate_tool_blocks_non_allow_without_execution(tmp_path: Path) -> None:
 def test_gate_tool_fails_closed_for_dry_run(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
-    adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)])
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)]
+    )
     calls = {"count": 0}
 
     @gate_tool(
@@ -73,7 +79,9 @@ def test_gate_tool_fails_closed_for_dry_run(tmp_path: Path) -> None:
 def test_gate_tool_supports_context_and_trace_resolvers(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
-    adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)])
+    adapter = ToolAdapter(
+        policy_path=tmp_path / "policy.yaml", gait_bin=[sys.executable, str(fake_gait)]
+    )
 
     @gate_tool(
         adapter=adapter,

@@ -16,9 +16,12 @@ go test ./core/fsx -count=1
 echo "[hardening-acceptance] lock contention behavior"
 go test ./core/gate -run 'TestEnforceRateLimitConcurrentLocking|TestEnforceRateLimitRecoversStaleLock|TestWithRateLimitLockTimeoutCategory' -count=1
 
+echo "[hardening-acceptance] session lock and checkpoint contention behavior"
+go test ./core/runpack -run 'TestSessionConcurrentAppendsAreDeterministic|TestSessionLockRecoveryAndHelpers|TestSessionChainVerifyDetectsTamper' -count=1
+
 echo "[hardening-acceptance] network retry behavior classification"
 go test ./core/registry -run 'TestInstallRemoteRetryAndFallbackBranches' -count=1
 
 echo "[hardening-acceptance] hardening integration and e2e checks"
-go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic' -count=1
-go test ./internal/e2e -run 'TestCLIRegressExitCodes|TestCLIPolicyTestExitCodes|TestCLIDoctor' -count=1
+go test ./internal/integration -run 'TestConcurrentGateRateLimitStateIsDeterministic|TestConcurrentSessionAppendStateIsDeterministic' -count=1
+go test ./internal/e2e -run 'TestCLIRegressExitCodes|TestCLIPolicyTestExitCodes|TestCLIDoctor|TestCLIDelegateAndGateRequireDelegationFlow' -count=1

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/gate/delegation_audit_record.schema.json",
+  "title": "Delegation Audit Record",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "trace_id",
+    "tool_name",
+    "intent_digest",
+    "policy_digest",
+    "delegation_required",
+    "valid_delegations",
+    "delegated",
+    "entries"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.gate.delegation_audit_record" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "trace_id": { "type": "string", "minLength": 1 },
+    "tool_name": { "type": "string", "minLength": 1 },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "delegation_required": { "type": "boolean" },
+    "valid_delegations": { "type": "integer", "minimum": 0 },
+    "delegated": { "type": "boolean" },
+    "delegation_ref": { "type": "string" },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["valid"],
+        "properties": {
+          "token_id": { "type": "string" },
+          "delegator_identity": { "type": "string" },
+          "delegate_identity": { "type": "string" },
+          "scope": { "type": "array", "items": { "type": "string" } },
+          "expires_at": { "type": "string", "format": "date-time" },
+          "valid": { "type": "boolean" },
+          "error_code": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

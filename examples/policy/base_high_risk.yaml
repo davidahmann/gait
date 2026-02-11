@@ -1,7 +1,41 @@
 schema_id: gait.gate.policy
 schema_version: 1.0.0
 default_verdict: block
+fail_closed:
+  enabled: true
+  risk_classes: [critical]
+  required_fields: [targets, arg_provenance]
 rules:
+  - name: block-tainted-egress-write
+    priority: 12
+    effect: block
+    match:
+      tool_names: [tool.write]
+      target_kinds: [host, url, bucket]
+      provenance_sources: [external, tool_output]
+    reason_codes: [blocked_tainted_egress]
+    violations: [tainted_data_exfiltration]
+  - name: allow-delegated-egress-write
+    priority: 15
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      risk_classes: [high, critical]
+      target_kinds: [host, url, bucket]
+      require_delegation: true
+      allowed_delegator_identities: [agent.lead]
+      allowed_delegate_identities: [agent.specialist]
+      delegation_scopes: [write]
+      max_delegation_depth: 2
+    reason_codes: [delegated_egress_write_allowed]
+  - name: block-undelegated-egress-write
+    priority: 16
+    effect: block
+    match:
+      tool_names: [tool.write]
+      target_kinds: [host, url, bucket]
+    reason_codes: [delegation_required_for_egress_write]
+    violations: [missing_or_invalid_delegation]
   - name: block-destructive-tool-delete
     priority: 10
     effect: block

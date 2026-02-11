@@ -62,6 +62,11 @@ func Run(opts RunOptions) (RunResult, error) {
 		Violations:      gateResult.Violations,
 		MatchedRule:     evalOutcome.MatchedRule,
 	}
+	if normalizedIntent.Delegation != nil {
+		result.DelegationMatched = true
+		result.DelegationDepth = len(normalizedIntent.Delegation.Chain)
+		result.DelegationScope = strings.TrimSpace(normalizedIntent.Delegation.ScopeClass)
+	}
 
 	return RunResult{
 		Result:  result,

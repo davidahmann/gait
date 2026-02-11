@@ -15,7 +15,9 @@ R = TypeVar("R")
 ArgsMapper = Callable[[tuple[Any, ...], Mapping[str, Any]], Mapping[str, Any]]
 ContextResolver = Callable[[tuple[Any, ...], Mapping[str, Any]], IntentContext]
 TargetsResolver = Callable[[tuple[Any, ...], Mapping[str, Any]], Sequence[IntentTarget]]
-ArgProvenanceResolver = Callable[[tuple[Any, ...], Mapping[str, Any]], Sequence[IntentArgProvenance]]
+ArgProvenanceResolver = Callable[
+    [tuple[Any, ...], Mapping[str, Any]], Sequence[IntentArgProvenance]
+]
 PathResolver = Callable[[tuple[Any, ...], Mapping[str, Any]], str | Path | None]
 
 
@@ -44,9 +46,7 @@ def gate_tool(
                 if args_mapper is not None
                 else _default_args_payload(function, args, kwargs)
             )
-            resolved_context = (
-                context(args, kwargs) if callable(context) else context
-            )
+            resolved_context = context(args, kwargs) if callable(context) else context
             resolved_targets = _resolve_sequence(targets, args, kwargs)
             resolved_arg_provenance = _resolve_sequence(arg_provenance, args, kwargs)
             resolved_trace_out = _resolve_path(trace_out, args, kwargs)

@@ -96,6 +96,26 @@ Rollout gate:
 
 - Require explicit approval or block for unknown publisher/source combinations before production enforce.
 
+## Stage 3C: Delegation Guardrails
+
+For multi-agent execution paths, enforce delegation constraints before full block/allow rollout:
+
+- Require delegation only on scoped high-risk tool classes first.
+- Constrain delegator/delegate identities and delegation scope (`write`, `admin`, etc.).
+- Fail closed on invalid/missing delegation token evidence for constrained rules.
+
+Suggested fixture gates:
+
+```bash
+gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delegated_egress_valid.json --json
+gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delegated_egress_invalid.json --json
+gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_tainted_egress.json --json
+```
+
+Rollout gate:
+
+- Do not advance to full enforce until delegated-valid, delegated-invalid, and tainted-egress fixtures are stable and deterministic in CI.
+
 ## Stage 4: Full Enforce Mode
 
 Enforce block/allow decisions at runtime in wrapped tools:

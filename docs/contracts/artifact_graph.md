@@ -9,7 +9,9 @@ This contract defines how Gait artifacts compose into a verifiable graph over ti
 Applies to:
 
 - Runpack artifacts (`gait.runpack.*`)
+- Session artifacts (`gait.runpack.session_journal`, `gait.runpack.session_checkpoint`, `gait.runpack.session_chain`)
 - Gate traces (`gait.gate.trace`)
+- Delegation artifacts (`gait.gate.delegation_token`, `gait.gate.delegation_audit_record`)
 - Regress results (`gait.regress.result`)
 - Evidence packs (`gait.guard.pack`)
 
@@ -25,8 +27,11 @@ Applies to:
 
 - A `TraceRecord` MUST bind verdict context (`intent_digest`, `policy_digest`) for one tool decision.
 - A `Runpack` MUST include the deterministic run timeline and manifest digests for replay and verification.
+- A `SessionCheckpoint` MUST bind checkpoint index/range to runpack `manifest_digest` and `checkpoint_digest`.
+- A `SessionChain` MUST preserve `prev_checkpoint_digest` continuity across checkpoint sequence.
 - A `RegressResult` SHOULD reference fixture/run identity so failures can map back to captured artifacts.
 - Evidence bundles SHOULD include pointers back to the exact runpack/trace/regress artifacts they summarize.
+- Delegation audits SHOULD reference the trace and delegation token IDs used for allow/block outcomes.
 
 ## Compatibility Model
 

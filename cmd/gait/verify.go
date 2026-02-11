@@ -48,6 +48,17 @@ type verifyChainOutput struct {
 	Error string             `json:"error,omitempty"`
 }
 
+type verifySessionChainOutput struct {
+	OK                 bool     `json:"ok"`
+	ChainPath          string   `json:"chain_path,omitempty"`
+	SessionID          string   `json:"session_id,omitempty"`
+	RunID              string   `json:"run_id,omitempty"`
+	CheckpointsChecked int      `json:"checkpoints_checked,omitempty"`
+	LinkageErrors      []string `json:"linkage_errors,omitempty"`
+	CheckpointErrors   []string `json:"checkpoint_errors,omitempty"`
+	Error              string   `json:"error,omitempty"`
+}
+
 type artifactVerifyProfile string
 
 const (
@@ -58,6 +69,9 @@ const (
 func runVerify(arguments []string) int {
 	if len(arguments) > 0 && arguments[0] == "chain" {
 		return runVerifyChain(arguments[1:])
+	}
+	if len(arguments) > 0 && arguments[0] == "session-chain" {
+		return runVerifySessionChain(arguments[1:])
 	}
 	return runVerifyRunpack(arguments)
 }
@@ -254,6 +268,106 @@ func runVerifyChain(arguments []string) int {
 	return writeVerifyChainOutput(jsonOutput, output, exitCode)
 }
 
+func runVerifySessionChain(arguments []string) int {
+	if hasExplainFlag(arguments) {
+		return writeExplain("Verify session checkpoint chains, including per-checkpoint runpack integrity/signatures and prev_checkpoint_digest linkage continuity.")
+	}
+	arguments = reorderInterspersedFlags(arguments, map[string]bool{
+		"chain":           true,
+		"profile":         true,
+		"public-key":      true,
+		"public-key-env":  true,
+		"private-key":     true,
+		"private-key-env": true,
+	})
+	flagSet := flag.NewFlagSet("verify-session-chain", flag.ContinueOnError)
+	flagSet.SetOutput(io.Discard)
+
+	var chainPath string
+	var profile string
+	var requireSignature bool
+	var publicKeyPath string
+	var publicKeyEnv string
+	var privateKeyPath string
+	var privateKeyEnv string
+	var jsonOutput bool
+	var helpFlag bool
+
+	flagSet.StringVar(&chainPath, "chain", "", "path to session chain json")
+	flagSet.StringVar(&profile, "profile", string(verifyProfileStandard), "verify profile: standard|strict")
+	flagSet.BoolVar(&requireSignature, "require-signature", false, "require valid signatures for all checkpoints")
+	flagSet.StringVar(&publicKeyPath, "public-key", "", "path to base64 public key")
+	flagSet.StringVar(&publicKeyEnv, "public-key-env", "", "env var containing base64 public key")
+	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private key (derive public)")
+	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private key (derive public)")
+	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
+	flagSet.BoolVar(&helpFlag, "help", false, "show help")
+
+	if err := flagSet.Parse(arguments); err != nil {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	if helpFlag {
+		printVerifySessionChainUsage()
+		return exitOK
+	}
+	remaining := flagSet.Args()
+	if strings.TrimSpace(chainPath) == "" && len(remaining) == 1 {
+		chainPath = remaining[0]
+		remaining = nil
+	}
+	if strings.TrimSpace(chainPath) == "" || len(remaining) > 0 {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{OK: false, Error: "expected --chain <session_chain.json>"}, exitInvalidInput)
+	}
+
+	resolvedProfile, err := parseArtifactVerifyProfile(profile)
+	if err != nil {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{OK: false, Error: err.Error()}, exitInvalidInput)
+	}
+	if resolvedProfile == verifyProfileStrict {
+		requireSignature = true
+	}
+
+	keyConfig := sign.KeyConfig{
+		PublicKeyPath:  publicKeyPath,
+		PublicKeyEnv:   publicKeyEnv,
+		PrivateKeyPath: privateKeyPath,
+		PrivateKeyEnv:  privateKeyEnv,
+	}
+	if resolvedProfile == verifyProfileStrict && !hasAnyKeySource(keyConfig) {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{
+			OK:    false,
+			Error: "strict verify profile requires --public-key/--public-key-env or private key source",
+		}, exitInvalidInput)
+	}
+	publicKey, err := loadOptionalVerifyKey(keyConfig)
+	if err != nil {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	verifyResult, err := runpack.VerifySessionChain(chainPath, runpack.SessionChainVerifyOptions{
+		RequireSignature: requireSignature,
+		PublicKey:        publicKey,
+	})
+	if err != nil {
+		return writeVerifySessionChainOutput(jsonOutput, verifySessionChainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+
+	output := verifySessionChainOutput{
+		OK:                 len(verifyResult.LinkageErrors) == 0 && len(verifyResult.CheckpointErrors) == 0,
+		ChainPath:          chainPath,
+		SessionID:          verifyResult.SessionID,
+		RunID:              verifyResult.RunID,
+		CheckpointsChecked: verifyResult.CheckpointsChecked,
+		LinkageErrors:      verifyResult.LinkageErrors,
+		CheckpointErrors:   verifyResult.CheckpointErrors,
+	}
+	exitCode := exitOK
+	if !output.OK {
+		exitCode = exitVerifyFailed
+	}
+	return writeVerifySessionChainOutput(jsonOutput, output, exitCode)
+}
+
 func loadOptionalVerifyKey(cfg sign.KeyConfig) (ed25519.PublicKey, error) {
 	if !hasAnyKeySource(cfg) {
 		return nil, nil
@@ -445,9 +559,34 @@ func writeVerifyChainOutput(jsonOutput bool, output verifyChainOutput, exitCode 
 	return exitCode
 }
 
+func writeVerifySessionChainOutput(jsonOutput bool, output verifySessionChainOutput, exitCode int) int {
+	if jsonOutput {
+		return writeJSONOutput(output, exitCode)
+	}
+	if output.OK {
+		fmt.Printf("verify session-chain: ok (%s)\n", output.ChainPath)
+		fmt.Printf("session=%s run=%s checkpoints=%d\n", output.SessionID, output.RunID, output.CheckpointsChecked)
+		return exitCode
+	}
+	if output.Error != "" {
+		fmt.Printf("verify session-chain error: %s\n", output.Error)
+		return exitCode
+	}
+	fmt.Printf("verify session-chain failed: %s\n", output.ChainPath)
+	if len(output.LinkageErrors) > 0 {
+		fmt.Printf("linkage errors: %s\n", strings.Join(output.LinkageErrors, "; "))
+	}
+	if len(output.CheckpointErrors) > 0 {
+		fmt.Printf("checkpoint errors: %s\n", strings.Join(output.CheckpointErrors, "; "))
+	}
+	return exitCode
+}
+
 func printUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--json] [--explain]")
+	fmt.Println("  gait delegate mint --delegator <identity> --delegate <identity> --scope <csv> --ttl <duration> [--scope-class <value>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
+	fmt.Println("  gait delegate verify --token <token.json> [--delegator <identity>] [--delegate <identity>] [--scope <csv>] [--intent-digest <sha256>] [--policy-digest <sha256>] [--json] [--explain]")
 	fmt.Println("  gait demo [--json] [--explain]")
 	fmt.Println("  gait doctor [--json] [--explain]")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
@@ -484,6 +623,7 @@ func printUsage() {
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--adapter mcp|openai|anthropic|langchain] [--json] [--explain]")
 	fmt.Println("  gait verify <run_id|path> [--json] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--profile standard|strict] [--require-signature] [--public-key <path>|--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait version")
 }
 
@@ -493,10 +633,18 @@ func printVerifyUsage() {
 	fmt.Println("  gait verify <run_id|path> [--json] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--json] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--explain]")
+	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--json] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--explain]")
 }
 
 func printVerifyChainUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  gait verify chain --run <run_id|path> [--trace <trace.json>] [--pack <evidence_pack.zip>] [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--json] [--explain]")
+}
+
+func printVerifySessionChainUsage() {
+	fmt.Println("Usage:")
+	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--profile standard|strict] [--require-signature] [--public-key <path>] [--public-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait verify session-chain --chain <session_chain.json> [--profile standard|strict] [--require-signature] [--private-key <path>] [--private-key-env <VAR>] [--json] [--explain]")
 }

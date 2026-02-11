@@ -58,6 +58,7 @@ type normalizedIntent struct {
 	Targets         []schemagate.IntentTarget        `json:"targets"`
 	ArgProvenance   []schemagate.IntentArgProvenance `json:"arg_provenance,omitempty"`
 	SkillProvenance *schemagate.SkillProvenance      `json:"skill_provenance,omitempty"`
+	Delegation      *schemagate.IntentDelegation     `json:"delegation,omitempty"`
 	Context         schemagate.IntentContext         `json:"context"`
 }
 
@@ -90,6 +91,7 @@ func NormalizeIntent(input schemagate.IntentRequest) (schemagate.IntentRequest, 
 	output.Targets = normalized.Targets
 	output.ArgProvenance = normalized.ArgProvenance
 	output.SkillProvenance = normalized.SkillProvenance
+	output.Delegation = normalized.Delegation
 	output.Context = normalized.Context
 	return output, nil
 }
@@ -157,6 +159,10 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 	if err != nil {
 		return normalizedIntent{}, err
 	}
+	delegation, err := normalizeDelegation(input.Delegation)
+	if err != nil {
+		return normalizedIntent{}, err
+	}
 
 	return normalizedIntent{
 		ToolName:        toolName,
@@ -164,6 +170,7 @@ func normalizeIntent(input schemagate.IntentRequest) (normalizedIntent, error) {
 		Targets:         targets,
 		ArgProvenance:   provenance,
 		SkillProvenance: skillProvenance,
+		Delegation:      delegation,
 		Context:         context,
 	}, nil
 }
@@ -491,6 +498,79 @@ func normalizeCredentialScopes(scopes []string) []string {
 	}
 	sort.Strings(normalized)
 	return normalized
+}
+
+func normalizeDelegation(input *schemagate.IntentDelegation) (*schemagate.IntentDelegation, error) {
+	if input == nil {
+		return nil, nil
+	}
+	requesterIdentity := strings.TrimSpace(input.RequesterIdentity)
+	if requesterIdentity == "" {
+		return nil, fmt.Errorf("delegation.requester_identity is required")
+	}
+	scopeClass := strings.ToLower(strings.TrimSpace(input.ScopeClass))
+	tokenRefs := normalizeDelegationTokenRefs(input.TokenRefs)
+
+	normalizedChain := make([]schemagate.DelegationLink, 0, len(input.Chain))
+	for i, link := range input.Chain {
+		delegatorIdentity := strings.TrimSpace(link.DelegatorIdentity)
+		delegateIdentity := strings.TrimSpace(link.DelegateIdentity)
+		if delegatorIdentity == "" || delegateIdentity == "" {
+			return nil, fmt.Errorf("delegation.chain[%d] requires delegator_identity and delegate_identity", i)
+		}
+		issuedAt := link.IssuedAt.UTC()
+		expiresAt := link.ExpiresAt.UTC()
+		if !issuedAt.IsZero() && !expiresAt.IsZero() && !expiresAt.After(issuedAt) {
+			return nil, fmt.Errorf("delegation.chain[%d] expires_at must be after issued_at", i)
+		}
+		normalizedChain = append(normalizedChain, schemagate.DelegationLink{
+			DelegatorIdentity: delegatorIdentity,
+			DelegateIdentity:  delegateIdentity,
+			ScopeClass:        strings.ToLower(strings.TrimSpace(link.ScopeClass)),
+			TokenRef:          strings.TrimSpace(link.TokenRef),
+			IssuedAt:          issuedAt,
+			ExpiresAt:         expiresAt,
+		})
+	}
+
+	issuedAt := input.IssuedAt.UTC()
+	expiresAt := input.ExpiresAt.UTC()
+	if !issuedAt.IsZero() && !expiresAt.IsZero() && !expiresAt.After(issuedAt) {
+		return nil, fmt.Errorf("delegation.expires_at must be after issued_at")
+	}
+
+	return &schemagate.IntentDelegation{
+		RequesterIdentity: requesterIdentity,
+		ScopeClass:        scopeClass,
+		TokenRefs:         tokenRefs,
+		Chain:             normalizedChain,
+		IssuedAt:          issuedAt,
+		ExpiresAt:         expiresAt,
+	}, nil
+}
+
+func normalizeDelegationTokenRefs(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	sort.Strings(out)
+	return out
 }
 
 func normalizeJSONValue(value any) (any, error) {

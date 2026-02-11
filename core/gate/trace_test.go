@@ -210,6 +210,50 @@ func TestTraceHelpersAndErrors(t *testing.T) {
 	}
 }
 
+func TestEmitSignedTraceIncludesDelegationReference(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	policy, err := ParsePolicyYAML([]byte(`default_verdict: allow`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.Delegation = &schemagate.IntentDelegation{
+		RequesterIdentity: "agent.specialist",
+		ScopeClass:        "write",
+		TokenRefs:         []string{"delegation_demo"},
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.specialist", ScopeClass: "write"},
+		},
+	}
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+
+	emitted, err := EmitSignedTrace(policy, intent, result, EmitTraceOptions{
+		ProducerVersion:       "test",
+		DelegationTokenRef:    "delegation_demo",
+		DelegationReasonCodes: []string{"delegation_granted"},
+		SigningPrivateKey:     keyPair.Private,
+		TracePath:             filepath.Join(t.TempDir(), "trace_delegation.json"),
+	})
+	if err != nil {
+		t.Fatalf("emit trace with delegation: %v", err)
+	}
+	if emitted.Trace.DelegationRef == nil {
+		t.Fatalf("expected delegation_ref in trace")
+	}
+	if emitted.Trace.DelegationRef.DelegationTokenRef != "delegation_demo" {
+		t.Fatalf("unexpected delegation token ref: %#v", emitted.Trace.DelegationRef)
+	}
+	if emitted.Trace.DelegationRef.DelegationDepth != 1 {
+		t.Fatalf("expected delegation depth 1, got %#v", emitted.Trace.DelegationRef)
+	}
+}
+
 func TestWriteTraceRecordRejectsParentTraversal(t *testing.T) {
 	minimal := schemagate.TraceRecord{
 		SchemaID:        "gait.gate.trace",

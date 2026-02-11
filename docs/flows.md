@@ -116,3 +116,47 @@ Transport endpoints:
 - `POST /v1/evaluate` -> JSON response
 - `POST /v1/evaluate/sse` -> `text/event-stream` response
 - `POST /v1/evaluate/stream` -> `application/x-ndjson` response
+
+## 6) Long-Running Session Checkpoint Chain
+
+```mermaid
+sequenceDiagram
+    participant Runtime as Runtime/Adapter
+    participant CLI as gait run session/*
+    participant Journal as Session Journal (JSONL)
+    participant Pack as Checkpoint Runpack
+    participant Verify as gait verify session-chain
+
+    Runtime->>CLI: run session start
+    CLI->>Journal: append header
+    loop tool-call decisions
+      Runtime->>CLI: run session append
+      CLI->>Journal: append event (sequence++)
+    end
+    Runtime->>CLI: run session checkpoint
+    CLI->>Pack: emit deterministic runpack for new sequence range
+    CLI->>Journal: append checkpoint record + chain update
+    Runtime->>Verify: verify session-chain
+    Verify-->>Runtime: linkage + per-checkpoint integrity status
+```
+
+Outcome: multi-day execution can be checkpointed incrementally and verified as a linked chain.
+
+## 7) Delegation Token Enforcement
+
+```mermaid
+sequenceDiagram
+    participant Lead as Delegator Agent
+    participant CLI as gait delegate mint / gate eval
+    participant Runtime as Delegate Runtime
+    participant Gate as Policy + Delegation Verifier
+
+    Lead->>CLI: delegate mint (delegator, delegate, scope, ttl)
+    CLI-->>Lead: signed delegation token
+    Runtime->>CLI: gate eval (intent + delegation token)
+    CLI->>Gate: evaluate policy + verify delegation token/signature
+    Gate-->>CLI: allow/block + reason codes + delegation audit
+    CLI-->>Runtime: deterministic verdict
+```
+
+Rule: when policy requires delegation, missing/invalid delegation evidence remains non-executable (`block`).

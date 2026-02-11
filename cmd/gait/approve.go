@@ -33,6 +33,7 @@ func runApprove(arguments []string) int {
 
 	var intentDigest string
 	var policyDigest string
+	var delegationBindingDigest string
 	var ttl string
 	var scope string
 	var approver string
@@ -46,6 +47,7 @@ func runApprove(arguments []string) int {
 
 	flagSet.StringVar(&intentDigest, "intent-digest", "", "sha256 hex digest of normalized intent")
 	flagSet.StringVar(&policyDigest, "policy-digest", "", "sha256 hex digest of normalized policy")
+	flagSet.StringVar(&delegationBindingDigest, "delegation-binding-digest", "", "optional delegation binding digest")
 	flagSet.StringVar(&ttl, "ttl", "", "approval token ttl (for example 1h or 30m)")
 	flagSet.StringVar(&scope, "scope", "", "comma-separated approval scope values (for example tool:tool.write)")
 	flagSet.StringVar(&approver, "approver", "", "approver identity")
@@ -87,15 +89,16 @@ func runApprove(arguments []string) int {
 	}
 
 	result, err := gate.MintApprovalToken(gate.MintApprovalTokenOptions{
-		ProducerVersion:   version,
-		ApproverIdentity:  approver,
-		ReasonCode:        reasonCode,
-		IntentDigest:      intentDigest,
-		PolicyDigest:      policyDigest,
-		Scope:             scopeValues,
-		TTL:               ttlDuration,
-		SigningPrivateKey: keyPair.Private,
-		TokenPath:         outputPath,
+		ProducerVersion:         version,
+		ApproverIdentity:        approver,
+		ReasonCode:              reasonCode,
+		IntentDigest:            intentDigest,
+		PolicyDigest:            policyDigest,
+		DelegationBindingDigest: delegationBindingDigest,
+		Scope:                   scopeValues,
+		TTL:                     ttlDuration,
+		SigningPrivateKey:       keyPair.Private,
+		TokenPath:               outputPath,
 	})
 	if err != nil {
 		return writeApproveOutput(jsonOutput, approveOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -146,5 +149,5 @@ func writeApproveOutput(jsonOutput bool, output approveOutput, exitCode int) int
 
 func printApproveUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait approve --intent-digest <sha256> --policy-digest <sha256> [--delegation-binding-digest <sha256>] --ttl <duration> --scope <csv> --approver <identity> --reason-code <code> [--out token.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }

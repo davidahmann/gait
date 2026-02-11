@@ -544,6 +544,165 @@ rules:
 	}
 }
 
+func TestCLIDelegateAndGateRequireDelegationFlow(t *testing.T) {
+	root := repoRoot(t)
+	binPath := buildGaitBinary(t, root)
+	workDir := t.TempDir()
+
+	intentPath := filepath.Join(workDir, "intent_delegation.json")
+	intentContent := []byte(`{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-11T00:00:00Z",
+  "producer_version": "0.0.0-dev",
+  "tool_name": "tool.write",
+  "args": {"path": "/tmp/out.txt"},
+  "targets": [{"kind":"path","value":"/tmp/out.txt","operation":"write","endpoint_class":"fs.write"}],
+  "arg_provenance": [{"arg_path":"$.path","source":"user"}],
+  "delegation": {
+    "requester_identity":"agent.specialist",
+    "scope_class":"write",
+    "token_refs":["delegation_e2e"],
+    "chain":[{"delegator_identity":"agent.lead","delegate_identity":"agent.specialist","scope_class":"write","token_ref":"delegation_e2e"}]
+  },
+  "context": {"identity":"agent.specialist","workspace":"/repo/gait","risk_class":"high","session_id":"sess-e2e"}
+}`)
+	if err := os.WriteFile(intentPath, intentContent, 0o600); err != nil {
+		t.Fatalf("write delegation intent file: %v", err)
+	}
+
+	policyPath := filepath.Join(workDir, "delegation_policy.yaml")
+	policyContent := []byte(`default_verdict: block
+rules:
+  - name: allow-delegated-write
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      require_delegation: true
+      allowed_delegator_identities: [agent.lead]
+      allowed_delegate_identities: [agent.specialist]
+      delegation_scopes: [write]
+`)
+	if err := os.WriteFile(policyPath, policyContent, 0o600); err != nil {
+		t.Fatalf("write delegation policy file: %v", err)
+	}
+
+	traceKeyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate trace key pair: %v", err)
+	}
+	tracePrivateKeyPath := filepath.Join(workDir, "trace_private.key")
+	if err := os.WriteFile(tracePrivateKeyPath, []byte(base64.StdEncoding.EncodeToString(traceKeyPair.Private)), 0o600); err != nil {
+		t.Fatalf("write trace private key: %v", err)
+	}
+
+	delegationKeyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate delegation key pair: %v", err)
+	}
+	delegationPrivateKeyPath := filepath.Join(workDir, "delegation_private.key")
+	if err := os.WriteFile(delegationPrivateKeyPath, []byte(base64.StdEncoding.EncodeToString(delegationKeyPair.Private)), 0o600); err != nil {
+		t.Fatalf("write delegation private key: %v", err)
+	}
+	delegationPublicKeyPath := filepath.Join(workDir, "delegation_public.key")
+	if err := os.WriteFile(delegationPublicKeyPath, []byte(base64.StdEncoding.EncodeToString(delegationKeyPair.Public)), 0o600); err != nil {
+		t.Fatalf("write delegation public key: %v", err)
+	}
+
+	evalMissingDelegation := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--key-mode", "prod",
+		"--private-key", tracePrivateKeyPath,
+		"--json",
+	)
+	evalMissingDelegation.Dir = workDir
+	missingOut, err := evalMissingDelegation.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected gate eval to require delegation token")
+	}
+	if code := commandExitCode(t, err); code != 3 {
+		t.Fatalf("unexpected missing delegation exit code: got=%d want=3 output=%s", code, string(missingOut))
+	}
+	var missingResult struct {
+		OK          bool     `json:"ok"`
+		Verdict     string   `json:"verdict"`
+		ReasonCodes []string `json:"reason_codes"`
+	}
+	if err := json.Unmarshal(missingOut, &missingResult); err != nil {
+		t.Fatalf("parse missing delegation output: %v\n%s", err, string(missingOut))
+	}
+	if !missingResult.OK || missingResult.Verdict != "block" {
+		t.Fatalf("unexpected missing delegation output: %s", string(missingOut))
+	}
+	if !containsString(missingResult.ReasonCodes, "delegation_token_missing") {
+		t.Fatalf("expected delegation_token_missing reason, got: %#v", missingResult.ReasonCodes)
+	}
+
+	delegateMint := exec.Command(
+		binPath,
+		"delegate",
+		"mint",
+		"--delegator", "agent.lead",
+		"--delegate", "agent.specialist",
+		"--scope", "tool:tool.write",
+		"--scope-class", "write",
+		"--ttl", "1h",
+		"--key-mode", "prod",
+		"--private-key", delegationPrivateKeyPath,
+		"--out", filepath.Join(workDir, "delegation_token.json"),
+		"--json",
+	)
+	delegateMint.Dir = workDir
+	delegateOut, err := delegateMint.CombinedOutput()
+	if err != nil {
+		t.Fatalf("delegate mint failed: %v\n%s", err, string(delegateOut))
+	}
+	var delegateResult struct {
+		OK        bool   `json:"ok"`
+		TokenPath string `json:"token_path"`
+	}
+	if err := json.Unmarshal(delegateOut, &delegateResult); err != nil {
+		t.Fatalf("parse delegate output: %v\n%s", err, string(delegateOut))
+	}
+	if !delegateResult.OK || delegateResult.TokenPath == "" {
+		t.Fatalf("unexpected delegate output: %s", string(delegateOut))
+	}
+
+	evalDelegated := exec.Command(
+		binPath,
+		"gate", "eval",
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--delegation-token", delegateResult.TokenPath,
+		"--delegation-public-key", delegationPublicKeyPath,
+		"--key-mode", "prod",
+		"--private-key", tracePrivateKeyPath,
+		"--json",
+	)
+	evalDelegated.Dir = workDir
+	delegatedOut, err := evalDelegated.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gate eval with valid delegation failed: %v\n%s", err, string(delegatedOut))
+	}
+	var delegatedResult struct {
+		OK          bool     `json:"ok"`
+		Verdict     string   `json:"verdict"`
+		ReasonCodes []string `json:"reason_codes"`
+	}
+	if err := json.Unmarshal(delegatedOut, &delegatedResult); err != nil {
+		t.Fatalf("parse delegated gate output: %v\n%s", err, string(delegatedOut))
+	}
+	if !delegatedResult.OK || delegatedResult.Verdict != "allow" {
+		t.Fatalf("unexpected delegated gate output: %s", string(delegatedOut))
+	}
+	if !containsString(delegatedResult.ReasonCodes, "delegation_granted") {
+		t.Fatalf("expected delegation_granted reason, got: %#v", delegatedResult.ReasonCodes)
+	}
+}
+
 func TestCLIPolicyTestExitCodes(t *testing.T) {
 	root := repoRoot(t)
 	binPath := buildGaitBinary(t, root)

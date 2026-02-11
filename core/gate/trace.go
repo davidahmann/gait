@@ -12,17 +12,20 @@ import (
 	"time"
 
 	"github.com/davidahmann/gait/core/fsx"
+	"github.com/davidahmann/gait/core/jcs"
 	schemagate "github.com/davidahmann/gait/core/schema/v1/gate"
 	"github.com/davidahmann/gait/core/sign"
 )
 
 type EmitTraceOptions struct {
-	ProducerVersion   string
-	CorrelationID     string
-	ApprovalTokenRef  string
-	LatencyMS         float64
-	SigningPrivateKey ed25519.PrivateKey
-	TracePath         string
+	ProducerVersion       string
+	CorrelationID         string
+	ApprovalTokenRef      string
+	DelegationTokenRef    string
+	DelegationReasonCodes []string
+	LatencyMS             float64
+	SigningPrivateKey     ed25519.PrivateKey
+	TracePath             string
 }
 
 type EmitTraceResult struct {
@@ -85,6 +88,24 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		ApprovalTokenRef: strings.TrimSpace(opts.ApprovalTokenRef),
 		SkillProvenance:  normalizedIntent.SkillProvenance,
 	}
+	if normalizedIntent.Delegation != nil {
+		delegationTokenRef := strings.TrimSpace(opts.DelegationTokenRef)
+		if delegationTokenRef == "" && len(normalizedIntent.Delegation.TokenRefs) > 0 {
+			delegationTokenRef = strings.TrimSpace(normalizedIntent.Delegation.TokenRefs[0])
+		}
+		delegationDigest, err := digestDelegationChain(*normalizedIntent.Delegation)
+		if err != nil {
+			return EmitTraceResult{}, fmt.Errorf("digest delegation chain: %w", err)
+		}
+		trace.DelegationRef = &schemagate.DelegationRef{
+			DelegationTokenRef: delegationTokenRef,
+			RequesterIdentity:  strings.TrimSpace(normalizedIntent.Delegation.RequesterIdentity),
+			DelegationDepth:    len(normalizedIntent.Delegation.Chain),
+			ScopeClass:         strings.TrimSpace(normalizedIntent.Delegation.ScopeClass),
+			ChainDigest:        delegationDigest,
+			ReasonCodes:        uniqueSorted(opts.DelegationReasonCodes),
+		}
+	}
 
 	signable := trace
 	signable.Signature = nil
@@ -116,6 +137,18 @@ func EmitSignedTrace(policy Policy, intent schemagate.IntentRequest, gateResult 
 		PolicyDigest: policyDigest,
 		IntentDigest: normalizedIntent.IntentDigest,
 	}, nil
+}
+
+func digestDelegationChain(delegation schemagate.IntentDelegation) (string, error) {
+	raw, err := json.Marshal(delegation)
+	if err != nil {
+		return "", fmt.Errorf("marshal delegation: %w", err)
+	}
+	digest, err := jcs.DigestJCS(raw)
+	if err != nil {
+		return "", fmt.Errorf("digest delegation: %w", err)
+	}
+	return digest, nil
 }
 
 func WriteTraceRecord(path string, trace schemagate.TraceRecord) error {

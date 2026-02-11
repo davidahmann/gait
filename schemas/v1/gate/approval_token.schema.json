@@ -26,6 +26,7 @@
     "reason_code": { "type": "string", "minLength": 1 },
     "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "delegation_binding_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
     "scope": {
       "type": "array",
       "minItems": 1,

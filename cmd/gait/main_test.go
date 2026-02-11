@@ -37,6 +37,12 @@ func TestRunDispatch(t *testing.T) {
 	if code := run([]string{"gait", "approve", "--help"}); code != exitOK {
 		t.Fatalf("run approve help: expected %d got %d", exitOK, code)
 	}
+	if code := run([]string{"gait", "delegate", "mint", "--help"}); code != exitOK {
+		t.Fatalf("run delegate mint help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "delegate", "verify", "--help"}); code != exitOK {
+		t.Fatalf("run delegate verify help: expected %d got %d", exitOK, code)
+	}
 	if code := run([]string{"gait", "gate", "eval", "--help"}); code != exitOK {
 		t.Fatalf("run gate help: expected %d got %d", exitOK, code)
 	}
@@ -144,6 +150,9 @@ func TestRunDispatch(t *testing.T) {
 	}
 	if code := run([]string{"gait", "verify", "chain", "--help"}); code != exitOK {
 		t.Fatalf("run verify chain help: expected %d got %d", exitOK, code)
+	}
+	if code := run([]string{"gait", "verify", "session-chain", "--help"}); code != exitOK {
+		t.Fatalf("run verify session-chain help: expected %d got %d", exitOK, code)
 	}
 	if code := run([]string{"gait", "doctor", "--help"}); code != exitOK {
 		t.Fatalf("run doctor help: expected %d got %d", exitOK, code)

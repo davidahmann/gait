@@ -45,6 +45,11 @@ Producer obligations:
   - `context.environment_fingerprint` (string)
 - SHOULD provide `args_digest` and `intent_digest` when available.
 - SHOULD provide `skill_provenance` when execution originates from a packaged skill.
+- SHOULD provide `delegation` when tool execution is delegated across agents:
+  - `requester_identity`
+  - delegation `chain` links
+  - `scope_class`
+  - `token_refs`
 
 Consumer obligations:
 
@@ -104,6 +109,7 @@ Producer obligations:
 - MUST bind `verdict` to `intent_digest` and `policy_digest`.
 - SHOULD include signature data for tamper-evident traces in production paths.
 - SHOULD carry `skill_provenance` through from intent when present.
+- SHOULD carry `delegation_ref` when delegated execution evidence is present.
 
 Consumer obligations:
 
@@ -147,6 +153,27 @@ Consumer obligations:
 
 - MUST verify manifest and file digests before trust.
 - MUST treat missing required files or digest mismatches as verification failure.
+
+## Session Chain Artifacts (`gait.runpack.session_*`, `1.0.0`)
+
+Purpose: append-only, crash-tolerant long-running capture with verifiable checkpoints.
+
+Artifacts:
+
+- `SessionJournal` (`gait.runpack.session_journal`)
+- `SessionCheckpoint` (`gait.runpack.session_checkpoint`)
+- `SessionChain` (`gait.runpack.session_chain`)
+
+Producer obligations:
+
+- MUST append session events with monotonic sequence IDs.
+- MUST link checkpoints using `prev_checkpoint_digest`.
+- MUST preserve deterministic checkpoint runpack emission for identical journal prefixes.
+
+Consumer obligations:
+
+- MUST verify linkage continuity and per-checkpoint runpack integrity for chain-level trust.
+- MUST treat missing checkpoints or digest-link mismatch as verification failure.
 
 ## Interop contract for wrappers and sidecars
 

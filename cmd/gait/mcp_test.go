@@ -99,6 +99,51 @@ func TestRunMCPProxyOpenAIAdapter(t *testing.T) {
 	}
 }
 
+func TestRunMCPProxyOSSProdRequiresExplicitContext(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	missingContextPath := filepath.Join(workDir, "missing_context.json")
+	mustWriteFile(t, missingContextPath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{"identity":"alice","workspace":"/repo/gait"}
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", missingContextPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runMCPProxy oss-prod missing session expected %d got %d", exitInvalidInput, code)
+	}
+
+	validContextPath := filepath.Join(workDir, "valid_context.json")
+	mustWriteFile(t, validContextPath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", validContextPath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runMCPProxy oss-prod valid context expected %d got %d", exitOK, code)
+	}
+}
+
 func TestRunMCPProxyAdaptersSupportRunpackAndRegressInit(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

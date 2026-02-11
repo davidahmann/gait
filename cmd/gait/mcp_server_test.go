@@ -271,3 +271,56 @@ func TestMCPServeHandlerEvaluateStream(t *testing.T) {
 		t.Fatalf("unexpected stream response payload: %#v", response)
 	}
 }
+
+func TestMCPServeHandlerSessionJournalAndCheckpoint(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		Profile:        "standard",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		RunpackDir:     filepath.Join(workDir, "runpacks"),
+		SessionDir:     filepath.Join(workDir, "sessions"),
+		KeyMode:        "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "session_id":"sess-server-1",
+	  "checkpoint_interval":1,
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-server-1"}
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluate status: expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode evaluate response: %v", err)
+	}
+	if !response.OK || response.Verdict != "allow" {
+		t.Fatalf("unexpected session evaluate response: %#v", response)
+	}
+	foundCheckpointWarning := false
+	for _, warning := range response.Warnings {
+		if strings.Contains(warning, "session_checkpoint=") {
+			foundCheckpointWarning = true
+			break
+		}
+	}
+	if !foundCheckpointWarning {
+		t.Fatalf("expected checkpoint warning in response warnings: %#v", response.Warnings)
+	}
+}

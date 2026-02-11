@@ -51,7 +51,7 @@ def build_autogen_tool_call(scenario: str) -> dict[str, Any]:
     }
 
 
-def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
+def to_intent_payload(tool_call: dict[str, Any], scenario: str) -> dict[str, Any]:
     function_call = dict(tool_call["function_call"])
     arguments = json.loads(str(function_call["arguments"]))
     skill = dict(arguments.pop("skill"))
@@ -80,10 +80,30 @@ def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
             "digest": str(skill.get("digest", "")),
             "signature_key_id": str(skill.get("signature_key_id", "")),
         },
+        "delegation": {
+            "requester_identity": "autogen-user",
+            "scope_class": "write",
+            "token_refs": [f"delegation-{FRAMEWORK}-{scenario}"],
+            "chain": [
+                {
+                    "delegator_identity": "agent.lead",
+                    "delegate_identity": "autogen-user",
+                    "scope_class": "write",
+                    "token_ref": f"delegation-{FRAMEWORK}-{scenario}",
+                }
+            ],
+        },
         "context": {
             "identity": "autogen-user",
             "workspace": "/tmp/gait-autogen",
             "risk_class": "high",
+            "session_id": f"sess-{FRAMEWORK}-{scenario}",
+            "auth_context": {
+                "framework": FRAMEWORK,
+                "operator": "example-user",
+            },
+            "credential_scopes": ["files.write", "network.egress"],
+            "environment_fingerprint": f"{FRAMEWORK}:local:{scenario}",
         },
     }
 
@@ -144,7 +164,7 @@ def main() -> int:
     executor_path = run_dir / f"executor_{scenario}.json"
 
     autogen_call = build_autogen_tool_call(scenario)
-    intent_payload = to_intent_payload(autogen_call)
+    intent_payload = to_intent_payload(autogen_call, scenario)
     intent_path.write_text(
         json.dumps(intent_payload, indent=2) + "\n", encoding="utf-8"
     )

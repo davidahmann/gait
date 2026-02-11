@@ -10,10 +10,12 @@ from .client import (
 )
 from .decorators import gate_tool
 from .models import (
+    DelegationLink,
     DemoCapture,
     GateEvalResult,
     IntentArgProvenance,
     IntentContext,
+    IntentDelegation,
     IntentRequest,
     IntentTarget,
     RegressInitResult,
@@ -24,12 +26,14 @@ __all__ = [
     "__version__",
     "AdapterOutcome",
     "DemoCapture",
+    "DelegationLink",
     "GaitCommandError",
     "GaitError",
     "GateEnforcementError",
     "GateEvalResult",
     "IntentArgProvenance",
     "IntentContext",
+    "IntentDelegation",
     "IntentRequest",
     "IntentTarget",
     "RegressInitResult",

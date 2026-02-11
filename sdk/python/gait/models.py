@@ -60,9 +60,12 @@ class IntentContext:
     risk_class: str
     session_id: str | None = None
     request_id: str | None = None
+    auth_context: dict[str, Any] | None = None
+    credential_scopes: list[str] = field(default_factory=list)
+    environment_fingerprint: str | None = None
 
-    def to_dict(self) -> dict[str, str]:
-        output: dict[str, str] = {
+    def to_dict(self) -> dict[str, Any]:
+        output: dict[str, Any] = {
             "identity": self.identity,
             "workspace": self.workspace,
             "risk_class": self.risk_class,
@@ -71,6 +74,51 @@ class IntentContext:
             output["session_id"] = self.session_id
         if self.request_id:
             output["request_id"] = self.request_id
+        if self.auth_context:
+            output["auth_context"] = dict(self.auth_context)
+        if self.credential_scopes:
+            output["credential_scopes"] = list(self.credential_scopes)
+        if self.environment_fingerprint:
+            output["environment_fingerprint"] = self.environment_fingerprint
+        return output
+
+
+@dataclass(slots=True, frozen=True)
+class DelegationLink:
+    delegator_identity: str
+    delegate_identity: str
+    scope_class: str | None = None
+    token_ref: str | None = None
+
+    def to_dict(self) -> dict[str, str]:
+        output: dict[str, str] = {
+            "delegator_identity": self.delegator_identity,
+            "delegate_identity": self.delegate_identity,
+        }
+        if self.scope_class:
+            output["scope_class"] = self.scope_class
+        if self.token_ref:
+            output["token_ref"] = self.token_ref
+        return output
+
+
+@dataclass(slots=True, frozen=True)
+class IntentDelegation:
+    requester_identity: str
+    scope_class: str | None = None
+    token_refs: list[str] = field(default_factory=list)
+    chain: list[DelegationLink] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        output: dict[str, Any] = {
+            "requester_identity": self.requester_identity,
+        }
+        if self.scope_class:
+            output["scope_class"] = self.scope_class
+        if self.token_refs:
+            output["token_refs"] = list(self.token_refs)
+        if self.chain:
+            output["chain"] = [link.to_dict() for link in self.chain]
         return output
 
 
@@ -81,6 +129,7 @@ class IntentRequest:
     context: IntentContext
     targets: list[IntentTarget] = field(default_factory=list)
     arg_provenance: list[IntentArgProvenance] = field(default_factory=list)
+    delegation: IntentDelegation | None = None
     created_at: datetime = field(default_factory=_utc_now)
     producer_version: str = "0.0.0-dev"
     schema_id: str = "gait.gate.intent_request"
@@ -101,6 +150,8 @@ class IntentRequest:
         }
         if self.arg_provenance:
             output["arg_provenance"] = [entry.to_dict() for entry in self.arg_provenance]
+        if self.delegation is not None:
+            output["delegation"] = self.delegation.to_dict()
         if self.args_digest:
             output["args_digest"] = self.args_digest
         if self.intent_digest:
@@ -142,6 +193,31 @@ class IntentRequest:
                 risk_class=str(payload["context"]["risk_class"]),
                 session_id=payload["context"].get("session_id"),
                 request_id=payload["context"].get("request_id"),
+                auth_context=payload["context"].get("auth_context"),
+                credential_scopes=[
+                    str(value) for value in payload["context"].get("credential_scopes", [])
+                ],
+                environment_fingerprint=payload["context"].get("environment_fingerprint"),
+            ),
+            delegation=(
+                IntentDelegation(
+                    requester_identity=str(payload["delegation"]["requester_identity"]),
+                    scope_class=payload["delegation"].get("scope_class"),
+                    token_refs=[
+                        str(value) for value in payload["delegation"].get("token_refs", [])
+                    ],
+                    chain=[
+                        DelegationLink(
+                            delegator_identity=str(link["delegator_identity"]),
+                            delegate_identity=str(link["delegate_identity"]),
+                            scope_class=link.get("scope_class"),
+                            token_ref=link.get("token_ref"),
+                        )
+                        for link in payload["delegation"].get("chain", [])
+                    ],
+                )
+                if "delegation" in payload and isinstance(payload.get("delegation"), dict)
+                else None
             ),
         )
 

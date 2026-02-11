@@ -71,6 +71,33 @@ if not isinstance(targets, list) or not targets:
 endpoint_class = targets[0].get("endpoint_class")
 if endpoint_class != "fs.write":
     raise SystemExit(f"endpoint_class mismatch: expected fs.write got {endpoint_class}")
+context = intent_payload.get("context")
+if not isinstance(context, dict):
+    raise SystemExit(f"intent context missing: {intent_path}")
+session_id = context.get("session_id")
+if not isinstance(session_id, str) or not session_id:
+    raise SystemExit(f"session_id missing in context: {intent_path}")
+auth_context = context.get("auth_context")
+if not isinstance(auth_context, dict) or not auth_context:
+    raise SystemExit(f"auth_context missing in context: {intent_path}")
+credential_scopes = context.get("credential_scopes")
+if not isinstance(credential_scopes, list) or not credential_scopes:
+    raise SystemExit(f"credential_scopes missing in context: {intent_path}")
+env_fp = context.get("environment_fingerprint")
+if not isinstance(env_fp, str) or not env_fp:
+    raise SystemExit(f"environment_fingerprint missing in context: {intent_path}")
+
+delegation = intent_payload.get("delegation")
+if not isinstance(delegation, dict):
+    raise SystemExit(f"delegation missing from intent: {intent_path}")
+if not delegation.get("requester_identity"):
+    raise SystemExit(f"delegation requester_identity missing: {intent_path}")
+chain = delegation.get("chain")
+if not isinstance(chain, list) or not chain:
+    raise SystemExit(f"delegation chain missing: {intent_path}")
+first_link = chain[0]
+if not isinstance(first_link, dict) or not first_link.get("delegator_identity") or not first_link.get("delegate_identity"):
+    raise SystemExit(f"delegation chain link invalid: {intent_path}")
 
 if scenario == "allow":
     if parsed["verdict"] != "allow":

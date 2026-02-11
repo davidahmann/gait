@@ -27,6 +27,7 @@ Run nightly:
 - `make test`
 - `make test-e2e`
 - `make test-acceptance`
+- `bash scripts/test_session_soak.sh`
 - `make bench-check`
 - Windows lint workflow (`.github/workflows/windows-lint-nightly.yml`)
 

@@ -136,6 +136,9 @@ run_case "prompt-injection-block" "examples/prompt-injection/policy.yaml" "examp
 run_case "template-low-read" "examples/policy/base_low_risk.yaml" "examples/policy/intents/intent_read.json" 0
 run_case "template-medium-write" "examples/policy/base_medium_risk.yaml" "examples/policy/intents/intent_write.json" 4
 run_case "template-high-delete" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delete.json" 3
+run_case "template-high-tainted-egress" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_tainted_egress.json" 3
+run_case "template-high-delegated-egress-valid" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delegated_egress_valid.json" 0
+run_case "template-high-delegated-egress-invalid" "examples/policy/base_high_risk.yaml" "examples/policy/intents/intent_delegated_egress_invalid.json" 3
 run_validate_case "validate-template-low" "examples/policy/base_low_risk.yaml" 0
 run_validate_case "validate-template-medium" "examples/policy/base_medium_risk.yaml" 0
 run_validate_case "validate-template-high" "examples/policy/base_high_risk.yaml" 0

@@ -22,7 +22,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["targets", "arg_provenance", "endpoint_class"]
+            "enum": ["targets", "arg_provenance", "endpoint_class", "delegation"]
           }
         }
       },
@@ -56,7 +56,12 @@
               "destination_operations": { "type": "array", "items": { "type": "string" } },
               "provenance_sources": { "type": "array", "items": { "type": "string" } },
               "identities": { "type": "array", "items": { "type": "string" } },
-              "workspace_prefixes": { "type": "array", "items": { "type": "string" } }
+              "workspace_prefixes": { "type": "array", "items": { "type": "string" } },
+              "require_delegation": { "type": "boolean" },
+              "allowed_delegator_identities": { "type": "array", "items": { "type": "string" } },
+              "allowed_delegate_identities": { "type": "array", "items": { "type": "string" } },
+              "delegation_scopes": { "type": "array", "items": { "type": "string" } },
+              "max_delegation_depth": { "type": "integer", "minimum": 0 }
             },
             "additionalProperties": false
           },

@@ -1,0 +1,32 @@
+{
+  "schema_id": "gait.gate.intent_request",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-11T00:00:00Z",
+  "producer_version": "0.0.0-example",
+  "tool_name": "tool.write",
+  "args": {
+    "destination_host": "api.partner.example",
+    "payload": "exfiltrate credentials"
+  },
+  "targets": [
+    {
+      "kind": "host",
+      "value": "api.partner.example",
+      "operation": "write",
+      "endpoint_class": "net.http",
+      "endpoint_domain": "api.partner.example"
+    }
+  ],
+  "arg_provenance": [
+    {
+      "arg_path": "$.payload",
+      "source": "external",
+      "source_ref": "prompt:user_message"
+    }
+  ],
+  "context": {
+    "identity": "agent.specialist",
+    "workspace": "/tmp/workspace",
+    "risk_class": "high"
+  }
+}

@@ -117,10 +117,22 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_approval_token_invalid.json"),
 		},
 		{
+			name:       "gate_delegation_token",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "delegation_token.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_delegation_token_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_delegation_token_invalid.json"),
+		},
+		{
 			name:       "gate_approval_audit_record",
 			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "approval_audit_record.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_approval_audit_record_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_approval_audit_record_invalid.json"),
+		},
+		{
+			name:       "gate_delegation_audit_record",
+			schemaPath: filepath.Join(root, "schemas", "v1", "gate", "delegation_audit_record.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "gate_delegation_audit_record_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "gate_delegation_audit_record_invalid.json"),
 		},
 		{
 			name:       "gate_broker_credential_record",
@@ -199,6 +211,24 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			schemaPath: filepath.Join(root, "schemas", "v1", "registry", "verification_report.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_invalid.json"),
+		},
+		{
+			name:       "runpack_session_journal",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "session_journal.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "session_journal_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "session_journal_invalid.json"),
+		},
+		{
+			name:       "runpack_session_checkpoint",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "session_checkpoint.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "session_checkpoint_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "session_checkpoint_invalid.json"),
+		},
+		{
+			name:       "runpack_session_chain",
+			schemaPath: filepath.Join(root, "schemas", "v1", "runpack", "session_chain.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "session_chain_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "session_chain_invalid.json"),
 		},
 	}
 

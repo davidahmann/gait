@@ -24,7 +24,10 @@
     "verdict": { "type": "string", "enum": ["allow", "block", "dry_run", "require_approval"] },
     "reason_codes": { "type": "array", "items": { "type": "string" } },
     "violations": { "type": "array", "items": { "type": "string" } },
-    "matched_rule": { "type": "string" }
+    "matched_rule": { "type": "string" },
+    "delegation_matched": { "type": "boolean" },
+    "delegation_depth": { "type": "integer", "minimum": 0 },
+    "delegation_scope": { "type": "string" }
   },
   "additionalProperties": false
 }

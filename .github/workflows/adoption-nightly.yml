@@ -33,6 +33,10 @@ jobs:
           make test-e2e
           make test-acceptance
 
+      - name: Session soak and contention profile
+        run: |
+          bash scripts/test_session_soak.sh
+
       - name: Performance regression profile
         run: |
           make bench-check

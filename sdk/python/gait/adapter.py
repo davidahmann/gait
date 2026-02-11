@@ -40,6 +40,12 @@ class ToolAdapter:
     approval_public_key_env: str | None = None
     approval_private_key: str | Path | None = None
     approval_private_key_env: str | None = None
+    delegation_token: str | Path | None = None
+    delegation_token_chain: Sequence[str | Path] | None = None
+    delegation_public_key: str | Path | None = None
+    delegation_public_key_env: str | None = None
+    delegation_private_key: str | Path | None = None
+    delegation_private_key_env: str | None = None
 
     def gate_intent(
         self,
@@ -62,6 +68,12 @@ class ToolAdapter:
             approval_public_key_env=self.approval_public_key_env,
             approval_private_key=self.approval_private_key,
             approval_private_key_env=self.approval_private_key_env,
+            delegation_token=self.delegation_token,
+            delegation_token_chain=self.delegation_token_chain,
+            delegation_public_key=self.delegation_public_key,
+            delegation_public_key_env=self.delegation_public_key_env,
+            delegation_private_key=self.delegation_private_key,
+            delegation_private_key_env=self.delegation_private_key_env,
         )
 
     def execute(

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/davidahmann/gait/core/regress"
+	"github.com/davidahmann/gait/core/runpack"
 )
 
 const regressStatusPass = "pass"
@@ -83,11 +84,13 @@ func runRegressInit(arguments []string) int {
 
 	var from string
 	var name string
+	var checkpointRef string
 	var jsonOutput bool
 	var helpFlag bool
 
 	flagSet.StringVar(&from, "from", "", "run_id or path")
 	flagSet.StringVar(&name, "name", "", "fixture name override")
+	flagSet.StringVar(&checkpointRef, "checkpoint", "latest", "checkpoint index or latest when --from is session_chain.json")
 	flagSet.BoolVar(&jsonOutput, "json", false, "emit JSON output")
 	flagSet.BoolVar(&helpFlag, "help", false, "show help")
 
@@ -111,13 +114,15 @@ func runRegressInit(arguments []string) int {
 		}, exitInvalidInput)
 	}
 
-	runpackPath, err := resolveRunpackPath(from)
+	runpackPath, sessionChainPath, err := resolveRegressSource(from, checkpointRef)
 	if err != nil {
 		return writeRegressInitOutput(jsonOutput, regressInitOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	result, err := regress.InitFixture(regress.InitOptions{
 		SourceRunpackPath: runpackPath,
+		SessionChainPath:  sessionChainPath,
+		CheckpointRef:     checkpointRef,
 		FixtureName:       name,
 		WorkDir:           ".",
 	})
@@ -236,6 +241,7 @@ func runRegressBootstrap(arguments []string) int {
 
 	var from string
 	var name string
+	var checkpointRef string
 	var configPath string
 	var outputPath string
 	var junitPath string
@@ -245,6 +251,7 @@ func runRegressBootstrap(arguments []string) int {
 
 	flagSet.StringVar(&from, "from", "", "run_id or path")
 	flagSet.StringVar(&name, "name", "", "fixture name override")
+	flagSet.StringVar(&checkpointRef, "checkpoint", "latest", "checkpoint index or latest when --from is session_chain.json")
 	flagSet.StringVar(&configPath, "config", "gait.yaml", "path to regress config")
 	flagSet.StringVar(&outputPath, "output", "regress_result.json", "path to result JSON")
 	flagSet.StringVar(&junitPath, "junit", "", "path to optional junit xml report")
@@ -272,12 +279,14 @@ func runRegressBootstrap(arguments []string) int {
 		}, exitInvalidInput)
 	}
 
-	runpackPath, err := resolveRunpackPath(from)
+	runpackPath, sessionChainPath, err := resolveRegressSource(from, checkpointRef)
 	if err != nil {
 		return writeRegressBootstrapOutput(jsonOutput, regressBootstrapOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	initResult, err := regress.InitFixture(regress.InitOptions{
 		SourceRunpackPath: runpackPath,
+		SessionChainPath:  sessionChainPath,
+		CheckpointRef:     checkpointRef,
 		FixtureName:       name,
 		WorkDir:           ".",
 	})
@@ -422,16 +431,31 @@ func regressArtifactPaths(outputPath string, junitPath string) []string {
 	return paths
 }
 
+func resolveRegressSource(from string, checkpointRef string) (string, string, error) {
+	resolvedPath, err := resolveRunpackPath(from)
+	if err != nil {
+		return "", "", err
+	}
+	trimmed := strings.TrimSpace(resolvedPath)
+	if strings.HasSuffix(strings.ToLower(trimmed), ".json") {
+		checkpoint, checkpointErr := runpack.ResolveSessionCheckpointRunpack(trimmed, strings.TrimSpace(checkpointRef))
+		if checkpointErr == nil {
+			return checkpoint.RunpackPath, trimmed, nil
+		}
+	}
+	return trimmed, "", nil
+}
+
 func printRegressUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json] [--explain]")
+	fmt.Println("  gait regress init --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
 	fmt.Println("  gait regress run [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
-	fmt.Println("  gait regress bootstrap --from <run_id|path> [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
+	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--explain]")
 }
 
 func printRegressInitUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress init --from <run_id|path> [--name <fixture_name>] [--json] [--explain]")
+	fmt.Println("  gait regress init --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--json] [--explain]")
 }
 
 func printRegressRunUsage() {
@@ -441,5 +465,5 @@ func printRegressRunUsage() {
 
 func printRegressBootstrapUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait regress bootstrap --from <run_id|path> [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
+	fmt.Println("  gait regress bootstrap --from <run_id|path|session_chain.json> [--checkpoint latest|<index>] [--name <fixture_name>] [--config gait.yaml] [--output regress_result.json] [--junit junit.xml] [--json] [--allow-nondeterministic] [--explain]")
 }

@@ -13,6 +13,7 @@ type ExportEvent struct {
 	CreatedAt       time.Time `json:"created_at"`
 	ProducerVersion string    `json:"producer_version"`
 	RunID           string    `json:"run_id"`
+	SessionID       string    `json:"session_id,omitempty"`
 	TraceID         string    `json:"trace_id"`
 	TracePath       string    `json:"trace_path,omitempty"`
 	ToolName        string    `json:"tool_name"`
@@ -20,6 +21,8 @@ type ExportEvent struct {
 	ReasonCodes     []string  `json:"reason_codes,omitempty"`
 	PolicyDigest    string    `json:"policy_digest"`
 	IntentDigest    string    `json:"intent_digest"`
+	DelegationRef   string    `json:"delegation_ref,omitempty"`
+	DelegationDepth int       `json:"delegation_depth,omitempty"`
 }
 
 func ExportLogEvent(path string, event ExportEvent) error {
@@ -46,13 +49,16 @@ func ExportOTelEvent(path string, event ExportEvent) error {
 		"body":           "gait.mcp.proxy.decision",
 		"trace_id":       strings.TrimSpace(event.TraceID),
 		"attributes": map[string]any{
-			"gait.run_id":        strings.TrimSpace(event.RunID),
-			"gait.trace_path":    strings.TrimSpace(event.TracePath),
-			"gait.tool_name":     strings.TrimSpace(event.ToolName),
-			"gait.verdict":       strings.TrimSpace(event.Verdict),
-			"gait.policy_digest": strings.TrimSpace(event.PolicyDigest),
-			"gait.intent_digest": strings.TrimSpace(event.IntentDigest),
-			"gait.reason_codes":  event.ReasonCodes,
+			"gait.run_id":           strings.TrimSpace(event.RunID),
+			"gait.session_id":       strings.TrimSpace(event.SessionID),
+			"gait.trace_path":       strings.TrimSpace(event.TracePath),
+			"gait.tool_name":        strings.TrimSpace(event.ToolName),
+			"gait.verdict":          strings.TrimSpace(event.Verdict),
+			"gait.policy_digest":    strings.TrimSpace(event.PolicyDigest),
+			"gait.intent_digest":    strings.TrimSpace(event.IntentDigest),
+			"gait.delegation_ref":   strings.TrimSpace(event.DelegationRef),
+			"gait.delegation_depth": event.DelegationDepth,
+			"gait.reason_codes":     event.ReasonCodes,
 		},
 	}
 	encoded, err := json.Marshal(payload)

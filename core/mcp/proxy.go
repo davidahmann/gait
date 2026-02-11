@@ -22,8 +22,16 @@ type EvalResult struct {
 	Outcome gate.EvalOutcome
 }
 
+type IntentOptions struct {
+	RequireExplicitContext bool
+}
+
 func EvaluateToolCall(policy gate.Policy, call ToolCall, opts gate.EvalOptions) (EvalResult, error) {
-	intent, err := ToIntentRequest(call)
+	return EvaluateToolCallWithIntentOptions(policy, call, opts, IntentOptions{})
+}
+
+func EvaluateToolCallWithIntentOptions(policy gate.Policy, call ToolCall, opts gate.EvalOptions, intentOpts IntentOptions) (EvalResult, error) {
+	intent, err := ToIntentRequestWithOptions(call, intentOpts)
 	if err != nil {
 		return EvalResult{}, err
 	}
@@ -43,6 +51,10 @@ func EvaluateToolCall(policy gate.Policy, call ToolCall, opts gate.EvalOptions) 
 }
 
 func ToIntentRequest(call ToolCall) (schemagate.IntentRequest, error) {
+	return ToIntentRequestWithOptions(call, IntentOptions{})
+}
+
+func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.IntentRequest, error) {
 	name := strings.TrimSpace(call.Name)
 	if name == "" {
 		return schemagate.IntentRequest{}, fmt.Errorf("tool call name is required")
@@ -83,6 +95,45 @@ func ToIntentRequest(call ToolCall) (schemagate.IntentRequest, error) {
 		createdAt = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 	}
 
+	identity := defaultString(call.Context.Identity, defaultIdentity)
+	workspace := defaultString(call.Context.Workspace, defaultWorkspace)
+	riskClass := defaultString(call.Context.RiskClass, defaultRiskClass)
+	if opts.RequireExplicitContext {
+		if strings.TrimSpace(call.Context.Identity) == "" {
+			return schemagate.IntentRequest{}, fmt.Errorf("context.identity is required in strict profile")
+		}
+		if strings.TrimSpace(call.Context.Workspace) == "" {
+			return schemagate.IntentRequest{}, fmt.Errorf("context.workspace is required in strict profile")
+		}
+		if strings.TrimSpace(call.Context.SessionID) == "" {
+			return schemagate.IntentRequest{}, fmt.Errorf("context.session_id is required in strict profile")
+		}
+		identity = strings.TrimSpace(call.Context.Identity)
+		workspace = strings.TrimSpace(call.Context.Workspace)
+		if strings.TrimSpace(call.Context.RiskClass) != "" {
+			riskClass = strings.TrimSpace(call.Context.RiskClass)
+		}
+	}
+
+	var delegation *schemagate.IntentDelegation
+	if call.Delegation != nil {
+		chain := make([]schemagate.DelegationLink, 0, len(call.Delegation.Chain))
+		for _, link := range call.Delegation.Chain {
+			chain = append(chain, schemagate.DelegationLink{
+				DelegatorIdentity: strings.TrimSpace(link.DelegatorIdentity),
+				DelegateIdentity:  strings.TrimSpace(link.DelegateIdentity),
+				ScopeClass:        strings.TrimSpace(link.ScopeClass),
+				TokenRef:          strings.TrimSpace(link.TokenRef),
+			})
+		}
+		delegation = &schemagate.IntentDelegation{
+			RequesterIdentity: strings.TrimSpace(call.Delegation.RequesterIdentity),
+			ScopeClass:        strings.TrimSpace(call.Delegation.ScopeClass),
+			TokenRefs:         append([]string{}, call.Delegation.TokenRefs...),
+			Chain:             chain,
+		}
+	}
+
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",
 		SchemaVersion:   "1.0.0",
@@ -92,12 +143,16 @@ func ToIntentRequest(call ToolCall) (schemagate.IntentRequest, error) {
 		Args:            args,
 		Targets:         intentTargets,
 		ArgProvenance:   provenance,
+		Delegation:      delegation,
 		Context: schemagate.IntentContext{
-			Identity:  defaultString(call.Context.Identity, defaultIdentity),
-			Workspace: defaultString(call.Context.Workspace, defaultWorkspace),
-			RiskClass: defaultString(call.Context.RiskClass, defaultRiskClass),
-			SessionID: strings.TrimSpace(call.Context.SessionID),
-			RequestID: strings.TrimSpace(call.Context.RequestID),
+			Identity:               identity,
+			Workspace:              workspace,
+			RiskClass:              riskClass,
+			SessionID:              strings.TrimSpace(call.Context.SessionID),
+			RequestID:              strings.TrimSpace(call.Context.RequestID),
+			AuthContext:            call.Context.AuthContext,
+			CredentialScopes:       append([]string{}, call.Context.CredentialScopes...),
+			EnvironmentFingerprint: strings.TrimSpace(call.Context.EnvironmentFingerprint),
 		},
 	}, nil
 }

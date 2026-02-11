@@ -66,10 +66,13 @@ Recommended indexed keys:
 
 - `trace_id`
 - `run_id`
+- `session_id`
 - `tool_name`
 - `verdict`
 - `reason_codes`
 - `policy_digest`
 - `intent_digest`
+- `delegation_ref`
+- `delegation_depth`
 
 This keeps SIEM queries aligned with Gait artifacts and proofs.

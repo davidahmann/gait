@@ -29,6 +29,10 @@ type gateEvalOutput struct {
 	RequiredApprovals      int      `json:"required_approvals,omitempty"`
 	ValidApprovals         int      `json:"valid_approvals,omitempty"`
 	ApprovalAuditPath      string   `json:"approval_audit_path,omitempty"`
+	DelegationRef          string   `json:"delegation_ref,omitempty"`
+	DelegationRequired     bool     `json:"delegation_required,omitempty"`
+	ValidDelegations       int      `json:"valid_delegations,omitempty"`
+	DelegationAuditPath    string   `json:"delegation_audit_path,omitempty"`
 	TraceID                string   `json:"trace_id,omitempty"`
 	TracePath              string   `json:"trace_path,omitempty"`
 	PolicyDigest           string   `json:"policy_digest,omitempty"`
@@ -88,10 +92,17 @@ func runGateEval(arguments []string) int {
 	var approvalTokenPath string
 	var approvalTokenChain string
 	var approvalAuditPath string
+	var delegationTokenPath string
+	var delegationTokenChain string
+	var delegationAuditPath string
 	var approvalPublicKeyPath string
 	var approvalPublicKeyEnv string
 	var approvalPrivateKeyPath string
 	var approvalPrivateKeyEnv string
+	var delegationPublicKeyPath string
+	var delegationPublicKeyEnv string
+	var delegationPrivateKeyPath string
+	var delegationPrivateKeyEnv string
 	var keyMode string
 	var privateKeyPath string
 	var privateKeyEnv string
@@ -117,10 +128,17 @@ func runGateEval(arguments []string) int {
 	flagSet.StringVar(&approvalTokenPath, "approval-token", "", "path to signed approval token")
 	flagSet.StringVar(&approvalTokenChain, "approval-token-chain", "", "comma-separated paths to additional signed approval tokens")
 	flagSet.StringVar(&approvalAuditPath, "approval-audit-out", "", "path to emitted approval audit JSON (default approval_audit_<trace_id>.json)")
+	flagSet.StringVar(&delegationTokenPath, "delegation-token", "", "path to signed delegation token")
+	flagSet.StringVar(&delegationTokenChain, "delegation-token-chain", "", "comma-separated paths to additional signed delegation tokens")
+	flagSet.StringVar(&delegationAuditPath, "delegation-audit-out", "", "path to emitted delegation audit JSON (default delegation_audit_<trace_id>.json)")
 	flagSet.StringVar(&approvalPublicKeyPath, "approval-public-key", "", "path to base64 approval verify key")
 	flagSet.StringVar(&approvalPublicKeyEnv, "approval-public-key-env", "", "env var containing base64 approval verify key")
 	flagSet.StringVar(&approvalPrivateKeyPath, "approval-private-key", "", "path to base64 approval private key (derive public)")
 	flagSet.StringVar(&approvalPrivateKeyEnv, "approval-private-key-env", "", "env var containing base64 approval private key (derive public)")
+	flagSet.StringVar(&delegationPublicKeyPath, "delegation-public-key", "", "path to base64 delegation verify key")
+	flagSet.StringVar(&delegationPublicKeyEnv, "delegation-public-key-env", "", "env var containing base64 delegation verify key")
+	flagSet.StringVar(&delegationPrivateKeyPath, "delegation-private-key", "", "path to base64 delegation private key (derive public)")
+	flagSet.StringVar(&delegationPrivateKeyEnv, "delegation-private-key-env", "", "env var containing base64 delegation private key (derive public)")
 	flagSet.StringVar(&keyMode, "key-mode", "", "signing key mode: dev or prod")
 	flagSet.StringVar(&privateKeyPath, "private-key", "", "path to base64 private signing key")
 	flagSet.StringVar(&privateKeyEnv, "private-key-env", "", "env var containing base64 private signing key")
@@ -232,6 +250,14 @@ func runGateEval(arguments []string) int {
 	}
 	result := outcome.Result
 	evalLatencyMS := time.Since(evalStart).Seconds() * 1000
+	policyDigestForContext, intentDigestForContext, requiredApprovalScope, err := gate.ApprovalContext(policy, intent)
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
+	delegationBindingDigest, err := gate.DelegationBindingDigest(intent)
+	if err != nil {
+		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+	}
 
 	var rateDecision gate.RateLimitDecision
 	if outcome.RateLimit.Requests > 0 {
@@ -261,12 +287,112 @@ func runGateEval(arguments []string) int {
 	validApprovals := 0
 	approvalEntries := make([]schemagate.ApprovalAuditEntry, 0)
 	approvalTokenPaths := gatherApprovalTokenPaths(approvalTokenPath, approvalTokenChain)
+	delegationRequired := outcome.RequireDelegation
+	resolvedDelegationRef := ""
+	validDelegations := 0
+	delegationEntries := make([]schemagate.DelegationAuditEntry, 0)
+	delegationTokenPaths := gatherDelegationTokenPaths(delegationTokenPath, delegationTokenChain)
+
+	if delegationRequired {
+		verifyKey := keyPair.Public
+		delegationVerifyConfig := sign.KeyConfig{
+			PublicKeyPath:  delegationPublicKeyPath,
+			PublicKeyEnv:   delegationPublicKeyEnv,
+			PrivateKeyPath: delegationPrivateKeyPath,
+			PrivateKeyEnv:  delegationPrivateKeyEnv,
+		}
+		if !hasAnyKeySource(delegationVerifyConfig) {
+			delegationVerifyConfig = sign.KeyConfig{
+				PublicKeyPath:  approvalPublicKeyPath,
+				PublicKeyEnv:   approvalPublicKeyEnv,
+				PrivateKeyPath: approvalPrivateKeyPath,
+				PrivateKeyEnv:  approvalPrivateKeyEnv,
+			}
+		}
+		if resolvedProfile == gateProfileOSSProd && !hasAnyKeySource(delegationVerifyConfig) {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+				OK:    false,
+				Error: "oss-prod profile requires explicit delegation verify key (--delegation-public-key/--delegation-public-key-env or private key source)",
+			}, exitInvalidInput)
+		}
+		if hasAnyKeySource(delegationVerifyConfig) {
+			verifyKey, err = sign.LoadVerifyKey(delegationVerifyConfig)
+			if err != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+			}
+		}
+		if len(delegationTokenPaths) == 0 {
+			result.Verdict = "block"
+			result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_token_missing"})
+			result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
+			exitCode = exitPolicyBlocked
+		} else {
+			expectedDelegator := ""
+			expectedDelegate := ""
+			if intent.Delegation != nil {
+				expectedDelegate = intent.Delegation.RequesterIdentity
+				if len(intent.Delegation.Chain) > 0 {
+					last := intent.Delegation.Chain[len(intent.Delegation.Chain)-1]
+					expectedDelegator = last.DelegatorIdentity
+					if expectedDelegate == "" {
+						expectedDelegate = last.DelegateIdentity
+					}
+				}
+			}
+			validTokenRefs := make([]string, 0, len(delegationTokenPaths))
+			for _, tokenPath := range delegationTokenPaths {
+				token, readErr := gate.ReadDelegationToken(tokenPath)
+				if readErr != nil {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: readErr.Error()}, exitCodeForError(readErr, exitInvalidInput))
+				}
+				entry := schemagate.DelegationAuditEntry{
+					TokenID:           token.TokenID,
+					DelegatorIdentity: token.DelegatorIdentity,
+					DelegateIdentity:  token.DelegateIdentity,
+					Scope:             mergeUniqueSorted(nil, token.Scope),
+					ExpiresAt:         token.ExpiresAt.UTC(),
+					Valid:             false,
+				}
+				validateErr := gate.ValidateDelegationToken(token, verifyKey, gate.DelegationValidationOptions{
+					Now:                  time.Now().UTC(),
+					ExpectedDelegator:    expectedDelegator,
+					ExpectedDelegate:     expectedDelegate,
+					ExpectedIntentDigest: intentDigestForContext,
+					ExpectedPolicyDigest: policyDigestForContext,
+				})
+				if validateErr != nil {
+					reasonCode := gate.DelegationCodeSchemaInvalid
+					var tokenErr *gate.DelegationTokenError
+					if errors.As(validateErr, &tokenErr) && tokenErr.Code != "" {
+						reasonCode = tokenErr.Code
+					}
+					entry.ErrorCode = reasonCode
+					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{reasonCode})
+					delegationEntries = append(delegationEntries, entry)
+					continue
+				}
+				entry.Valid = true
+				delegationEntries = append(delegationEntries, entry)
+				validDelegations++
+				if token.TokenID != "" {
+					validTokenRefs = append(validTokenRefs, token.TokenID)
+				}
+			}
+			if validDelegations == 0 {
+				result.Verdict = "block"
+				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_chain_insufficient"})
+				result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
+				exitCode = exitPolicyBlocked
+			} else {
+				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_granted"})
+				if len(validTokenRefs) > 0 {
+					resolvedDelegationRef = strings.Join(mergeUniqueSorted(nil, validTokenRefs), ",")
+				}
+			}
+		}
+	}
 
 	if result.Verdict == "require_approval" {
-		policyDigest, intentDigest, requiredScope, err := gate.ApprovalContext(policy, intent)
-		if err != nil {
-			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
-		}
 		if requiredApprovals <= 0 {
 			requiredApprovals = 1
 		}
@@ -313,10 +439,11 @@ func runGateEval(arguments []string) int {
 					Valid:            false,
 				}
 				err = gate.ValidateApprovalToken(token, verifyKey, gate.ApprovalValidationOptions{
-					Now:                  time.Now().UTC(),
-					ExpectedIntentDigest: intentDigest,
-					ExpectedPolicyDigest: policyDigest,
-					RequiredScope:        requiredScope,
+					Now:                             time.Now().UTC(),
+					ExpectedIntentDigest:            intentDigestForContext,
+					ExpectedPolicyDigest:            policyDigestForContext,
+					ExpectedDelegationBindingDigest: delegationBindingDigest,
+					RequiredScope:                   requiredApprovalScope,
 				})
 				if err != nil {
 					reasonCode := gate.ApprovalCodeSchemaInvalid
@@ -417,18 +544,21 @@ func runGateEval(arguments []string) int {
 	}
 
 	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
-		ProducerVersion:   version,
-		CorrelationID:     currentCorrelationID(),
-		ApprovalTokenRef:  resolvedApprovalRef,
-		LatencyMS:         evalLatencyMS,
-		SigningPrivateKey: keyPair.Private,
-		TracePath:         tracePath,
+		ProducerVersion:       version,
+		CorrelationID:         currentCorrelationID(),
+		ApprovalTokenRef:      resolvedApprovalRef,
+		DelegationTokenRef:    resolvedDelegationRef,
+		DelegationReasonCodes: mergeUniqueSorted(nil, filterReasonsByPrefix(result.ReasonCodes, "delegation_")),
+		LatencyMS:             evalLatencyMS,
+		SigningPrivateKey:     keyPair.Private,
+		TracePath:             tracePath,
 	})
 	if err != nil {
 		return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 
 	resolvedApprovalAuditPath := ""
+	resolvedDelegationAuditPath := ""
 	resolvedCredentialEvidencePath := ""
 	if requiredApprovals > 0 || len(approvalEntries) > 0 {
 		resolvedApprovalAuditPath = strings.TrimSpace(approvalAuditPath)
@@ -470,6 +600,27 @@ func runGateEval(arguments []string) int {
 			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 		}
 	}
+	if delegationRequired || len(delegationEntries) > 0 {
+		resolvedDelegationAuditPath = strings.TrimSpace(delegationAuditPath)
+		if resolvedDelegationAuditPath == "" {
+			resolvedDelegationAuditPath = fmt.Sprintf("delegation_audit_%s.json", traceResult.Trace.TraceID)
+		}
+		audit := gate.BuildDelegationAuditRecord(gate.BuildDelegationAuditOptions{
+			CreatedAt:          result.CreatedAt,
+			ProducerVersion:    version,
+			TraceID:            traceResult.Trace.TraceID,
+			ToolName:           traceResult.Trace.ToolName,
+			IntentDigest:       traceResult.IntentDigest,
+			PolicyDigest:       traceResult.PolicyDigest,
+			DelegationRequired: delegationRequired,
+			DelegationRef:      resolvedDelegationRef,
+			Entries:            delegationEntries,
+		})
+		if err := gate.WriteDelegationAuditRecord(resolvedDelegationAuditPath, audit); err != nil {
+			return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
+		}
+		validDelegations = audit.ValidDelegations
+	}
 
 	return writeGateEvalOutput(jsonOutput, gateEvalOutput{
 		OK:                     true,
@@ -481,6 +632,10 @@ func runGateEval(arguments []string) int {
 		RequiredApprovals:      requiredApprovals,
 		ValidApprovals:         validApprovals,
 		ApprovalAuditPath:      resolvedApprovalAuditPath,
+		DelegationRef:          resolvedDelegationRef,
+		DelegationRequired:     delegationRequired,
+		ValidDelegations:       validDelegations,
+		DelegationAuditPath:    resolvedDelegationAuditPath,
 		TraceID:                traceResult.Trace.TraceID,
 		TracePath:              traceResult.TracePath,
 		PolicyDigest:           traceResult.PolicyDigest,
@@ -502,6 +657,15 @@ func runGateEval(arguments []string) int {
 }
 
 func gatherApprovalTokenPaths(primaryPath, chainCSV string) []string {
+	paths := make([]string, 0, 1)
+	if strings.TrimSpace(primaryPath) != "" {
+		paths = append(paths, strings.TrimSpace(primaryPath))
+	}
+	paths = append(paths, parseCSV(chainCSV)...)
+	return mergeUniqueSorted(nil, paths)
+}
+
+func gatherDelegationTokenPaths(primaryPath, chainCSV string) []string {
 	paths := make([]string, 0, 1)
 	if strings.TrimSpace(primaryPath) != "" {
 		paths = append(paths, strings.TrimSpace(primaryPath))
@@ -627,6 +791,12 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 		if output.ApprovalAuditPath != "" {
 			fmt.Printf("approval audit: %s\n", output.ApprovalAuditPath)
 		}
+		if output.DelegationRequired {
+			fmt.Printf("delegations: %d\n", output.ValidDelegations)
+		}
+		if output.DelegationAuditPath != "" {
+			fmt.Printf("delegation audit: %s\n", output.DelegationAuditPath)
+		}
 		if output.CredentialRef != "" {
 			fmt.Printf("credential: %s (%s)\n", output.CredentialRef, output.CredentialIssuer)
 		}
@@ -644,12 +814,12 @@ func writeGateEvalOutput(jsonOutput bool, output gateEvalOutput, exitCode int) i
 
 func printGateUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--credential-broker off|stub|env|command] [--credential-command <path>] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func printGateEvalUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--approval-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait gate eval --policy <policy.yaml> --intent <intent.json> [--config .gait/config.yaml] [--no-config] [--profile standard|oss-prod] [--simulate] [--approval-token <token.json>] [--approval-token-chain <csv>] [--delegation-token <token.json>] [--delegation-token-chain <csv>] [--approval-token-ref token] [--approval-public-key <path>|--approval-public-key-env <VAR>] [--delegation-public-key <path>|--delegation-public-key-env <VAR>] [--approval-audit-out audit.json] [--delegation-audit-out audit.json] [--rate-limit-state state.json] [--credential-broker off|stub|env|command] [--credential-env-prefix GAIT_BROKER_TOKEN_] [--credential-command <path>] [--credential-command-args csv] [--credential-ref ref] [--credential-scopes csv] [--credential-evidence-out path] [--trace-out trace.json] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 }
 
 func parseGateEvalProfile(value string) (gateEvalProfile, error) {
@@ -687,4 +857,17 @@ func mergeUniqueSorted(current []string, extra []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func filterReasonsByPrefix(reasons []string, prefix string) []string {
+	if strings.TrimSpace(prefix) == "" || len(reasons) == 0 {
+		return nil
+	}
+	filtered := make([]string, 0, len(reasons))
+	for _, reason := range reasons {
+		if strings.HasPrefix(strings.TrimSpace(reason), prefix) {
+			filtered = append(filtered, reason)
+		}
+	}
+	return filtered
 }

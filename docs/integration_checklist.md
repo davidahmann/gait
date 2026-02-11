@@ -87,6 +87,11 @@ Required outcome:
   - `context.auth_context`
   - `context.credential_scopes`
   - `context.environment_fingerprint`
+- Intents SHOULD carry session/delegation metadata when available:
+  - `context.session_id`
+  - `delegation.requester_identity`
+  - `delegation.chain`
+  - `delegation.token_refs`
 
 Canonical wrapper path:
 
@@ -129,6 +134,14 @@ Covered adapters:
 - `openclaw`
 - `autogpt`
 - `gastown`
+
+Additional parity assertions (v2.1):
+
+- `intent.context.session_id` exists and is non-empty
+- `intent.context.auth_context` exists and is object-typed
+- `intent.context.credential_scopes` exists and is non-empty list
+- `intent.context.environment_fingerprint` exists and is non-empty
+- `intent.delegation.chain` exists and includes delegator/delegate identity links
 
 ## Step 2C: OpenClaw Installable Skill Path
 
@@ -192,6 +205,10 @@ Evidence to capture:
 - JSON output includes `gate_result`, `trace_path`, and `exit_code`.
 - Blocked or approval-required decisions are treated as non-executable paths.
 - If using `gait mcp serve`, validate your chosen transport endpoint (`/v1/evaluate`, `/v1/evaluate/sse`, or `/v1/evaluate/stream`) returns the same non-`allow` enforcement semantics.
+- If using delegation-constrained policies, validate sidecar delegation passthrough flags:
+  - `--delegation-token`
+  - `--delegation-token-chain`
+  - `--delegation-public-key` / `--delegation-private-key`
 
 ## Step 3: Gate Trace Persistence
 

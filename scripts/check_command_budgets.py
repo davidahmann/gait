@@ -77,6 +77,24 @@ DEFAULT_RUNTIME_SLO_BUDGETS: dict[str, Any] = {
             "p99_ms": 2200.0,
             "max_error_rate": 0.0,
         },
+        "session_checkpoint_emit": {
+            "p50_ms": 900.0,
+            "p95_ms": 1700.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
+        "session_chain_verify": {
+            "p50_ms": 700.0,
+            "p95_ms": 1400.0,
+            "p99_ms": 2000.0,
+            "max_error_rate": 0.0,
+        },
+        "gate_eval_delegation_verify": {
+            "p50_ms": 950.0,
+            "p95_ms": 1800.0,
+            "p99_ms": 2400.0,
+            "max_error_rate": 0.0,
+        },
     },
 }
 
@@ -98,6 +116,17 @@ def run_checked(command: list[str], cwd: Path) -> None:
             f"stdout:\n{result.stdout}\n"
             f"stderr:\n{result.stderr}"
         )
+
+
+def command_supported(command: list[str], cwd: Path) -> bool:
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
 
 
 def run_measured(command: list[str], cwd: Path) -> tuple[float, str | None]:
@@ -136,11 +165,20 @@ def percentile_ms(samples: list[float], p: float) -> float:
 
 
 def measure_command(
-    command: list[str], cwd: Path, repeats: int
+    command: list[str],
+    cwd: Path,
+    repeats: int,
+    pre_hook: Any = None,
 ) -> tuple[list[float], list[str]]:
     timings_ms: list[float] = []
     failures: list[str] = []
     for attempt in range(repeats):
+        if pre_hook is not None:
+            try:
+                pre_hook(attempt)
+            except RuntimeError as err:
+                failures.append(f"attempt={attempt + 1} pre_hook={err}")
+                continue
         elapsed_ms, error = run_measured(command, cwd)
         if error is None:
             timings_ms.append(elapsed_ms)
@@ -315,6 +353,181 @@ def main() -> int:
         run_checked([str(gait_path), "demo", "--json"], work_dir)
         run_checked([str(gait_path), "regress", "init", "--from", "run_demo", "--json"], work_dir)
 
+        supports_session_checkpointing = command_supported(
+            [str(gait_path), "run", "session", "checkpoint", "--help"],
+            work_dir,
+        ) and command_supported(
+            [str(gait_path), "verify", "session-chain", "--help"],
+            work_dir,
+        )
+        supports_delegation_tokens = command_supported(
+            [str(gait_path), "delegate", "mint", "--help"],
+            work_dir,
+        )
+
+        session_journal_path = Path("")
+        session_chain_path = Path("")
+        session_checkpoint_out = Path("")
+        if supports_session_checkpointing:
+            session_dir = work_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            session_journal_path = session_dir / "runtime_budgets.journal.jsonl"
+            session_chain_path = session_dir / "runtime_budgets_chain.json"
+            session_checkpoint_out = work_dir / "session_checkpoint.zip"
+            run_checked(
+                [
+                    str(gait_path),
+                    "run",
+                    "session",
+                    "start",
+                    "--journal",
+                    str(session_journal_path),
+                    "--session-id",
+                    "sess_budget",
+                    "--run-id",
+                    "run_budget",
+                    "--json",
+                ],
+                work_dir,
+            )
+            run_checked(
+                [
+                    str(gait_path),
+                    "run",
+                    "session",
+                    "append",
+                    "--journal",
+                    str(session_journal_path),
+                    "--tool",
+                    "tool.write",
+                    "--verdict",
+                    "allow",
+                    "--intent-id",
+                    "budget_intent_0",
+                    "--json",
+                ],
+                work_dir,
+            )
+            run_checked(
+                [
+                    str(gait_path),
+                    "run",
+                    "session",
+                    "checkpoint",
+                    "--journal",
+                    str(session_journal_path),
+                    "--out",
+                    str(session_checkpoint_out),
+                    "--chain-out",
+                    str(session_chain_path),
+                    "--json",
+                ],
+                work_dir,
+            )
+
+        delegation_private_key = Path("")
+        delegation_public_key = Path("")
+        delegation_policy_path = Path("")
+        delegation_intent_path = Path("")
+        delegation_token_path = Path("")
+        if supports_delegation_tokens:
+            keys_dir = work_dir / "keys"
+            run_checked(
+                [
+                    str(gait_path),
+                    "keys",
+                    "init",
+                    "--out-dir",
+                    str(keys_dir),
+                    "--prefix",
+                    "delegation",
+                    "--json",
+                ],
+                work_dir,
+            )
+            delegation_private_key = keys_dir / "delegation_private.key"
+            delegation_public_key = keys_dir / "delegation_public.key"
+            delegation_policy_path = work_dir / "delegation_policy.yaml"
+            delegation_policy_path.write_text(
+                "default_verdict: block\n"
+                "rules:\n"
+                "  - name: allow-delegated-write\n"
+                "    effect: allow\n"
+                "    match:\n"
+                "      tool_names: [tool.write]\n"
+                "      require_delegation: true\n"
+                "      allowed_delegator_identities: [agent.lead]\n"
+                "      allowed_delegate_identities: [agent.specialist]\n"
+                "      delegation_scopes: [write]\n",
+                encoding="utf-8",
+            )
+            delegation_intent_path = intents_dir / "gate_eval_delegation_verify.json"
+            write_json(
+                delegation_intent_path,
+                {
+                    "schema_id": "gait.gate.intent_request",
+                    "schema_version": "1.0.0",
+                    "created_at": "2026-02-11T00:00:00Z",
+                    "producer_version": "0.0.0-bench",
+                    "tool_name": "tool.write",
+                    "args": {"path": "/tmp/gait/slo/delegated-write.txt"},
+                    "targets": [
+                        {
+                            "kind": "path",
+                            "value": "/tmp/gait/slo/delegated-write.txt",
+                            "operation": "write",
+                            "endpoint_class": "fs.write",
+                        }
+                    ],
+                    "arg_provenance": [{"arg_path": "$.path", "source": "user"}],
+                    "delegation": {
+                        "requester_identity": "agent.specialist",
+                        "scope_class": "write",
+                        "token_refs": ["delegation_budget_token"],
+                        "chain": [
+                            {
+                                "delegator_identity": "agent.lead",
+                                "delegate_identity": "agent.specialist",
+                                "scope_class": "write",
+                                "token_ref": "delegation_budget_token",
+                            }
+                        ],
+                    },
+                    "context": {
+                        "identity": "agent.specialist",
+                        "workspace": str(work_dir),
+                        "risk_class": "high",
+                        "session_id": "sess_budget",
+                    },
+                },
+            )
+            delegation_token_path = work_dir / "delegation_token.json"
+            run_checked(
+                [
+                    str(gait_path),
+                    "delegate",
+                    "mint",
+                    "--delegator",
+                    "agent.lead",
+                    "--delegate",
+                    "agent.specialist",
+                    "--scope",
+                    "tool:tool.write",
+                    "--scope-class",
+                    "write",
+                    "--ttl",
+                    "12h",
+                    "--key-mode",
+                    "prod",
+                    "--private-key",
+                    str(delegation_private_key),
+                    "--out",
+                    str(delegation_token_path),
+                    "--json",
+                ],
+                work_dir,
+            )
+
         command_map = {
             "demo": [str(gait_path), "demo", "--json"],
             "verify": [str(gait_path), "verify", "run_demo", "--json"],
@@ -330,6 +543,43 @@ def main() -> int:
                 "--json",
             ],
         }
+        if supports_session_checkpointing:
+            command_map["session_checkpoint_emit"] = [
+                str(gait_path),
+                "run",
+                "session",
+                "checkpoint",
+                "--journal",
+                str(session_journal_path),
+                "--out",
+                str(session_checkpoint_out),
+                "--chain-out",
+                str(session_chain_path),
+                "--json",
+            ]
+            command_map["session_chain_verify"] = [
+                str(gait_path),
+                "verify",
+                "session-chain",
+                "--chain",
+                str(session_chain_path),
+                "--json",
+            ]
+        if supports_delegation_tokens:
+            command_map["gate_eval_delegation_verify"] = [
+                str(gait_path),
+                "gate",
+                "eval",
+                "--policy",
+                str(delegation_policy_path),
+                "--intent",
+                str(delegation_intent_path),
+                "--delegation-token",
+                str(delegation_token_path),
+                "--delegation-public-key",
+                str(delegation_public_key),
+                "--json",
+            ]
         for command_name, intent_path in intent_paths.items():
             command_map[command_name] = [
                 str(gait_path),
@@ -341,10 +591,46 @@ def main() -> int:
                 str(intent_path),
                 "--json",
             ]
+        pre_hooks: dict[str, Any] = {}
+        if supports_session_checkpointing:
+            pre_hooks["session_checkpoint_emit"] = lambda attempt: run_checked(
+                [
+                    str(gait_path),
+                    "run",
+                    "session",
+                    "append",
+                    "--journal",
+                    str(session_journal_path),
+                    "--tool",
+                    "tool.write",
+                    "--verdict",
+                    "allow",
+                    "--intent-id",
+                    f"budget_intent_{attempt + 1}",
+                    "--json",
+                ],
+                work_dir,
+            )
+        command_capabilities = {
+            "session_checkpoint_emit": supports_session_checkpointing,
+            "session_chain_verify": supports_session_checkpointing,
+            "gate_eval_delegation_verify": supports_delegation_tokens,
+        }
+        skipped_commands: dict[str, str] = {}
+        report["capabilities"] = {
+            "session_checkpointing": supports_session_checkpointing,
+            "delegation_tokens": supports_delegation_tokens,
+        }
 
         for budget_name in sorted(command_budgets.keys()):
             if budget_name not in command_map:
+                if budget_name in command_capabilities and not command_capabilities[budget_name]:
+                    skipped_commands[budget_name] = "unsupported by target binary"
+                    continue
                 failures.append(f"runtime budget configured for unknown command: {budget_name}")
+
+        if skipped_commands:
+            report["skipped_commands"] = skipped_commands
 
         for name in sorted(command_map.keys()):
             if name not in command_budgets:
@@ -352,7 +638,12 @@ def main() -> int:
                 continue
 
             budget = command_budgets[name]
-            samples, command_failures = measure_command(command_map[name], work_dir, repeats)
+            samples, command_failures = measure_command(
+                command_map[name],
+                work_dir,
+                repeats,
+                pre_hook=pre_hooks.get(name),
+            )
             successes = len(samples)
             attempt_count = repeats
             error_count = attempt_count - successes

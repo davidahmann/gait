@@ -30,6 +30,18 @@
     "violations": { "type": "array", "items": { "type": "string" }, "default": [] },
     "latency_ms": { "type": "number" },
     "approval_token_ref": { "type": "string" },
+    "delegation_ref": {
+      "type": "object",
+      "properties": {
+        "delegation_token_ref": { "type": "string" },
+        "requester_identity": { "type": "string" },
+        "delegation_depth": { "type": "integer", "minimum": 0 },
+        "scope_class": { "type": "string" },
+        "chain_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "reason_codes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
     "skill_provenance": {
       "type": "object",
       "required": ["skill_name", "source", "publisher"],

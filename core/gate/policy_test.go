@@ -1048,6 +1048,78 @@ rules:
 	}
 }
 
+func TestEvaluatePolicyDelegationConstraints(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: block
+rules:
+  - name: allow-delegated-write
+    effect: allow
+    match:
+      tool_names: [tool.write]
+      require_delegation: true
+      allowed_delegator_identities: [agent.lead]
+      allowed_delegate_identities: [agent.specialist]
+      delegation_scopes: [write]
+      max_delegation_depth: 2
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+
+	intent := baseIntent()
+	intent.ToolName = "tool.write"
+	intent.Delegation = &schemagate.IntentDelegation{
+		RequesterIdentity: "agent.specialist",
+		ScopeClass:        "write",
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.specialist", ScopeClass: "write"},
+		},
+	}
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy: %v", err)
+	}
+	if result.Verdict != "allow" {
+		t.Fatalf("expected allow verdict, got %#v", result)
+	}
+
+	intent.Delegation.Chain[0].DelegatorIdentity = "agent.other"
+	result, err = EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate policy mismatched delegator: %v", err)
+	}
+	if result.Verdict != "block" {
+		t.Fatalf("expected block verdict when delegation mismatches, got %#v", result)
+	}
+}
+
+func TestEvaluatePolicyFailClosedMissingDelegation(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: allow
+fail_closed:
+  enabled: true
+  risk_classes: [high]
+  required_fields: [delegation]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.Context.RiskClass = "high"
+	intent.Delegation = nil
+
+	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})
+	if err != nil {
+		t.Fatalf("evaluate fail-closed delegation policy: %v", err)
+	}
+	if result.Verdict != "block" {
+		t.Fatalf("expected block verdict for missing delegation, got %#v", result)
+	}
+	if !contains(result.ReasonCodes, "fail_closed_missing_delegation") {
+		t.Fatalf("expected fail-closed delegation reason code, got %#v", result.ReasonCodes)
+	}
+}
+
 func baseIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

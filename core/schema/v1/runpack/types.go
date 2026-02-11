@@ -92,3 +92,60 @@ type RefReceipt struct {
 	SensitivityLabel string         `json:"sensitivity_label,omitempty"`
 	RetrievalParams  map[string]any `json:"retrieval_params,omitempty"`
 }
+
+type SessionJournal struct {
+	SchemaID        string              `json:"schema_id"`
+	SchemaVersion   string              `json:"schema_version"`
+	CreatedAt       time.Time           `json:"created_at"`
+	ProducerVersion string              `json:"producer_version"`
+	SessionID       string              `json:"session_id"`
+	RunID           string              `json:"run_id"`
+	StartedAt       time.Time           `json:"started_at"`
+	Events          []SessionEvent      `json:"events"`
+	Checkpoints     []SessionCheckpoint `json:"checkpoints,omitempty"`
+}
+
+type SessionEvent struct {
+	SchemaID        string    `json:"schema_id"`
+	SchemaVersion   string    `json:"schema_version"`
+	CreatedAt       time.Time `json:"created_at"`
+	ProducerVersion string    `json:"producer_version"`
+	SessionID       string    `json:"session_id"`
+	RunID           string    `json:"run_id"`
+	Sequence        int64     `json:"sequence"`
+	IntentID        string    `json:"intent_id,omitempty"`
+	ToolName        string    `json:"tool_name,omitempty"`
+	IntentDigest    string    `json:"intent_digest,omitempty"`
+	PolicyDigest    string    `json:"policy_digest,omitempty"`
+	TraceID         string    `json:"trace_id,omitempty"`
+	TracePath       string    `json:"trace_path,omitempty"`
+	Verdict         string    `json:"verdict,omitempty"`
+	ReasonCodes     []string  `json:"reason_codes,omitempty"`
+	Violations      []string  `json:"violations,omitempty"`
+}
+
+type SessionCheckpoint struct {
+	SchemaID             string    `json:"schema_id"`
+	SchemaVersion        string    `json:"schema_version"`
+	CreatedAt            time.Time `json:"created_at"`
+	ProducerVersion      string    `json:"producer_version"`
+	SessionID            string    `json:"session_id"`
+	RunID                string    `json:"run_id"`
+	CheckpointIndex      int       `json:"checkpoint_index"`
+	SequenceStart        int64     `json:"sequence_start"`
+	SequenceEnd          int64     `json:"sequence_end"`
+	RunpackPath          string    `json:"runpack_path"`
+	ManifestDigest       string    `json:"manifest_digest"`
+	PrevCheckpointDigest string    `json:"prev_checkpoint_digest,omitempty"`
+	CheckpointDigest     string    `json:"checkpoint_digest"`
+}
+
+type SessionChain struct {
+	SchemaID        string              `json:"schema_id"`
+	SchemaVersion   string              `json:"schema_version"`
+	CreatedAt       time.Time           `json:"created_at"`
+	ProducerVersion string              `json:"producer_version"`
+	SessionID       string              `json:"session_id"`
+	RunID           string              `json:"run_id"`
+	Checkpoints     []SessionCheckpoint `json:"checkpoints"`
+}

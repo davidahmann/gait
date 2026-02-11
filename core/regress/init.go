@@ -29,6 +29,8 @@ var fixtureNamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
 
 type InitOptions struct {
 	SourceRunpackPath string
+	SessionChainPath  string
+	CheckpointRef     string
 	FixtureName       string
 	WorkDir           string
 }
@@ -51,6 +53,8 @@ type fixtureMeta struct {
 	ExpectedReplayExitCode int      `json:"expected_replay_exit_code"`
 	CandidateRunpack       string   `json:"candidate_runpack,omitempty"`
 	DiffAllowChangedFiles  []string `json:"diff_allow_changed_files,omitempty"`
+	SessionChain           string   `json:"session_chain,omitempty"`
+	CheckpointIndex        int      `json:"checkpoint_index,omitempty"`
 }
 
 type configFile struct {
@@ -67,7 +71,7 @@ type configFixture struct {
 }
 
 func InitFixture(opts InitOptions) (InitResult, error) {
-	if opts.SourceRunpackPath == "" {
+	if opts.SourceRunpackPath == "" && opts.SessionChainPath == "" {
 		return InitResult{}, fmt.Errorf("source runpack path is required")
 	}
 
@@ -76,7 +80,19 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 		workDir = "."
 	}
 
-	verifyResult, err := runpack.VerifyZip(opts.SourceRunpackPath, runpack.VerifyOptions{
+	sourceRunpackPath := strings.TrimSpace(opts.SourceRunpackPath)
+	sessionChainPath := strings.TrimSpace(opts.SessionChainPath)
+	checkpointIndex := 0
+	if sessionChainPath != "" {
+		checkpoint, resolveErr := runpack.ResolveSessionCheckpointRunpack(sessionChainPath, strings.TrimSpace(opts.CheckpointRef))
+		if resolveErr != nil {
+			return InitResult{}, fmt.Errorf("resolve session checkpoint: %w", resolveErr)
+		}
+		sourceRunpackPath = checkpoint.RunpackPath
+		checkpointIndex = checkpoint.CheckpointIndex
+	}
+
+	verifyResult, err := runpack.VerifyZip(sourceRunpackPath, runpack.VerifyOptions{
 		RequireSignature: false,
 	})
 	if err != nil {
@@ -104,7 +120,7 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 	}
 
 	destinationRunpack := filepath.Join(fixtureDir, fixtureRunpack)
-	if err := copyRunpack(opts.SourceRunpackPath, destinationRunpack); err != nil {
+	if err := copyRunpack(sourceRunpackPath, destinationRunpack); err != nil {
 		return InitResult{}, err
 	}
 
@@ -115,6 +131,8 @@ func InitFixture(opts InitOptions) (InitResult, error) {
 		RunID:                  verifyResult.RunID,
 		Runpack:                fixtureRunpack,
 		ExpectedReplayExitCode: 0,
+		SessionChain:           sessionChainPath,
+		CheckpointIndex:        checkpointIndex,
 	}
 	if err := writeJSON(filepath.Join(fixtureDir, fixtureFileName), meta); err != nil {
 		return InitResult{}, fmt.Errorf("write fixture metadata: %w", err)
@@ -218,6 +236,9 @@ func readFixtureMeta(path string) (fixtureMeta, error) {
 	}
 	if meta.ExpectedReplayExitCode < 0 {
 		return fixtureMeta{}, fmt.Errorf("fixture expected_replay_exit_code must be >= 0: %s", slashPath(path))
+	}
+	if meta.CheckpointIndex < 0 {
+		return fixtureMeta{}, fmt.Errorf("fixture checkpoint_index must be >= 0: %s", slashPath(path))
 	}
 	return meta, nil
 }

@@ -103,6 +103,52 @@ rules:
 	}
 }
 
+func TestToIntentRequestWithStrictContext(t *testing.T) {
+	_, err := ToIntentRequestWithOptions(ToolCall{
+		Name: "tool.write",
+		Args: map[string]any{"path": "/tmp/out.txt"},
+		Context: CallContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+		},
+	}, IntentOptions{RequireExplicitContext: true})
+	if err == nil {
+		t.Fatalf("expected strict context conversion to fail without session_id")
+	}
+
+	intent, err := ToIntentRequestWithOptions(ToolCall{
+		Name: "tool.write",
+		Args: map[string]any{"path": "/tmp/out.txt"},
+		Context: CallContext{
+			Identity:               "alice",
+			Workspace:              "/repo/gait",
+			RiskClass:              "high",
+			SessionID:              "sess-1",
+			AuthContext:            map[string]any{"provider": "oidc"},
+			CredentialScopes:       []string{"tool:tool.write"},
+			EnvironmentFingerprint: "env:test",
+		},
+		Delegation: &Delegation{
+			RequesterIdentity: "agent.specialist",
+			ScopeClass:        "write",
+			TokenRefs:         []string{"delegation_a"},
+			Chain: []DelegationLink{
+				{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.specialist", ScopeClass: "write"},
+			},
+		},
+	}, IntentOptions{RequireExplicitContext: true})
+	if err != nil {
+		t.Fatalf("strict context conversion failed: %v", err)
+	}
+	if intent.Context.SessionID != "sess-1" {
+		t.Fatalf("expected session id in converted intent context")
+	}
+	if intent.Delegation == nil || intent.Delegation.RequesterIdentity != "agent.specialist" {
+		t.Fatalf("expected delegation passthrough in converted intent: %#v", intent.Delegation)
+	}
+}
+
 func TestExportersWriteJSONL(t *testing.T) {
 	workDir := t.TempDir()
 	logPath := filepath.Join(workDir, "mcp.log.jsonl")

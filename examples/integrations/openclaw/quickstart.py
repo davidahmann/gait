@@ -50,7 +50,7 @@ def build_openclaw_tool_call(scenario: str) -> dict[str, Any]:
     }
 
 
-def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
+def to_intent_payload(tool_call: dict[str, Any], scenario: str) -> dict[str, Any]:
     envelope = dict(tool_call["tool_call"])
     arguments = dict(envelope["params"])
     skill = dict(envelope.get("skill", {}))
@@ -79,10 +79,30 @@ def to_intent_payload(tool_call: dict[str, Any]) -> dict[str, Any]:
             "digest": str(skill.get("digest", "")),
             "signature_key_id": str(skill.get("signature_key_id", "")),
         },
+        "delegation": {
+            "requester_identity": "openclaw-user",
+            "scope_class": "write",
+            "token_refs": [f"delegation-{FRAMEWORK}-{scenario}"],
+            "chain": [
+                {
+                    "delegator_identity": "agent.lead",
+                    "delegate_identity": "openclaw-user",
+                    "scope_class": "write",
+                    "token_ref": f"delegation-{FRAMEWORK}-{scenario}",
+                }
+            ],
+        },
         "context": {
             "identity": "openclaw-user",
             "workspace": "/tmp/gait-openclaw",
             "risk_class": "high",
+            "session_id": f"sess-{FRAMEWORK}-{scenario}",
+            "auth_context": {
+                "framework": FRAMEWORK,
+                "operator": "example-user",
+            },
+            "credential_scopes": ["files.write", "network.egress"],
+            "environment_fingerprint": f"{FRAMEWORK}:local:{scenario}",
         },
     }
 
@@ -143,7 +163,7 @@ def main() -> int:
     executor_path = run_dir / f"executor_{scenario}.json"
 
     openclaw_call = build_openclaw_tool_call(scenario)
-    intent_payload = to_intent_payload(openclaw_call)
+    intent_payload = to_intent_payload(openclaw_call, scenario)
     intent_path.write_text(
         json.dumps(intent_payload, indent=2) + "\n", encoding="utf-8"
     )
