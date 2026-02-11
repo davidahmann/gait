@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -1209,7 +1210,7 @@ func withSessionLock(journalPath string, fn func() error) error {
 			defer func() { _ = os.Remove(lockPath) }()
 			return fn()
 		}
-		if !isSessionLockContention(err, lockPath) {
+		if !isSessionLockContention(err, lockPath) && !isWindowsAccessDeniedLockError(err) {
 			return fmt.Errorf("acquire session lock: %w", err)
 		}
 		if shouldRecoverStaleSessionLockWithThreshold(lockPath, time.Now().UTC(), lockConfig.StaleAfter) {
@@ -1244,6 +1245,13 @@ func isSessionLockContention(acquireErr error, lockPath string) bool {
 	}
 	_, statErr := os.Stat(lockPath)
 	return statErr == nil || os.IsPermission(statErr)
+}
+
+func isWindowsAccessDeniedLockError(acquireErr error) bool {
+	if runtime.GOOS != "windows" || acquireErr == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(acquireErr.Error()), "access is denied")
 }
 
 func shouldRecoverStaleSessionLock(lockPath string, now time.Time) bool {

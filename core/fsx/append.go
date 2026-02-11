@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -86,7 +87,7 @@ func withAppendFileLock(path string, fn func() error) error {
 			}()
 			return fn()
 		}
-		if !isAppendLockContention(err, lockPath) {
+		if !isAppendLockContention(err, lockPath) && !isWindowsAccessDeniedLockError(err) {
 			return fmt.Errorf("acquire append lock: %w", err)
 		}
 		if shouldRecoverStaleAppendLock(lockPath, time.Now().UTC()) {
@@ -106,6 +107,13 @@ func isAppendLockContention(acquireErr error, lockPath string) bool {
 	}
 	_, statErr := os.Stat(lockPath)
 	return statErr == nil || os.IsPermission(statErr)
+}
+
+func isWindowsAccessDeniedLockError(acquireErr error) bool {
+	if runtime.GOOS != "windows" || acquireErr == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(acquireErr.Error()), "access is denied")
 }
 
 func shouldRecoverStaleAppendLock(lockPath string, now time.Time) bool {

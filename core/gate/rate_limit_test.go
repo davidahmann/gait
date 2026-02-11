@@ -239,6 +239,19 @@ func TestIsRateLimitLockContentionPermissionWithoutExistingLock(t *testing.T) {
 	}
 }
 
+func TestIsWindowsAccessDeniedLockError(t *testing.T) {
+	t.Parallel()
+
+	deniedErr := &os.PathError{Op: "open", Path: "rate_state.json.lock", Err: os.ErrPermission}
+	expected := runtime.GOOS == "windows"
+	if got := isWindowsAccessDeniedLockError(deniedErr); got != expected {
+		t.Fatalf("unexpected access denied classification: got=%v want=%v", got, expected)
+	}
+	if isWindowsAccessDeniedLockError(nil) {
+		t.Fatalf("expected nil error to be non-contention")
+	}
+}
+
 func rateLimitTestIntent() schemagate.IntentRequest {
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",

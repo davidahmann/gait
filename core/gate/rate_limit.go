@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -252,7 +253,7 @@ func withRateLimitLock(statePath string, fn func() (RateLimitDecision, error)) (
 			}()
 			return fn()
 		}
-		if !isRateLimitLockContention(err, lockPath) {
+		if !isRateLimitLockContention(err, lockPath) && !isWindowsAccessDeniedLockError(err) {
 			return RateLimitDecision{}, coreerrors.Wrap(
 				fmt.Errorf("acquire rate limit lock: %w", err),
 				coreerrors.CategoryIOFailure,
@@ -288,6 +289,13 @@ func isRateLimitLockContention(acquireErr error, lockPath string) bool {
 	}
 	_, statErr := os.Stat(lockPath)
 	return statErr == nil
+}
+
+func isWindowsAccessDeniedLockError(acquireErr error) bool {
+	if runtime.GOOS != "windows" || acquireErr == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(acquireErr.Error()), "access is denied")
 }
 
 func writeRateLimitLockMetadata(lockFile *os.File, createdAt time.Time) error {

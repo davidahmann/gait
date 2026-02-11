@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -458,6 +459,19 @@ func TestIsSessionLockContention(t *testing.T) {
 	missingLockPath := filepath.Join(t.TempDir(), "missing.lock")
 	if isSessionLockContention(os.ErrNotExist, missingLockPath) {
 		t.Fatalf("expected non-contention error")
+	}
+}
+
+func TestIsWindowsAccessDeniedLockError(t *testing.T) {
+	t.Parallel()
+
+	deniedErr := &os.PathError{Op: "open", Path: "session.lock", Err: errors.New("Access is denied.")}
+	expected := runtime.GOOS == "windows"
+	if got := isWindowsAccessDeniedLockError(deniedErr); got != expected {
+		t.Fatalf("unexpected access denied classification: got=%v want=%v", got, expected)
+	}
+	if isWindowsAccessDeniedLockError(nil) {
+		t.Fatalf("expected nil error to be non-contention")
 	}
 }
 

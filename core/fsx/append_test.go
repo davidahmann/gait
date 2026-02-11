@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -133,6 +134,19 @@ func TestIsAppendLockContention(t *testing.T) {
 	missingLockPath := filepath.Join(t.TempDir(), "missing.lock")
 	if isAppendLockContention(os.ErrNotExist, missingLockPath) {
 		t.Fatalf("expected unrelated error to be non-contention")
+	}
+}
+
+func TestIsWindowsAccessDeniedLockError(t *testing.T) {
+	t.Parallel()
+
+	deniedErr := &os.PathError{Op: "open", Path: "lock", Err: errors.New("Access is denied.")}
+	expected := runtime.GOOS == "windows"
+	if got := isWindowsAccessDeniedLockError(deniedErr); got != expected {
+		t.Fatalf("unexpected access denied classification: got=%v want=%v", got, expected)
+	}
+	if isWindowsAccessDeniedLockError(nil) {
+		t.Fatalf("expected nil error to be non-contention")
 	}
 }
 

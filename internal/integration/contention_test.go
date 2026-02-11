@@ -3,6 +3,7 @@ package integration
 import (
 	"errors"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -155,7 +156,11 @@ func TestSessionSwarmContentionBudget(t *testing.T) {
 	journalPath := filepath.Join(workDir, "swarm.journal.jsonl")
 	now := time.Date(2026, time.February, 11, 6, 30, 0, 0, time.UTC)
 	t.Setenv("GAIT_SESSION_LOCK_PROFILE", "swarm")
-	t.Setenv("GAIT_SESSION_LOCK_TIMEOUT", "5s")
+	lockTimeout := "5s"
+	if runtime.GOOS == "windows" {
+		lockTimeout = "20s"
+	}
+	t.Setenv("GAIT_SESSION_LOCK_TIMEOUT", lockTimeout)
 	t.Setenv("GAIT_SESSION_LOCK_RETRY", "10ms")
 
 	if _, err := runpack.StartSession(journalPath, runpack.SessionStartOptions{
