@@ -257,11 +257,11 @@ func TestWriteRunSessionOutputSanitizesTextFields(t *testing.T) {
 	if strings.Contains(text, "/tmp/cp.zip\nnext") {
 		t.Fatalf("expected runpack path control characters to be sanitized, got:\n%s", text)
 	}
-	if !strings.Contains(text, "tool=tool.write INJECT verdict=allow BLOCK") {
-		t.Fatalf("expected sanitized append line in output, got:\n%s", text)
+	if !strings.Contains(text, "tool=redacted verdict=unknown") {
+		t.Fatalf("expected append text output to redact tool and normalize verdict, got:\n%s", text)
 	}
-	if !strings.Contains(text, "runpack=/tmp/cp.zip next") {
-		t.Fatalf("expected sanitized checkpoint line in output, got:\n%s", text)
+	if !strings.Contains(text, "runpack=redacted") {
+		t.Fatalf("expected checkpoint text output to redact runpack path, got:\n%s", text)
 	}
 }
 

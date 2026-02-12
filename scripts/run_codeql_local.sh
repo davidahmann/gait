@@ -51,7 +51,7 @@ for lang in "${langs[@]}"; do
       codeql database create "${db_path}" --language=go --source-root . --command "go build ./..."
       echo "[codeql] analyzing ${lang} database"
       codeql database analyze "${db_path}" \
-        codeql/go-queries:codeql-suites/go-code-scanning.qls \
+        codeql/go-queries:codeql-suites/go-security-and-quality.qls \
         --format=sarif-latest \
         --output "${sarif_path}" \
         --threads="${threads}" \
@@ -62,7 +62,7 @@ for lang in "${langs[@]}"; do
       codeql database create "${db_path}" --language=python --source-root .
       echo "[codeql] analyzing ${lang} database"
       codeql database analyze "${db_path}" \
-        codeql/python-queries:codeql-suites/python-code-scanning.qls \
+        codeql/python-queries:codeql-suites/python-security-and-quality.qls \
         --format=sarif-latest \
         --output "${sarif_path}" \
         --threads="${threads}" \
@@ -98,6 +98,10 @@ level_rank = {"note": 0, "warning": 1, "error": 2}
 threshold = level_rank.get(min_level, 1)
 
 findings: list[dict[str, object]] = []
+ignored_uri_markers = (
+    "node_modules/",
+    ".venv/",
+)
 
 for sarif_path in paths:
     with sarif_path.open("r", encoding="utf-8") as handle:
@@ -131,6 +135,9 @@ for sarif_path in paths:
             )
             uri = str(location.get("artifactLocation", {}).get("uri", ""))
             line = location.get("region", {}).get("startLine")
+
+            if any(marker in uri for marker in ignored_uri_markers):
+                continue
 
             findings.append(
                 {

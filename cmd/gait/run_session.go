@@ -453,10 +453,14 @@ func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode in
 		}
 	case "append":
 		if output.Event != nil {
+			toolLabel := "redacted"
+			if strings.TrimSpace(output.Event.ToolName) == "" {
+				toolLabel = "unset"
+			}
 			fmt.Printf("session append: sequence=%d tool=%s verdict=%s\n",
 				output.Event.Sequence,
-				sanitizeSessionLogField(output.Event.ToolName),
-				sanitizeSessionLogField(output.Event.Verdict),
+				toolLabel,
+				sessionVerdictLabel(output.Event.Verdict),
 			)
 		}
 		if output.Journal != "" {
@@ -464,9 +468,13 @@ func writeRunSessionOutput(jsonOutput bool, output runSessionOutput, exitCode in
 		}
 	case "checkpoint":
 		if output.Checkpoint != nil {
+			runpackLabel := "redacted"
+			if strings.TrimSpace(output.Checkpoint.RunpackPath) == "" {
+				runpackLabel = "unset"
+			}
 			fmt.Printf("session checkpoint: index=%d runpack=%s range=%d..%d\n",
 				output.Checkpoint.CheckpointIndex,
-				sanitizeSessionLogField(output.Checkpoint.RunpackPath),
+				runpackLabel,
 				output.Checkpoint.SequenceStart,
 				output.Checkpoint.SequenceEnd,
 			)
@@ -510,6 +518,21 @@ func sanitizeSessionLogField(value string) string {
 		}
 	}, trimmed)
 	return strings.Join(strings.Fields(cleaned), " ")
+}
+
+func sessionVerdictLabel(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "allow":
+		return "allow"
+	case "block":
+		return "block"
+	case "dry_run":
+		return "dry_run"
+	case "require_approval":
+		return "require_approval"
+	default:
+		return "unknown"
+	}
 }
 
 func isSessionVerdictSupported(value string) bool {
