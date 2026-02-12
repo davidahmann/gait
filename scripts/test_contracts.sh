@@ -9,19 +9,32 @@ if [[ $# -gt 1 ]]; then
   exit 2
 fi
 
+resolve_bin_path() {
+  local candidate="$1"
+  if [[ -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  if [[ -x "${candidate}.exe" ]]; then
+    printf '%s\n' "${candidate}.exe"
+    return 0
+  fi
+  return 1
+}
+
 if [[ $# -eq 1 ]]; then
   if [[ "$1" = /* ]]; then
-    BIN_PATH="$1"
+    BIN_CANDIDATE="$1"
   else
-    BIN_PATH="$(pwd)/$1"
+    BIN_CANDIDATE="$(pwd)/$1"
   fi
 else
-  BIN_PATH="$REPO_ROOT/gait"
-  go build -o "$BIN_PATH" ./cmd/gait
+  BIN_CANDIDATE="$REPO_ROOT/gait"
+  go build -o "$BIN_CANDIDATE" ./cmd/gait
 fi
 
-if [[ ! -x "$BIN_PATH" ]]; then
-  echo "binary is not executable: $BIN_PATH" >&2
+if ! BIN_PATH="$(resolve_bin_path "$BIN_CANDIDATE")"; then
+  echo "binary is not executable: $BIN_CANDIDATE" >&2
   exit 2
 fi
 
@@ -38,8 +51,24 @@ echo "==> deterministic artifact bytes"
   cd "$WORK_B"
   "$BIN_PATH" demo >/dev/null
 )
-SUM_A="$(shasum -a 256 "$WORK_A/gait-out/runpack_run_demo.zip" | awk '{print $1}')"
-SUM_B="$(shasum -a 256 "$WORK_B/gait-out/runpack_run_demo.zip" | awk '{print $1}')"
+SUM_B="$(python3 - "$WORK_B/gait-out/runpack_run_demo.zip" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+)"
+SUM_A="$(python3 - "$WORK_A/gait-out/runpack_run_demo.zip" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+print(hashlib.sha256(path.read_bytes()).hexdigest())
+PY
+)"
 if [[ "$SUM_A" != "$SUM_B" ]]; then
   echo "determinism failure: runpack bytes differ" >&2
   exit 1

@@ -9,19 +9,32 @@ if [[ $# -gt 1 ]]; then
   exit 2
 fi
 
+resolve_bin_path() {
+  local candidate="$1"
+  if [[ -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+  if [[ -x "${candidate}.exe" ]]; then
+    printf '%s\n' "${candidate}.exe"
+    return 0
+  fi
+  return 1
+}
+
 if [[ $# -eq 1 ]]; then
   if [[ "$1" = /* ]]; then
-    BIN_PATH="$1"
+    BIN_CANDIDATE="$1"
   else
-    BIN_PATH="$(pwd)/$1"
+    BIN_CANDIDATE="$(pwd)/$1"
   fi
 else
-  BIN_PATH="$REPO_ROOT/gait"
-  go build -o "$BIN_PATH" ./cmd/gait
+  BIN_CANDIDATE="$REPO_ROOT/gait"
+  go build -o "$BIN_CANDIDATE" ./cmd/gait
 fi
 
-if [[ ! -x "$BIN_PATH" ]]; then
-  echo "binary is not executable: $BIN_PATH" >&2
+if ! BIN_PATH="$(resolve_bin_path "$BIN_CANDIDATE")"; then
+  echo "binary is not executable: $BIN_CANDIDATE" >&2
   exit 2
 fi
 
