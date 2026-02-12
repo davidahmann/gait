@@ -34,7 +34,9 @@ def validate_entry(entry: dict[str, Any], index: int) -> None:
     if missing:
         fail(f"{context} missing required keys: {missing}")
 
-    unknown = sorted(set(entry.keys()).difference(required | {"integration", "maintainers"}))
+    unknown = sorted(
+        set(entry.keys()).difference(required | {"integration", "maintainers"})
+    )
     if unknown:
         fail(f"{context} contains unknown keys: {unknown}")
 
@@ -75,7 +77,9 @@ def validate_entry(entry: dict[str, Any], index: int) -> None:
         for maintainer_index, maintainer in enumerate(maintainers):
             expect_type(maintainer, str, f"{context}.maintainers[{maintainer_index}]")
             if len(maintainer) < 3:
-                fail(f"{context}.maintainers[{maintainer_index}] must be at least 3 chars")
+                fail(
+                    f"{context}.maintainers[{maintainer_index}] must be at least 3 chars"
+                )
 
 
 def validate(path: Path) -> None:

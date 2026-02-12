@@ -39,4 +39,3 @@ The tool exits fail-closed for non-`allow` outcomes and emits deterministic JSON
 - `executed` (true only on `allow`)
 - `trace_path`
 - `reason_codes`
-

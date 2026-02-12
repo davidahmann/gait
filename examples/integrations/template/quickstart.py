@@ -145,7 +145,9 @@ def execute_wrapped_tool(intent_payload: dict[str, Any], output_path: Path) -> N
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Template wrapped tool-call quickstart")
+    parser = argparse.ArgumentParser(
+        description="Template wrapped tool-call quickstart"
+    )
     parser.add_argument(
         "--scenario",
         choices=["allow", "block", "require_approval"],

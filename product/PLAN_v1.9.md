@@ -1,7 +1,7 @@
 # PLAN v1.9: Transport-Agnostic Interception + Runpack Inspectability
 
-Date: 2026-02-11  
-Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.8.md`, current `main` codebase  
+Date: 2026-02-11
+Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.8.md`, current `main` codebase
 Scope: OSS v1.9 execution-layer hardening only (no hosted control plane)
 
 This plan is written to be executed top-to-bottom with minimal interpretation. Every story includes concrete repo paths, commands, and acceptance criteria.

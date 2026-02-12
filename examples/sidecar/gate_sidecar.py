@@ -22,7 +22,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--gait-bin", default="gait", help="gait executable path")
     parser.add_argument("--key-mode", default="dev", choices=["dev", "prod"])
-    parser.add_argument("--profile", default="standard", choices=["standard", "oss-prod"])
+    parser.add_argument(
+        "--profile", default="standard", choices=["standard", "oss-prod"]
+    )
     parser.add_argument("--trace-out", default="", help="Optional trace output path")
     parser.add_argument(
         "--delegation-token",

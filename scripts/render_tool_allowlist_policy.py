@@ -13,8 +13,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Generate a gait policy YAML from external tool allowlist JSON. "
-            "Supported inputs: {\"tools\": [...]}, [\"tool.a\", ...], or "
-            "[{\"tool_name\":\"tool.a\"}, ...]."
+            'Supported inputs: {"tools": [...]}, ["tool.a", ...], or '
+            '[{"tool_name":"tool.a"}, ...].'
         )
     )
     parser.add_argument("--input", required=True, help="path to allowlist JSON")
@@ -93,7 +93,8 @@ def main() -> int:
         tools = extract_tools(payload)
         rendered = render_policy_yaml(
             rule_name=args.rule_name.strip() or "allow_registry_tools",
-            reason_code=args.allow_reason_code.strip() or "allowed_by_external_registry",
+            reason_code=args.allow_reason_code.strip()
+            or "allowed_by_external_registry",
             tools=tools,
         )
         output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -25,6 +25,19 @@ repos:
       - id: ruff-format
   - repo: local
     hooks:
+      - id: site-stack-lint
+        name: site stack lint
+        entry: bash scripts/check_site_stack.sh --mode lint
+        language: system
+        files: ^(docs-site/|ui/local/)
+        pass_filenames: false
+      - id: site-stack-build
+        name: site stack build
+        entry: bash scripts/check_site_stack.sh --mode build
+        language: system
+        files: ^(docs-site/|ui/local/)
+        pass_filenames: false
+        stages: [pre-push]
       - id: make-lint
         name: make lint
         entry: make lint

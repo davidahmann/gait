@@ -588,4 +588,3 @@ Success criteria at end of 6 weeks:
 - Does not weaken offline-first defaults.
 - Documents operator-facing behavior and remediation steps.
 - Adds/updates acceptance checks where reliability posture changes.
-

@@ -1,7 +1,7 @@
 # PLAN v1.8: Ecosystem Interception and Distribution Lift
 
-Date: 2026-02-10  
-Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.7.md`, current codebase (`main`)  
+Date: 2026-02-10
+Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.7.md`, current codebase (`main`)
 Scope: OSS v1 execution-layer expansion only. ENT platform remains out of runtime scope.
 
 This plan closes the remaining OSS wedge gaps identified after v1.7:

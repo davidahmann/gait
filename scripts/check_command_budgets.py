@@ -209,7 +209,9 @@ def load_runtime_budgets(path: Path | None) -> tuple[dict[str, Any], str]:
         for field in ("p50_ms", "p95_ms", "p99_ms", "max_error_rate"):
             value = budget.get(field)
             if not isinstance(value, (int, float)):
-                raise ValueError(f"runtime budget field {field} missing for {command_name}")
+                raise ValueError(
+                    f"runtime budget field {field} missing for {command_name}"
+                )
     return raw, str(path)
 
 
@@ -351,7 +353,10 @@ def main() -> int:
             intent_paths[command_name] = intent_path
 
         run_checked([str(gait_path), "demo", "--json"], work_dir)
-        run_checked([str(gait_path), "regress", "init", "--from", "run_demo", "--json"], work_dir)
+        run_checked(
+            [str(gait_path), "regress", "init", "--from", "run_demo", "--json"],
+            work_dir,
+        )
 
         supports_session_checkpointing = command_supported(
             [str(gait_path), "run", "session", "checkpoint", "--help"],
@@ -624,10 +629,15 @@ def main() -> int:
 
         for budget_name in sorted(command_budgets.keys()):
             if budget_name not in command_map:
-                if budget_name in command_capabilities and not command_capabilities[budget_name]:
+                if (
+                    budget_name in command_capabilities
+                    and not command_capabilities[budget_name]
+                ):
                     skipped_commands[budget_name] = "unsupported by target binary"
                     continue
-                failures.append(f"runtime budget configured for unknown command: {budget_name}")
+                failures.append(
+                    f"runtime budget configured for unknown command: {budget_name}"
+                )
 
         if skipped_commands:
             report["skipped_commands"] = skipped_commands

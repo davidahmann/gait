@@ -40,7 +40,9 @@ def read_json(path: str) -> dict[str, Any]:
     return payload
 
 
-def map_openclaw_payload_to_mcp_call(payload: dict[str, Any], identity: str, risk_class: str) -> dict[str, Any]:
+def map_openclaw_payload_to_mcp_call(
+    payload: dict[str, Any], identity: str, risk_class: str
+) -> dict[str, Any]:
     envelope = payload.get("tool_call")
     if not isinstance(envelope, dict):
         raise RuntimeError("expected payload.tool_call object")
@@ -136,14 +138,29 @@ def run_proxy(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="OpenClaw skill boundary wrapper for gait mcp proxy")
+    parser = argparse.ArgumentParser(
+        description="OpenClaw skill boundary wrapper for gait mcp proxy"
+    )
     parser.add_argument("--policy", required=True, help="path to policy YAML")
-    parser.add_argument("--call", required=True, help="path to OpenClaw tool-call JSON or '-' for stdin")
-    parser.add_argument("--identity", default="openclaw-user", help="identity for intent context")
-    parser.add_argument("--risk-class", default="high", help="risk class for intent context")
+    parser.add_argument(
+        "--call", required=True, help="path to OpenClaw tool-call JSON or '-' for stdin"
+    )
+    parser.add_argument(
+        "--identity", default="openclaw-user", help="identity for intent context"
+    )
+    parser.add_argument(
+        "--risk-class", default="high", help="risk class for intent context"
+    )
     parser.add_argument("--trace-out", default="", help="optional trace output path")
-    parser.add_argument("--runpack-out", default="", help="optional runpack output path")
-    parser.add_argument("--key-mode", default="dev", choices=["dev", "prod"], help="trace signing key mode")
+    parser.add_argument(
+        "--runpack-out", default="", help="optional runpack output path"
+    )
+    parser.add_argument(
+        "--key-mode",
+        default="dev",
+        choices=["dev", "prod"],
+        help="trace signing key mode",
+    )
     parser.add_argument("--json", action="store_true", help="emit JSON output")
     args = parser.parse_args()
 
@@ -188,5 +205,9 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except RuntimeError as exc:
-        print(json.dumps({"ok": False, "error": str(exc)}, separators=(",", ":"), sort_keys=True))
+        print(
+            json.dumps(
+                {"ok": False, "error": str(exc)}, separators=(",", ":"), sort_keys=True
+            )
+        )
         raise SystemExit(1)

@@ -76,4 +76,3 @@ make bench-budgets
    - `gait incident pack --from <run_id> --window 24h --json`
 3. Convert to regression:
    - `gait regress bootstrap --from <run_id> --json`
-

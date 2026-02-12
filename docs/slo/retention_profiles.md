@@ -25,4 +25,3 @@ Recommended retention defaults for local/customer-hosted deployments.
 - Apply the profile in `.gait/config.yaml` under `retention`.
 - For `mcp serve`, also enforce `--*-max-age` and `--*-max-count` flags.
 - Keep dry-run retention checks in CI before policy changes where possible.
-

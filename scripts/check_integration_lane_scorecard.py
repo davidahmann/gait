@@ -137,7 +137,9 @@ def evaluate_lane(lane: LaneInput) -> dict[str, Any]:
             "policy_correctness_rate": round6(lane.policy_correctness_rate),
             "distribution_reach": round6(lane.distribution_reach),
         },
-        "normalized_scores": {key: round6(value) for key, value in sorted(metric_scores.items())},
+        "normalized_scores": {
+            key: round6(value) for key, value in sorted(metric_scores.items())
+        },
         "weighted_score": round6(weighted),
     }
 
@@ -155,7 +157,9 @@ def decision_for(scored: list[dict[str, Any]]) -> dict[str, Any]:
     runner_up = None
     if len(scored) > 1:
         runner_up = scored[1]
-        confidence = max(0.0, float(selected["weighted_score"]) - float(runner_up["weighted_score"]))
+        confidence = max(
+            0.0, float(selected["weighted_score"]) - float(runner_up["weighted_score"])
+        )
 
     threshold_met = float(selected["weighted_score"]) >= threshold_score
     confidence_level = "high"
@@ -200,14 +204,18 @@ def main() -> int:
         "created_at": source_created_at,
         "source_schema_id": schema_id,
         "source_schema_version": schema_version,
-        "weights": {key: round6(value) for key, value in sorted(DEFAULT_WEIGHTS.items())},
+        "weights": {
+            key: round6(value) for key, value in sorted(DEFAULT_WEIGHTS.items())
+        },
         "max_setup_minutes": MAX_SETUP_MINUTES,
         "lanes": scored,
         "decision": decision,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    output_path.write_text(
+        json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(f"integration lane scorecard written: {output_path}")
     return 0
 
