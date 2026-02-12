@@ -10,6 +10,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.0.6] - 2026-02-12
+
+### Added
+
+- Added v2.2 OSS hardening controls for prime-time operation, including stricter MCP/service boundary behavior, session durability paths, and expanded chaos/runtime acceptance coverage.
+- Added v2.3 adoption/conformance surfaces: lane scorecard automation, Intent+Receipt conformance contract/docs/tests, CI regress template validation, and blessed OpenAI Agents integration guidance.
+- Added release/distribution automation artifacts for v2.3 metrics snapshots and ecosystem release note rendering in CI/release flows.
+
+### Changed
+
+- Expanded CI/UAT workflows to enforce v2.2 and v2.3 gates (contracts, adoption, ecosystem automation, regression template, and full install-path validation).
+- Updated wrapper quickstart and acceptance flows to emit deterministic key-value checkpoints suitable for automation parsing and adoption timing measurement.
+- Refined integration, launch, and ecosystem docs to align with the blessed lane strategy (coding-agent wrapper + GitHub Actions CI) and adapter expansion guardrails.
+
+### Fixed
+
+- Fixed remaining CI blockers from v2.3 rollout by aligning v1.6 acceptance quickstart assertions with current output contract and hardening ecosystem automation output directory handling.
+- Resolved session-path and contention reliability defects addressed during v2.2 hardening and CodeQL-driven safety remediation.
+
 ## [1.0.5] - 2026-02-11
 
 ### Added

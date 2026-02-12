@@ -29,11 +29,28 @@ echo "==> one-path onboarding"
 pushd "$WORK_DIR" >/dev/null
 QUICKSTART_OUT="$(GAIT_BIN="$BIN_PATH" bash "$REPO_ROOT/scripts/quickstart.sh")"
 printf '%s\n' "$QUICKSTART_OUT"
-[[ "$QUICKSTART_OUT" == *"==> Running gait demo"* ]]
-[[ "$QUICKSTART_OUT" == *"==> Running gait verify run_demo"* ]]
-[[ "$QUICKSTART_OUT" == *"next: $BIN_PATH regress init --from run_demo --json"* ]]
-[[ "$QUICKSTART_OUT" == *"then: $BIN_PATH regress run --json --junit ./gait-out/junit.xml"* ]]
-[[ -f "$WORK_DIR/gait-out/runpack_run_demo.zip" ]]
+QUICKSTART_OUTPUT="$QUICKSTART_OUT" python3 - <<'PY'
+import os
+from pathlib import Path
+
+raw = os.environ["QUICKSTART_OUTPUT"]
+parsed: dict[str, str] = {}
+for line in raw.splitlines():
+    if "=" not in line:
+        continue
+    key, value = line.split("=", 1)
+    parsed[key.strip()] = value.strip()
+
+required = ["quickstart_status", "run_id", "runpack", "verify_json", "regress_init_json"]
+missing = [field for field in required if field not in parsed]
+if missing:
+    raise SystemExit(f"quickstart missing required output fields: {missing}")
+if parsed["quickstart_status"] != "pass":
+    raise SystemExit(f"quickstart_status mismatch: {parsed['quickstart_status']}")
+for field in ("runpack", "verify_json", "regress_init_json"):
+    if not Path(parsed[field]).exists():
+        raise SystemExit(f"quickstart artifact missing: {field}={parsed[field]}")
+PY
 popd >/dev/null
 
 echo "==> ticket footer contract"

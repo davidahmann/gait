@@ -9,6 +9,7 @@ output_path="gait-out/ecosystem_release_notes.md"
 metrics_path="gait-out/v2_3_metrics_snapshot.json"
 
 python3 scripts/validate_community_index.py "$index_path"
+mkdir -p "$(dirname "$output_path")"
 cat > "$metrics_path" <<'JSON'
 {
   "schema_id": "gait.launch.v2_3_metrics_snapshot",
