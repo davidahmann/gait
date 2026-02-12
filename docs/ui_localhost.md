@@ -38,6 +38,25 @@ The UI calls existing commands with `--json` and renders results:
 - `gait regress run --json --junit ./gait-out/junit.xml`
 - `gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json`
 
+## Controlled inputs
+
+The UI supports controlled arguments without enabling arbitrary commands:
+
+- `regress_init` accepts `run_id` (validated by pattern).
+- `policy_block_test` accepts selected `policy_path` and `intent_path` from allowlisted fixtures.
+
+The command surface remains fixed to the predefined action set.
+
+## Per-click deltas
+
+Each run updates an operator summary:
+
+- last action
+- last run timestamp
+- changed artifact indicators based on `exists`/`modified_at` deltas
+
+Artifact metadata is exposed in `/api/state` under the `artifacts` field.
+
 ## Safety model
 
 - The UI is local-only by default.

@@ -32,16 +32,28 @@ type HealthResponse struct {
 }
 
 type StateResponse struct {
-	OK               bool     `json:"ok"`
-	Workspace        string   `json:"workspace"`
-	RunpackPath      string   `json:"runpack_path,omitempty"`
-	RunID            string   `json:"run_id,omitempty"`
-	ManifestDigest   string   `json:"manifest_digest,omitempty"`
-	TraceFiles       []string `json:"trace_files,omitempty"`
-	RegressResult    string   `json:"regress_result_path,omitempty"`
-	JUnitPath        string   `json:"junit_path,omitempty"`
-	GaitConfigExists bool     `json:"gait_config_exists"`
-	Error            string   `json:"error,omitempty"`
+	OK               bool            `json:"ok"`
+	Workspace        string          `json:"workspace"`
+	RunpackPath      string          `json:"runpack_path,omitempty"`
+	RunID            string          `json:"run_id,omitempty"`
+	ManifestDigest   string          `json:"manifest_digest,omitempty"`
+	TraceFiles       []string        `json:"trace_files,omitempty"`
+	RegressResult    string          `json:"regress_result_path,omitempty"`
+	JUnitPath        string          `json:"junit_path,omitempty"`
+	Artifacts        []ArtifactState `json:"artifacts,omitempty"`
+	PolicyPaths      []string        `json:"policy_paths,omitempty"`
+	IntentPaths      []string        `json:"intent_paths,omitempty"`
+	DefaultPolicy    string          `json:"default_policy_path,omitempty"`
+	DefaultIntent    string          `json:"default_intent_path,omitempty"`
+	GaitConfigExists bool            `json:"gait_config_exists"`
+	Error            string          `json:"error,omitempty"`
+}
+
+type ArtifactState struct {
+	Key        string `json:"key"`
+	Path       string `json:"path"`
+	Exists     bool   `json:"exists"`
+	ModifiedAt string `json:"modified_at,omitempty"`
 }
 
 type runCommandSpec struct {

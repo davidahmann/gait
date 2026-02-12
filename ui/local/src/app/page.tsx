@@ -14,6 +14,13 @@ type ExecResponse = {
   error?: string;
 };
 
+type ArtifactState = {
+  key: string;
+  path: string;
+  exists: boolean;
+  modified_at?: string;
+};
+
 type StateResponse = {
   ok: boolean;
   workspace: string;
@@ -23,6 +30,11 @@ type StateResponse = {
   trace_files?: string[];
   regress_result_path?: string;
   junit_path?: string;
+  artifacts?: ArtifactState[];
+  policy_paths?: string[];
+  intent_paths?: string[];
+  default_policy_path?: string;
+  default_intent_path?: string;
   gait_config_exists: boolean;
   error?: string;
 };
@@ -51,11 +63,52 @@ async function requestJSON<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+function prettyAction(actionID: string): string {
+  const action = ACTIONS.find((candidate) => candidate.id === actionID);
+  return action?.label ?? actionID;
+}
+
+function stateFallback(error: unknown): StateResponse {
+  return {
+    ok: false,
+    workspace: "",
+    gait_config_exists: false,
+    error: error instanceof Error ? error.message : "unknown error",
+  };
+}
+
+function computeArtifactChanges(previousState: StateResponse | null, nextState: StateResponse): string[] {
+  const previousArtifacts = new Map<string, ArtifactState>();
+  for (const artifact of previousState?.artifacts ?? []) {
+    previousArtifacts.set(artifact.key, artifact);
+  }
+
+  const changed: string[] = [];
+  for (const artifact of nextState.artifacts ?? []) {
+    const previous = previousArtifacts.get(artifact.key);
+    const marker = `${artifact.key}${artifact.modified_at ? ` @ ${artifact.modified_at}` : ""}`;
+    if (!previous) {
+      changed.push(marker);
+      continue;
+    }
+    if (previous.exists !== artifact.exists || previous.modified_at !== artifact.modified_at) {
+      changed.push(marker);
+    }
+  }
+  return changed;
+}
+
 export default function Page() {
   const [health, setHealth] = useState<"loading" | "ok" | "error">("loading");
   const [state, setState] = useState<StateResponse | null>(null);
   const [output, setOutput] = useState<ExecResponse | { error: string } | null>(null);
   const [running, setRunning] = useState<string | null>(null);
+  const [runIDInput, setRunIDInput] = useState("run_demo");
+  const [policyPath, setPolicyPath] = useState("");
+  const [intentPath, setIntentPath] = useState("");
+  const [lastAction, setLastAction] = useState<string | null>(null);
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [changedArtifacts, setChangedArtifacts] = useState<string[]>([]);
 
   const workspaceSummary = useMemo(() => {
     if (!state) {
@@ -67,17 +120,11 @@ export default function Page() {
     return `Workspace: ${state.workspace}`;
   }, [state]);
 
-  const refreshState = async () => {
+  const fetchState = async (): Promise<StateResponse> => {
     try {
-      const payload = await requestJSON<StateResponse>("/api/state");
-      setState(payload);
+      return await requestJSON<StateResponse>("/api/state");
     } catch (error) {
-      setState({
-        ok: false,
-        workspace: "",
-        gait_config_exists: false,
-        error: error instanceof Error ? error.message : "unknown error",
-      });
+      return stateFallback(error);
     }
   };
 
@@ -89,7 +136,21 @@ export default function Page() {
       } catch {
         setHealth("error");
       }
-      await refreshState();
+      const initialState = await fetchState();
+      setState(initialState);
+      if (initialState.default_policy_path) {
+        setPolicyPath(initialState.default_policy_path);
+      } else if ((initialState.policy_paths?.length ?? 0) > 0) {
+        setPolicyPath(initialState.policy_paths![0]);
+      }
+      if (initialState.default_intent_path) {
+        setIntentPath(initialState.default_intent_path);
+      } else if ((initialState.intent_paths?.length ?? 0) > 0) {
+        setIntentPath(initialState.intent_paths![0]);
+      }
+      if (initialState.run_id) {
+        setRunIDInput(initialState.run_id);
+      }
     };
     void bootstrap();
   }, []);
@@ -97,13 +158,26 @@ export default function Page() {
   const runAction = async (actionID: string) => {
     setRunning(actionID);
     try {
+      const args: Record<string, string> = {};
+      if (actionID === "regress_init") {
+        args.run_id = runIDInput.trim();
+      }
+      if (actionID === "policy_block_test") {
+        args.policy_path = policyPath;
+        args.intent_path = intentPath;
+      }
       const payload = await requestJSON<ExecResponse>("/api/exec", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command: actionID }),
+        body: JSON.stringify({ command: actionID, args }),
       });
+      const previousState = state;
+      const refreshedState = await fetchState();
+      setState(refreshedState);
+      setChangedArtifacts(computeArtifactChanges(previousState, refreshedState));
+      setLastAction(actionID);
+      setLastRunAt(new Date().toISOString());
       setOutput(payload);
-      await refreshState();
     } catch (error) {
       setOutput({ error: error instanceof Error ? error.message : "unknown error" });
     } finally {
@@ -125,6 +199,46 @@ export default function Page() {
         <section className="panel">
           <h2>15-Minute Flow</h2>
           <p className="muted">{workspaceSummary}</p>
+          <div className="status-grid">
+            <div>
+              <span className="status-label">Last Action</span>
+              <strong>{lastAction ? prettyAction(lastAction) : "None yet"}</strong>
+            </div>
+            <div>
+              <span className="status-label">Last Run At</span>
+              <strong>{lastRunAt ?? "No runs yet"}</strong>
+            </div>
+            <div>
+              <span className="status-label">Changed Artifacts</span>
+              <strong>{changedArtifacts.length === 0 ? "None" : changedArtifacts.join(", ")}</strong>
+            </div>
+          </div>
+          <div className="input-grid">
+            <label>
+              Regress Init run_id
+              <input value={runIDInput} onChange={(event) => setRunIDInput(event.target.value)} disabled={running !== null} />
+            </label>
+            <label>
+              Policy Fixture
+              <select value={policyPath} onChange={(event) => setPolicyPath(event.target.value)} disabled={running !== null}>
+                {(state?.policy_paths ?? []).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Intent Fixture
+              <select value={intentPath} onChange={(event) => setIntentPath(event.target.value)} disabled={running !== null}>
+                {(state?.intent_paths ?? []).map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="action-grid">
             {ACTIONS.map((action) => (
               <button key={action.id} onClick={() => void runAction(action.id)} disabled={running !== null}>

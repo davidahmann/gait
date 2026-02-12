@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -18,6 +19,27 @@ import (
 type handler struct {
 	config Config
 }
+
+var (
+	supportedPolicyPaths = []string{
+		"examples/policy/base_high_risk.yaml",
+		"examples/policy/base_medium_risk.yaml",
+		"examples/policy/base_low_risk.yaml",
+	}
+	supportedIntentPaths = []string{
+		"examples/policy/intents/intent_delete.json",
+		"examples/policy/intents/intent_read.json",
+		"examples/policy/intents/intent_write.json",
+		"examples/policy/intents/intent_tainted_egress.json",
+		"examples/policy/intents/intent_delegated_egress_valid.json",
+		"examples/policy/intents/intent_delegated_egress_invalid.json",
+	}
+	defaultPolicyPath  = supportedPolicyPaths[0]
+	defaultIntentPath  = supportedIntentPaths[0]
+	allowedPolicyPaths = sliceToSet(supportedPolicyPaths)
+	allowedIntentPaths = sliceToSet(supportedIntentPaths)
+	runIDPattern       = regexp.MustCompile(`^[a-zA-Z0-9._:-]{1,120}$`)
+)
 
 func NewHandler(config Config, staticHandler http.Handler) (http.Handler, error) {
 	executable := strings.TrimSpace(config.ExecutablePath)
@@ -77,9 +99,22 @@ func (handlerValue *handler) handleState(writer http.ResponseWriter, request *ht
 		OK:               true,
 		Workspace:        workspace,
 		GaitConfigExists: fileExists(filepath.Join(workspace, "gait.yaml")),
+		PolicyPaths:      append([]string(nil), supportedPolicyPaths...),
+		IntentPaths:      append([]string(nil), supportedIntentPaths...),
+		DefaultPolicy:    defaultPolicyPath,
+		DefaultIntent:    defaultIntentPath,
 	}
 
 	runpackPath := filepath.Join(workspace, "gait-out", "runpack_run_demo.zip")
+	regressPath := filepath.Join(workspace, "regress_result.json")
+	junitPath := filepath.Join(workspace, "gait-out", "junit.xml")
+
+	response.Artifacts = collectArtifacts([]artifactSpec{
+		{Key: "runpack", Path: runpackPath},
+		{Key: "regress_result", Path: regressPath},
+		{Key: "junit", Path: junitPath},
+	})
+
 	if fileExists(runpackPath) {
 		verifyResult, verifyErr := runpack.VerifyZip(runpackPath, runpack.VerifyOptions{RequireSignature: false})
 		if verifyErr == nil {
@@ -94,11 +129,9 @@ func (handlerValue *handler) handleState(writer http.ResponseWriter, request *ht
 		response.TraceFiles = traceFiles
 	}
 
-	regressPath := filepath.Join(workspace, "regress_result.json")
 	if fileExists(regressPath) {
 		response.RegressResult = regressPath
 	}
-	junitPath := filepath.Join(workspace, "gait-out", "junit.xml")
 	if fileExists(junitPath) {
 		response.JUnitPath = junitPath
 	}
@@ -191,9 +224,9 @@ func resolveCommand(request ExecRequest) (runCommandSpec, error) {
 			Argv:    []string{"gait", "run", "receipt", "--from", "run_demo", "--json"},
 		}, nil
 	case "regress_init":
-		runID := strings.TrimSpace(args["run_id"])
-		if runID == "" {
-			runID = "run_demo"
+		runID, runIDErr := sanitizeRunID(args["run_id"])
+		if runIDErr != nil {
+			return runCommandSpec{}, runIDErr
 		}
 		return runCommandSpec{
 			Command: "regress_init",
@@ -205,12 +238,20 @@ func resolveCommand(request ExecRequest) (runCommandSpec, error) {
 			Argv:    []string{"gait", "regress", "run", "--json", "--junit", "./gait-out/junit.xml"},
 		}, nil
 	case "policy_block_test":
+		policyPath, policyErr := sanitizePolicyPath(args["policy_path"])
+		if policyErr != nil {
+			return runCommandSpec{}, policyErr
+		}
+		intentPath, intentErr := sanitizeIntentPath(args["intent_path"])
+		if intentErr != nil {
+			return runCommandSpec{}, intentErr
+		}
 		return runCommandSpec{
 			Command: "policy_block_test",
 			Argv: []string{
 				"gait", "policy", "test",
-				"examples/policy/base_high_risk.yaml",
-				"examples/policy/intents/intent_delete.json",
+				policyPath,
+				intentPath,
 				"--json",
 			},
 		}, nil
@@ -244,6 +285,77 @@ func listTraceFiles(workspace string) ([]string, error) {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+type artifactSpec struct {
+	Key  string
+	Path string
+}
+
+func collectArtifacts(specs []artifactSpec) []ArtifactState {
+	artifacts := make([]ArtifactState, 0, len(specs))
+	for _, spec := range specs {
+		modifiedAt := ""
+		exists := false
+		if info, err := os.Stat(spec.Path); err == nil && !info.IsDir() {
+			exists = true
+			modifiedAt = info.ModTime().UTC().Format(time.RFC3339Nano)
+		}
+		artifacts = append(artifacts, ArtifactState{
+			Key:        spec.Key,
+			Path:       spec.Path,
+			Exists:     exists,
+			ModifiedAt: modifiedAt,
+		})
+	}
+	return artifacts
+}
+
+func sanitizeRunID(raw string) (string, error) {
+	runID := strings.TrimSpace(raw)
+	if runID == "" {
+		runID = "run_demo"
+	}
+	if !runIDPattern.MatchString(runID) {
+		return "", fmt.Errorf("invalid run_id %q", runID)
+	}
+	return runID, nil
+}
+
+func sanitizePolicyPath(raw string) (string, error) {
+	pathValue := normalizePathValue(raw)
+	if pathValue == "" {
+		return defaultPolicyPath, nil
+	}
+	if _, ok := allowedPolicyPaths[pathValue]; !ok {
+		return "", fmt.Errorf("unsupported policy_path %q", pathValue)
+	}
+	return pathValue, nil
+}
+
+func sanitizeIntentPath(raw string) (string, error) {
+	pathValue := normalizePathValue(raw)
+	if pathValue == "" {
+		return defaultIntentPath, nil
+	}
+	if _, ok := allowedIntentPaths[pathValue]; !ok {
+		return "", fmt.Errorf("unsupported intent_path %q", pathValue)
+	}
+	return pathValue, nil
+}
+
+func normalizePathValue(raw string) string {
+	normalized := strings.TrimSpace(raw)
+	normalized = strings.ReplaceAll(normalized, `\`, "/")
+	return normalized
+}
+
+func sliceToSet(values []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		result[value] = struct{}{}
+	}
+	return result
 }
 
 func writeError(writer http.ResponseWriter, status int, message string) {

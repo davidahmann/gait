@@ -16,4 +16,6 @@
 ## Operational Notes
 
 - [ ] User-facing docs updated where behavior changed (`README.md`, `docs/hardening/*`, runbooks)
+- [ ] If agent behavior touched production-like paths, attached runpack evidence (`If your agent touched prod, attach the runpack.`)
+- [ ] Included ticket footer evidence line (`gait run receipt --from <run_id|path>`)
 - [ ] For new/expanded official integration lane proposals, attached `gait-out/integration_lane_scorecard.json` evidence and decision outcome

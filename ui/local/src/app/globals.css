@@ -23,6 +23,7 @@ body {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: var(--text);
   background: radial-gradient(circle at 20% -20%, #1b2c46 0%, var(--bg-start) 38%, var(--bg-end) 100%);
+  overflow-x: hidden;
 }
 
 .page-shell {
@@ -71,6 +72,7 @@ body {
   display: grid;
   gap: 1rem;
   grid-template-columns: 1.25fr 1fr;
+  align-items: start;
 }
 
 .panel {
@@ -78,6 +80,8 @@ body {
   border-radius: 14px;
   padding: 1rem;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.23));
+  min-width: 0;
+  overflow: hidden;
 }
 
 .panel h2 {
@@ -88,11 +92,72 @@ body {
   color: var(--muted);
 }
 
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0;
+}
+
+.status-grid > div {
+  border: 1px solid #35557d;
+  border-radius: 10px;
+  background: rgba(22, 41, 65, 0.65);
+  padding: 0.5rem 0.6rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.status-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-grid strong {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.8rem;
+}
+
+.input-grid label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.input-grid input,
+.input-grid select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #35557d;
+  border-radius: 8px;
+  background: #0d1c33;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 0.45rem 0.5rem;
+}
+
+.input-grid input:disabled,
+.input-grid select:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0.75rem 0;
+  min-width: 0;
 }
 
 .action-grid button {
@@ -105,6 +170,7 @@ body {
   cursor: pointer;
   display: grid;
   gap: 0.15rem;
+  min-width: 0;
 }
 
 .action-grid button:hover:enabled {
@@ -137,10 +203,21 @@ body {
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
   font-size: 0.8rem;
   line-height: 1.45;
+  width: 100%;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (max-width: 900px) {
   .layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+  .input-grid {
     grid-template-columns: 1fr;
   }
   .action-grid {

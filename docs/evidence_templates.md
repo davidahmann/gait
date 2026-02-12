@@ -1,6 +1,7 @@
 # Evidence Templates (Epic A7.2)
 
 Use these templates to standardize evidence handoff in incidents, pull requests, and postmortems.
+If your agent touched prod, attach the runpack.
 
 Conventions:
 

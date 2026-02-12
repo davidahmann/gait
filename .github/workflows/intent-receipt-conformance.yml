@@ -1,0 +1,35 @@
+name: intent-receipt-conformance
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "cmd/gait/**"
+      - "core/**"
+      - "schemas/**"
+      - "scripts/test_intent_receipt_conformance.sh"
+      - "docs/contracts/intent_receipt_spec.md"
+      - "docs/contracts/intent_receipt_conformance.md"
+      - ".github/workflows/intent-receipt-conformance.yml"
+  pull_request:
+    paths:
+      - "cmd/gait/**"
+      - "core/**"
+      - "schemas/**"
+      - "scripts/test_intent_receipt_conformance.sh"
+      - "docs/contracts/intent_receipt_spec.md"
+      - "docs/contracts/intent_receipt_conformance.md"
+      - ".github/workflows/intent-receipt-conformance.yml"
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build gait
+        run: go build -o ./gait ./cmd/gait
+      - name: Run intent and receipt conformance
+        run: bash scripts/test_intent_receipt_conformance.sh ./gait

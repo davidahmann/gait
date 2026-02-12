@@ -2,6 +2,8 @@
 
 Enforce policy, capture signed proof, and regression-test every AI agent tool call. One CLI, no network required.
 
+![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
+
 Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
 Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
 Changelog: [CHANGELOG.md](CHANGELOG.md)
@@ -11,6 +13,19 @@ Changelog: [CHANGELOG.md](CHANGELOG.md)
 Terminal speaks for itself: control + proof + regression in under a minute.
 
 ![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)
+
+## Signature Demo (Artifact First)
+
+```bash
+bash scripts/signature_demo.sh ./gait
+```
+
+Runs one canonical artifact path:
+
+- `gait demo`
+- `gait verify run_demo`
+- `gait run diff run_demo run_demo_changed`
+- `gait run receipt --from run_demo` (ticket footer)
 
 ## The Problem
 
@@ -50,6 +65,7 @@ gait verify run_demo
 ```
 
 Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the artifact can verify it offline.
+If your agent touched prod, attach the runpack.
 
 ## What Just Happened
 
@@ -58,6 +74,21 @@ Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the a
 - **ticket_footer** = the one line you paste into tickets so incidents are traceable
 
 Full mental model: `docs/concepts/mental_model.md`
+
+## Optional Local UI
+
+```bash
+go build -o ./gait ./cmd/gait
+./gait ui --open-browser=false
+# open http://127.0.0.1:7980
+```
+
+- One-click 15-minute flow: `demo`, `verify`, `receipt`, `regress init/run`, `policy test`
+- Controlled inputs only (`run_id`, allowlisted policy and intent fixtures)
+- Per-click deltas: last action/time plus changed artifact `modified_at` indicators
+- Local-only by default; CLI and core remain source of truth
+
+Details: `docs/ui_localhost.md` and `docs/contracts/ui_contract.md`
 
 ## Why Gait Exists
 
@@ -225,6 +256,7 @@ bash scripts/install_openclaw_skill.sh
 Full integration walkthrough: `docs/integration_checklist.md`
 Reduce repeated flags with a project config: `docs/project_defaults.md`
 Intent + receipt boundary conformance: `docs/contracts/intent_receipt_conformance.md`
+Intent + Receipt Spec (short): `docs/contracts/intent_receipt_spec.md`
 
 For long-running MCP interception instead of one-shot calls:
 

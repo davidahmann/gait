@@ -222,6 +222,17 @@ func TestResolveCommandCoverage(t *testing.T) {
 			command:  "policy_block_test",
 			contains: []string{"policy", "test", "examples/policy/intents/intent_delete.json"},
 		},
+		{
+			request: ExecRequest{
+				Command: "policy_block_test",
+				Args: map[string]string{
+					"policy_path": "examples/policy/base_low_risk.yaml",
+					"intent_path": "examples/policy/intents/intent_read.json",
+				},
+			},
+			command:  "policy_block_test",
+			contains: []string{"examples/policy/base_low_risk.yaml", "examples/policy/intents/intent_read.json"},
+		},
 	}
 
 	for _, testCase := range cases {
@@ -245,6 +256,21 @@ func TestResolveCommandCoverage(t *testing.T) {
 
 	if _, err := resolveCommand(ExecRequest{Command: "unknown"}); err == nil {
 		t.Fatalf("expected unsupported command error")
+	}
+	if _, err := resolveCommand(ExecRequest{Command: "regress_init", Args: map[string]string{"run_id": "bad id"}}); err == nil {
+		t.Fatalf("expected invalid run_id error")
+	}
+	if _, err := resolveCommand(ExecRequest{
+		Command: "policy_block_test",
+		Args:    map[string]string{"policy_path": "examples/policy/not_allowed.yaml"},
+	}); err == nil {
+		t.Fatalf("expected invalid policy path error")
+	}
+	if _, err := resolveCommand(ExecRequest{
+		Command: "policy_block_test",
+		Args:    map[string]string{"intent_path": "examples/policy/intents/not_allowed.json"},
+	}); err == nil {
+		t.Fatalf("expected invalid intent path error")
 	}
 }
 
@@ -357,6 +383,15 @@ func TestStateRouteArtifacts(t *testing.T) {
 	}
 	if payload.RegressResult == "" || payload.JUnitPath == "" {
 		t.Fatalf("expected regress and junit paths in state response: %+v", payload)
+	}
+	if len(payload.Artifacts) != 3 {
+		t.Fatalf("expected 3 tracked artifacts, got %d", len(payload.Artifacts))
+	}
+	if len(payload.PolicyPaths) == 0 || len(payload.IntentPaths) == 0 {
+		t.Fatalf("expected fixture selectors in state response")
+	}
+	if payload.DefaultPolicy == "" || payload.DefaultIntent == "" {
+		t.Fatalf("expected default fixture selectors in state response")
 	}
 	if len(payload.TraceFiles) != 2 {
 		t.Fatalf("expected trace files in state response: %+v", payload.TraceFiles)
