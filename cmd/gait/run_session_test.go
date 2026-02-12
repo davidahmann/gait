@@ -223,6 +223,48 @@ func TestWriteRunSessionOutputTextModes(t *testing.T) {
 	}
 }
 
+func TestWriteRunSessionOutputSanitizesTextFields(t *testing.T) {
+	text := captureStdout(t, func() {
+		if code := writeRunSessionOutput(false, runSessionOutput{
+			OK:        true,
+			Operation: "append",
+			Journal:   "/tmp/journal.jsonl\ninjected",
+			Event: &schemarunpack.SessionEvent{
+				Sequence: 10,
+				ToolName: "tool.write\nINJECT",
+				Verdict:  "allow\r\nBLOCK",
+			},
+		}, exitOK); code != exitOK {
+			t.Fatalf("writeRunSessionOutput append expected exit %d got %d", exitOK, code)
+		}
+		if code := writeRunSessionOutput(false, runSessionOutput{
+			OK:        true,
+			Operation: "checkpoint",
+			Checkpoint: &schemarunpack.SessionCheckpoint{
+				CheckpointIndex: 1,
+				RunpackPath:     "/tmp/cp.zip\nnext",
+				SequenceStart:   1,
+				SequenceEnd:     1,
+			},
+		}, exitOK); code != exitOK {
+			t.Fatalf("writeRunSessionOutput checkpoint expected exit %d got %d", exitOK, code)
+		}
+	})
+
+	if strings.Contains(text, "tool.write\nINJECT") {
+		t.Fatalf("expected tool name control characters to be sanitized, got:\n%s", text)
+	}
+	if strings.Contains(text, "/tmp/cp.zip\nnext") {
+		t.Fatalf("expected runpack path control characters to be sanitized, got:\n%s", text)
+	}
+	if !strings.Contains(text, "tool=redacted verdict=unknown") {
+		t.Fatalf("expected append text output to redact tool and normalize verdict, got:\n%s", text)
+	}
+	if !strings.Contains(text, "runpack=redacted") {
+		t.Fatalf("expected checkpoint text output to redact runpack path, got:\n%s", text)
+	}
+}
+
 func TestRunSessionCompactFlow(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
