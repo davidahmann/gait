@@ -71,6 +71,19 @@ jobs:
       source_run: run_demo
 ```
 
+## Composite Action (Step-Level Reuse)
+
+Use the composite action when you want step-level control inside an existing job:
+
+```yaml
+- uses: ./.github/actions/gait-regress
+  with:
+    gait-bin: ./gait
+    source-run-id: run_demo
+```
+
+The action enforces stable regress exit codes (`0` pass, `5` deterministic fail).
+
 ## Compatibility Shell Snippet (Non-GitHub CI)
 
 Use this for Jenkins/Buildkite/CircleCI style runners:

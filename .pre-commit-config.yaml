@@ -25,23 +25,22 @@ repos:
       - id: ruff-format
   - repo: local
     hooks:
-      - id: make-lint
-        name: make lint
-        entry: make lint
+      - id: site-stack-lint
+        name: site stack lint
+        entry: bash scripts/check_site_stack.sh --mode lint
         language: system
+        files: ^(docs-site/|ui/local/)
         pass_filenames: false
-        always_run: true
-        stages: [pre-push]
-      - id: make-test
-        name: make test
-        entry: make test
+      - id: site-stack-build
+        name: site stack build
+        entry: bash scripts/check_site_stack.sh --mode build
         language: system
+        files: ^(docs-site/|ui/local/)
         pass_filenames: false
-        always_run: true
         stages: [pre-push]
-      - id: make-codeql
-        name: make codeql
-        entry: make codeql
+      - id: make-prepush
+        name: make prepush
+        entry: make prepush
         language: system
         pass_filenames: false
         always_run: true

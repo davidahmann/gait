@@ -18,7 +18,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint codeql test test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy
+.PHONY: fmt lint lint-fast codeql test test-fast prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-ui-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint
 
@@ -40,6 +40,16 @@ lint:
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev mypy)
 	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev bandit -q -r gait)
 
+lint-fast:
+	$(PYTHON) scripts/validate_repo_skills.py
+	$(PYTHON) scripts/validate_community_index.py
+	bash scripts/check_repo_hygiene.sh
+	bash scripts/check_hooks_config.sh
+	$(GO) vet ./...
+	$(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.0.1 run ./...
+	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev ruff check)
+	(cd $(SDK_DIR) && uv run --python $(UV_PY) --extra dev mypy)
+
 codeql:
 	bash scripts/run_codeql_local.sh
 
@@ -48,6 +58,25 @@ test:
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=$(PYTHON_COVERAGE_THRESHOLD))
+
+test-fast:
+	$(GO) test ./...
+	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest)
+
+prepush:
+	$(MAKE) lint-fast
+	$(MAKE) test-fast
+
+prepush-full:
+	$(MAKE) lint
+	$(MAKE) test
+	$(MAKE) codeql
+
+github-guardrails:
+	bash scripts/configure_github_guardrails.sh
+
+github-guardrails-strict:
+	GAIT_REQUIRED_REVIEWS=1 GAIT_REQUIRE_CODEOWNER_REVIEWS=true bash scripts/configure_github_guardrails.sh
 
 test-hardening:
 	bash scripts/test_hardening.sh
@@ -88,6 +117,10 @@ test-v1-8-acceptance:
 test-v2-3-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v2_3_acceptance.sh ./gait
+
+test-ui-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_ui_acceptance.sh ./gait
 
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
@@ -189,3 +222,12 @@ docs-site-build:
 
 docs-site-lint:
 	cd docs-site && npm run lint
+
+ui-build:
+	bash scripts/ui_build.sh
+
+ui-sync:
+	bash scripts/ui_sync_assets.sh
+
+ui-deps-check:
+	bash scripts/check_ui_deps_freshness.sh

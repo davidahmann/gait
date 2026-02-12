@@ -76,7 +76,7 @@ Current reference adapter set (keep parity): `openai_agents`, `langchain`, `auto
 - CI should run Go linting + security scans (e.g. `golangci-lint`, `go vet`, `gosec`, `govulncheck`) and Python checks for wrapper code (`ruff`, `mypy`, `bandit`, `pytest`).
 - Prefer a cross-platform CI matrix (macOS/Linux/Windows) and path-filtered workflows for speed.
 - Releases should produce checksums, SBOMs, and signed provenance/attestations; treat release integrity separately from runpack/trace signing.
-- Keep git hooks active (`make hooks`) with pre-push running `make lint` and `make test`; keep `.pre-commit-config.yaml` aligned with current checks if pre-commit is used locally.
+- Keep git hooks active (`make hooks`) with pre-push running `make prepush` by default (`make lint-fast` + `make test-fast`), and use `GAIT_PREPUSH_MODE=full git push` for full local gates; keep `.pre-commit-config.yaml` aligned with current checks if pre-commit is used locally.
 
 ## Source of truth for assistants
 

@@ -1,11 +1,13 @@
 #!/bin/sh
 set -e
 
-echo "[gait] running pre-push checks: make lint"
-make lint
+mode="${GAIT_PREPUSH_MODE:-fast}"
 
-echo "[gait] running pre-push checks: make test"
-make test
+if [ "$mode" = "full" ]; then
+  echo "[gait] running pre-push checks (full): make prepush-full"
+  make prepush-full
+  exit 0
+fi
 
-echo "[gait] running pre-push checks: make codeql"
-make codeql
+echo "[gait] running pre-push checks (fast): make prepush"
+make prepush

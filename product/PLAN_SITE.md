@@ -1,7 +1,7 @@
 # PLAN SITE: GitHub Pages Docs + Marketing Site
 
-Date: 2026-02-09  
-Source of truth: `product/PRD.md`, `product/PLAN_v1.md`, `product/PLAN_v1.6.md`, `product/PLAN_v1.7.md`, current docs and codebase  
+Date: 2026-02-09
+Source of truth: `product/PRD.md`, `product/PLAN_v1.md`, `product/PLAN_v1.6.md`, `product/PLAN_v1.7.md`, current docs and codebase
 Scope: OSS-facing website only (docs + marketing). No hosted control-plane features.
 
 This plan is execution-ready and designed to be implemented top-to-bottom with minimal interpretation.

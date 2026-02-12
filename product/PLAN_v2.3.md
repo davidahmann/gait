@@ -635,4 +635,3 @@ Acceptance criteria:
 - `--json` output dependencies are explicit and covered by tests/scripts.
 - No new network requirement is introduced in core/baseline adoption workflows.
 - GitHub Actions changes preserve deterministic artifacts and stable exit-code behavior.
-

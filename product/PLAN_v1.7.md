@@ -1,7 +1,7 @@
 # PLAN v1.7: OSS Execution Wedge Expansion (Endpoint + Skills + SLO)
 
-Date: 2026-02-09  
-Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.6.md`, current codebase (`main`)  
+Date: 2026-02-09
+Source of truth: `product/PRD.md`, `product/ROADMAP.md`, `product/PLAN_v1.md`, `product/PLAN_v1.6.md`, current codebase (`main`)
 Scope: OSS execution path only. This plan extends v1.6 with endpoint-governance depth, skill supply-chain controls, and measurable runtime SLO proof.
 
 This plan is execution-ready and gap-driven. Every story includes concrete tasks, repo paths, and acceptance criteria.

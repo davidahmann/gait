@@ -1,1 +1,8 @@
+# Default owner for all paths.
 * @davidahmann
+
+# Core CLI/policy/artifact enforcement paths.
+/cmd/gait/** @davidahmann
+/core/** @davidahmann
+/schemas/** @davidahmann
+/.github/workflows/** @davidahmann

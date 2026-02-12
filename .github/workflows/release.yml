@@ -58,7 +58,7 @@ jobs:
           python-version: "3.13"
       - name: Install goreleaser
         run: |
-          go install github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}
+          go install "github.com/goreleaser/goreleaser/v2@${GORELEASER_VERSION}"
       - name: Build release artifacts
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -139,17 +139,17 @@ jobs:
           done
       - name: Generate SBOM (syft)
         run: |
-          go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}
+          go install "github.com/anchore/syft/cmd/syft@${SYFT_VERSION}"
           syft packages dir:. -o spdx-json=sbom.spdx.json
       - name: Scan vulnerabilities (grype)
         run: |
-          go install github.com/anchore/grype/cmd/grype@${GRYPE_VERSION}
+          go install "github.com/anchore/grype/cmd/grype@${GRYPE_VERSION}"
           grype dir:. -o json > grype.json
       - name: Sign artifacts (cosign)
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          go install github.com/sigstore/cosign/v2/cmd/cosign@${COSIGN_VERSION}
+          go install "github.com/sigstore/cosign/v2/cmd/cosign@${COSIGN_VERSION}"
           cosign sign-blob --yes \
             --output-signature dist/checksums.txt.sig \
             --output-certificate dist/checksums.txt.pem \

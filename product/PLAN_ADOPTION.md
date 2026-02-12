@@ -483,4 +483,3 @@ Acceptance criteria:
 - No onboarding path requires hidden setup knowledge.
 - Integration patterns enforce tool-boundary control and fail-closed behavior.
 - Changes improve at least one locked adoption metric (`A*`, `E*`, `R*`, `Q*`).
-

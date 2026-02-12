@@ -56,10 +56,16 @@ def render_markdown(
                 "id": require_str(raw_entry.get("id"), f"entries[{index}].id"),
                 "kind": require_str(raw_entry.get("kind"), f"entries[{index}].kind"),
                 "name": require_str(raw_entry.get("name"), f"entries[{index}].name"),
-                "summary": require_str(raw_entry.get("summary"), f"entries[{index}].summary"),
+                "summary": require_str(
+                    raw_entry.get("summary"), f"entries[{index}].summary"
+                ),
                 "repo": require_str(raw_entry.get("repo"), f"entries[{index}].repo"),
-                "source": require_str(raw_entry.get("source"), f"entries[{index}].source"),
-                "status": require_str(raw_entry.get("status"), f"entries[{index}].status"),
+                "source": require_str(
+                    raw_entry.get("source"), f"entries[{index}].source"
+                ),
+                "status": require_str(
+                    raw_entry.get("status"), f"entries[{index}].status"
+                ),
                 "integration": str(raw_entry.get("integration", "")).strip(),
             }
         )
@@ -67,14 +73,17 @@ def render_markdown(
     entries.sort(key=lambda item: item["id"])
 
     kinds = ["adapter", "skill", "policy_pack", "tooling"]
-    kind_counts = {kind: sum(1 for entry in entries if entry["kind"] == kind) for kind in kinds}
+    kind_counts = {
+        kind: sum(1 for entry in entries if entry["kind"] == kind) for kind in kinds
+    }
     source_counts = {
         "official": sum(1 for entry in entries if entry["source"] == "official"),
         "community": sum(1 for entry in entries if entry["source"] == "community"),
     }
     status_values = sorted({entry["status"] for entry in entries})
     status_counts = {
-        status: sum(1 for entry in entries if entry["status"] == status) for status in status_values
+        status: sum(1 for entry in entries if entry["status"] == status)
+        for status in status_values
     }
 
     lines: list[str] = []
@@ -106,7 +115,9 @@ def render_markdown(
         lines.append(f"### {kind}")
         lines.append("")
         for entry in kind_entries:
-            integration = f" integration={entry['integration']}" if entry["integration"] else ""
+            integration = (
+                f" integration={entry['integration']}" if entry["integration"] else ""
+            )
             lines.append(
                 f"- `{entry['id']}` ({entry['status']}, {entry['source']}{integration}) "
                 f"[{entry['name']}]({entry['repo']}): {entry['summary']}"

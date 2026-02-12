@@ -30,4 +30,3 @@ Use this wiki for playbooks, examples, and onboarding shortcuts.
 
 - If this wiki conflicts with `docs/contracts/*`, contracts win.
 - If this wiki conflicts with command behavior, CLI output wins.
-

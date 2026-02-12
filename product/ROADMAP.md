@@ -153,7 +153,7 @@ Acceptance criteria
 
 ⸻
 
-v1.5 
+v1.5
 
  “Gait Skills”
 

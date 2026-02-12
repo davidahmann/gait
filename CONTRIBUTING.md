@@ -30,8 +30,15 @@ Enable the repo pre-push hook (authoritative path in this repo):
 make hooks
 ```
 
-This runs `make lint`, `make test`, and `make codeql` on every push.
-`make lint` now enforces hook activation (`core.hooksPath=.githooks`) and prints remediation:
+By default this runs `make prepush` (`make lint-fast` + `make test-fast`) on every push.
+Use full local enforcement when needed:
+
+```
+GAIT_PREPUSH_MODE=full git push
+```
+
+Full mode runs `make prepush-full` (`make lint`, `make test`, `make codeql`).
+`make lint` enforces hook activation (`core.hooksPath=.githooks`) and prints remediation:
 
 ```
 make hooks
@@ -40,6 +47,27 @@ make hooks
 `make codeql` requires the CodeQL CLI in your `PATH`.
 Install guide: <https://codeql.github.com/docs/codeql-cli/getting-started-with-the-codeql-cli/>.
 Emergency bypass (not recommended for normal flow): `GAIT_SKIP_CODEQL=1 git push`.
+
+## Branch protection and required checks
+
+`main` is expected to be PR-only with required checks. Apply/update the repository defaults with:
+
+```
+make github-guardrails
+```
+
+This config enforces:
+
+- no force-push or branch deletion on `main`
+- required PR conversation resolution
+- strict required status checks (`pr-fast-lint`, `pr-fast-test`, `codeql-scan`)
+- PR flow with `0` required approvals (solo-maintainer-safe)
+
+When at least two maintainers are active, raise governance to require approval plus CODEOWNERS review:
+
+```
+make github-guardrails-strict
+```
 
 ## Repo hygiene guards
 

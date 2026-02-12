@@ -1,0 +1,87 @@
+name: "gait-regress"
+description: "Run deterministic regress checks with stable exit codes."
+
+inputs:
+  gait-bin:
+    description: "Path to gait binary on PATH or workspace"
+    required: false
+    default: "./gait"
+  source-run-id:
+    description: "Run ID used to initialize fixtures when missing"
+    required: false
+    default: "run_demo"
+  config-path:
+    description: "Path to gait regress config"
+    required: false
+    default: "gait.yaml"
+  fixture-runpack-path:
+    description: "Path to fixture runpack.zip"
+    required: false
+    default: "fixtures/run_demo/runpack.zip"
+  artifact-root:
+    description: "Output directory for regress artifacts"
+    required: false
+    default: "gait-out/adoption_regress"
+  junit-path:
+    description: "Path to junit.xml output"
+    required: false
+    default: "gait-out/adoption_regress/junit.xml"
+
+outputs:
+  regress-exit-code:
+    description: "Stable regress exit code (`0` pass, `5` deterministic fail)"
+    value: ${{ steps.regress.outputs.exit_code }}
+  artifact-root:
+    description: "Artifact root containing regress outputs"
+    value: ${{ inputs.artifact-root }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate gait binary
+      shell: bash
+      run: |
+        set -euo pipefail
+        gait_bin="${{ inputs.gait-bin }}"
+        if [[ -x "${gait_bin}" ]]; then
+          "${gait_bin}" --version >/dev/null
+          exit 0
+        fi
+        if command -v "${gait_bin}" >/dev/null 2>&1; then
+          "${gait_bin}" --version >/dev/null
+          exit 0
+        fi
+        echo "gait binary not found: ${gait_bin}" >&2
+        exit 2
+    - name: Restore fixture when missing
+      shell: bash
+      run: |
+        set -euo pipefail
+        gait_bin="${{ inputs.gait-bin }}"
+        config_path="${{ inputs.config-path }}"
+        fixture_runpack="${{ inputs.fixture-runpack-path }}"
+        source_run="${{ inputs.source-run-id }}"
+        if [[ -f "${config_path}" && -f "${fixture_runpack}" ]]; then
+          exit 0
+        fi
+        "${gait_bin}" demo --json >/dev/null
+        "${gait_bin}" regress init --from "${source_run}" --json >/dev/null
+    - name: Run regress
+      id: regress
+      shell: bash
+      run: |
+        set -euo pipefail
+        gait_bin="${{ inputs.gait-bin }}"
+        artifact_root="${{ inputs.artifact-root }}"
+        junit_path="${{ inputs.junit-path }}"
+        mkdir -p "${artifact_root}"
+        set +e
+        "${gait_bin}" regress run --json --junit "${junit_path}" > "${artifact_root}/regress_result.json"
+        status=$?
+        set -e
+        echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+        if [[ "${status}" != "0" && "${status}" != "5" ]]; then
+          echo "unexpected regress exit code: ${status}" >&2
+          exit "${status}"
+        fi
+        exit "${status}"
