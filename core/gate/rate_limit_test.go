@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -242,7 +243,7 @@ func TestIsRateLimitLockContentionPermissionWithoutExistingLock(t *testing.T) {
 func TestIsWindowsAccessDeniedLockError(t *testing.T) {
 	t.Parallel()
 
-	deniedErr := &os.PathError{Op: "open", Path: "rate_state.json.lock", Err: os.ErrPermission}
+	deniedErr := &os.PathError{Op: "open", Path: "rate_state.json.lock", Err: errors.New("Access is denied.")}
 	expected := runtime.GOOS == "windows"
 	if got := isWindowsAccessDeniedLockError(deniedErr); got != expected {
 		t.Fatalf("unexpected access denied classification: got=%v want=%v", got, expected)

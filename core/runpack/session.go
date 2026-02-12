@@ -288,9 +288,22 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 	if err != nil {
 		return schemarunpack.SessionEvent{}, err
 	}
+	lockConfig := resolveSessionLockConfig()
 	var appended schemarunpack.SessionEvent
 	err = withSessionLock(normalizedPath, func() error {
-		state, stateErr := loadOrRebuildSessionState(normalizedPath)
+		var (
+			state    sessionState
+			stateErr error
+		)
+		if lockConfig.Profile == "swarm" {
+			journal, readErr := ReadSessionJournal(normalizedPath)
+			if readErr != nil {
+				return readErr
+			}
+			state, stateErr = buildSessionStateFromJournal(normalizedPath, journal, time.Now().UTC())
+		} else {
+			state, stateErr = loadOrRebuildSessionState(normalizedPath)
+		}
 		if stateErr != nil {
 			return stateErr
 		}
@@ -335,6 +348,9 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 		state.ProducerVersion = producerVersion
 		state.LastSequence = sequence
 		state.EventCount++
+		if lockConfig.Profile == "swarm" {
+			return nil
+		}
 		if info, statErr := statLocalOrAbsolutePath(normalizedPath); statErr == nil {
 			state.JournalSizeBytes = info.Size()
 		}
