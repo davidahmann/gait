@@ -80,14 +80,19 @@ jobs:
         shell: bash
         run: |
           mkdir -p "${ARTIFACT_ROOT}"
-          echo "artifact_root=${ARTIFACT_ROOT}" >> "$GITHUB_OUTPUT"
-          echo "fixture_runpack=${FIXTURE_RUNPACK_PATH}" >> "$GITHUB_OUTPUT"
-          echo "config_path=${CONFIG_PATH}" >> "$GITHUB_OUTPUT"
-          echo "source_run=${SOURCE_RUN}" >> "$GITHUB_OUTPUT"
+          {
+            echo "artifact_root=${ARTIFACT_ROOT}"
+            echo "fixture_runpack=${FIXTURE_RUNPACK_PATH}"
+            echo "config_path=${CONFIG_PATH}"
+            echo "source_run=${SOURCE_RUN}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Restore deterministic fixture
         shell: bash
         run: |
+          : "${FIXTURE_RUNPACK_PATH:?FIXTURE_RUNPACK_PATH must be set}"
+          : "${CONFIG_PATH:?CONFIG_PATH must be set}"
+          : "${SOURCE_RUN:?SOURCE_RUN must be set}"
           fixture_runpack="${FIXTURE_RUNPACK_PATH}"
           config_path="${CONFIG_PATH}"
 
@@ -184,11 +189,17 @@ jobs:
           {
             echo "## Adoption Regress Summary"
             echo ""
+            # shellcheck disable=SC2006
             echo "- status: `${{ steps.regress_parse.outputs.regress_status }}`"
+            # shellcheck disable=SC2006
             echo "- exit_code: `${{ steps.regress_run.outputs.exit_code }}`"
+            # shellcheck disable=SC2006
             echo "- top_failure_reason: `${{ steps.regress_parse.outputs.top_failure_reason }}`"
+            # shellcheck disable=SC2006
             echo "- next_command: `${{ steps.regress_parse.outputs.next_command }}`"
+            # shellcheck disable=SC2006
             echo "- artifact_root: `${ARTIFACT_ROOT}`"
+            # shellcheck disable=SC2006
             echo "- artifact_paths: `${{ steps.regress_parse.outputs.artifact_paths }}`"
           } >> "$GITHUB_STEP_SUMMARY"
 

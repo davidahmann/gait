@@ -1,74 +1,67 @@
 # Gait Documentation Map
 
-This index defines documentation ownership so docs stay aligned with code and avoid overlap.
+This file defines where each topic lives so docs stay accurate and non-duplicative.
 
-## Source Of Truth By Topic
+## Start Here
 
-- Product-first overview and first win: `README.md`
-- Documentation entrypoint and ownership map: `docs/README.md`
-- Public docs and marketing site source: `docs-site/`
-- GitHub Pages deployment workflow: `.github/workflows/docs.yml`
-- System architecture and component boundaries: `docs/architecture.md`
-- End-to-end runtime and operational flows: `docs/flows.md`
-- Core concepts and terminology: `docs/concepts/mental_model.md`
-- Normative artifact and schema contracts: `docs/contracts/primitive_contract.md`
-- Artifact graph and cross-artifact compatibility contract: `docs/contracts/artifact_graph.md`
-- Endpoint action taxonomy contract: `docs/contracts/endpoint_action_model.md`
-- Skill provenance contract: `docs/contracts/skill_provenance.md`
-- Integration steps and acceptance checklist: `docs/integration_checklist.md`
-- Cloud runtime deployment patterns (VM, K8s, serverless): `docs/deployment/cloud_runtime_patterns.md`
-- Zero Trust stack fit and boundaries: `docs/zero_trust_stack.md`
-- External registry allowlist to policy recipe: `docs/external_tool_registry_policy.md`
-- SIEM export ingestion recipes: `docs/siem_ingestion_recipes.md`
-- Runtime defaults and repeated-flag reduction: `docs/project_defaults.md`
-- Prime-time hardening contract: `docs/hardening/v2_2_contract.md`
-- Prime-time hardening runbook: `docs/hardening/prime_time_runbook.md`
-- Retention profile guidance: `docs/slo/retention_profiles.md`
-- Policy authoring workflow and IDE schema guidance: `docs/policy_authoring.md`
-- Policy rollout stages: `docs/policy_rollout.md`
-- Approval workflow and operations: `docs/approval_runbook.md`
-- Incident-to-regression CI workflow: `docs/ci_regress_kit.md`
-- Evidence templates: `docs/evidence_templates.md`
-- Packaging boundary (OSS vs Enterprise): `docs/packaging.md`
-- Installer and platform support: `docs/install.md`
-- Homebrew tap publishing path: `docs/homebrew.md`
-- Local UAT and functional testing plan: `docs/uat_functional_plan.md`
-- Launch and distribution playbooks: `docs/launch/README.md`
-- SEO/AEO checklist for public docs site: `docs/launch/seo_aeo_checklist.md`
-- Wiki playbook source pages: `docs/wiki/` (published via `scripts/publish_wiki.sh`)
+1. `README.md` for product overview and first win
+2. `docs/concepts/mental_model.md` for terminology and execution model
+3. `docs/architecture.md` for component boundaries
+4. `docs/flows.md` for end-to-end runtime and ops sequences
+5. `docs/contracts/primitive_contract.md` for normative behavior
 
-## Overlap Rules
+## Core Product Docs
 
-- `README.md` explains why and how to start quickly. It should not duplicate full runbooks.
-- `docs/concepts/mental_model.md` explains terms and mental model. It should not redefine normative contracts.
-- `docs/contracts/*` are normative. If another doc conflicts, contracts win.
-- `docs/architecture.md` and `docs/flows.md` are the canonical visual references.
-- Operational procedures live in dedicated runbooks (`approval_runbook`, `policy_rollout`, `ci_regress_kit`).
-- Wiki is a convenience layer for adoption playbooks; contracts and runbooks in `docs/` remain authoritative.
+- Architecture: `docs/architecture.md`
+- Runtime flows: `docs/flows.md`
+- Install paths: `docs/install.md`
+- Packaging boundary (OSS vs enterprise): `docs/packaging.md`
+- Project defaults: `docs/project_defaults.md`
+- UI localhost path: `docs/ui_localhost.md`
 
-## Current Alignment Notes
+## Policy And Governance
 
-- CLI command surface in docs aligns with `cmd/gait/main.go` command groups.
-- Contract docs align with schema packages under `core/schema/v1` and validators under `core/schema/validate`.
-- Integration docs align with current adapter examples under `examples/integrations/*`.
-- Installer docs align with `scripts/install.sh` support: Linux/macOS script path and Windows manual path.
-- `docs-site` ingests docs markdown directly from this repository and renders static pages for `https://davidahmann.github.io/gait/`.
+- Authoring: `docs/policy_authoring.md`
+- Rollout: `docs/policy_rollout.md`
+- Approval operations: `docs/approval_runbook.md`
+- External tool allowlist recipe: `docs/external_tool_registry_policy.md`
 
-## Suggested Reading Order
+## Contracts And Compatibility
 
-1. `README.md`
-2. `docs/README.md`
-3. `docs/concepts/mental_model.md`
-4. `docs/architecture.md`
-5. `docs/flows.md`
-6. `docs/contracts/primitive_contract.md`
-7. `docs/contracts/artifact_graph.md`
-8. `docs/integration_checklist.md`
-9. `docs/deployment/cloud_runtime_patterns.md`
-10. `docs/policy_authoring.md`
-11. `docs/policy_rollout.md`
-12. `docs/approval_runbook.md`
-13. `docs/homebrew.md`
-14. `docs/zero_trust_stack.md`
-15. `docs/external_tool_registry_policy.md`
-16. `docs/siem_ingestion_recipes.md`
+- Primitive contract: `docs/contracts/primitive_contract.md`
+- Artifact graph: `docs/contracts/artifact_graph.md`
+- Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`
+- Endpoint action taxonomy: `docs/contracts/endpoint_action_model.md`
+- Skill provenance: `docs/contracts/skill_provenance.md`
+- UI contract: `docs/contracts/ui_contract.md`
+
+## Operations And Hardening
+
+- Hardening contract: `docs/hardening/v2_2_contract.md`
+- Prime-time runbook: `docs/hardening/prime_time_runbook.md`
+- Runtime SLOs: `docs/slo/runtime_slo.md`
+- Retention profiles: `docs/slo/retention_profiles.md`
+- CI regress runbook: `docs/ci_regress_kit.md`
+- UAT plan: `docs/uat_functional_plan.md`
+
+## Adoption And Ecosystem
+
+- Integration checklist: `docs/integration_checklist.md`
+- Deployment patterns: `docs/deployment/cloud_runtime_patterns.md`
+- Zero-trust positioning: `docs/zero_trust_stack.md`
+- Ecosystem index: `docs/ecosystem/awesome.md`
+- Ecosystem contribution flow: `docs/ecosystem/contribute.md`
+- Launch/distribution assets: `docs/launch/README.md`
+
+## Ownership Rules
+
+- `docs/contracts/*` are normative. If any other doc conflicts, contracts win.
+- `README.md` is onboarding and positioning, not a full runbook dump.
+- Ops procedures belong in runbooks (`approval_runbook`, `policy_rollout`, `ci_regress_kit`, hardening docs).
+- Wiki (`docs/wiki/*`) is a convenience layer; `docs/*` remains authoritative.
+
+## Tooling References
+
+- Docs site source: `docs-site/`
+- Docs deployment workflow: `.github/workflows/docs.yml`
+- Wiki publish script: `scripts/publish_wiki.sh`

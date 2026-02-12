@@ -1,49 +1,57 @@
-# Test Cadence Guide (Epic A5.2)
+# Test Cadence Guide
 
-This guide defines speed-vs-depth test execution for Gait adopters.
+This guide defines speed-vs-depth execution for contributors and maintainers.
 
-## PR Cadence (Fast, Deterministic)
+## Pull Request Cadence (Fast, Required)
 
-Run on every pull request:
+Target outcome: quick deterministic feedback with low cycle time.
 
-- `make lint`
-- `make test`
-- `make test-adoption` for onboarding and integration-path smoke checks
-- `make test-ecosystem-automation` for community index and release-note automation checks
-- `python3 scripts/validate_community_index.py` for ecosystem listing contract checks
-- `bash scripts/policy_compliance_ci.sh` for canonical policy fixtures and reason-code summaries
-- `gait regress run --json --junit=...` when regress fixtures are in scope
+Run locally before opening PR:
 
-PR objective:
+- `make prepush` (`make lint-fast` + `make test-fast`)
 
-- Catch correctness, security, and schema regressions quickly.
-- Keep cycle time low enough for frequent iteration.
+Required PR checks on `main`:
 
-## Nightly Cadence (Broad And Deep)
+- `pr-fast-lint`
+- `pr-fast-test`
+- `codeql-scan`
 
-Run nightly:
+Optional local full gate before large/risky PRs:
+
+- `GAIT_PREPUSH_MODE=full git push` (runs `make prepush-full`)
+
+## Mainline Cadence (Broad And Deep)
+
+Heavy validation runs on `main` and merge queue via `.github/workflows/ci.yml`.
+
+Core suites include:
 
 - `make lint`
 - `make test`
 - `make test-e2e`
-- `make test-acceptance`
-- `bash scripts/test_session_soak.sh`
-- `make bench-check`
-- Windows lint workflow (`.github/workflows/windows-lint-nightly.yml`)
+- acceptance wedges (`make test-acceptance`, `make test-v1-6-acceptance`, `make test-v1-7-acceptance`, `make test-v1-8-acceptance`, `make test-v2-3-acceptance`)
+- adoption and adapter parity suites
+- hardening acceptance and contract checks
+- release/install smoke paths
+
+## Nightly Cadence (Stability + Drift)
+
+Nightly workflows cover slower/systemic checks:
+
+- `adoption-nightly.yml`
+- `hardening-nightly.yml`
+- `perf-nightly.yml`
+- `windows-lint-nightly.yml`
 
 Nightly objective:
 
-- Exercise slower integration/e2e paths.
-- Detect performance drift and environmental issues outside PR runtime budgets.
+- detect long-horizon drift and performance regressions
+- validate less frequent platform/runtime edges
+- create follow-up issues before release cut
 
-## Reference Workflow
+## Enforcement Policy
 
-Use `.github/workflows/adoption-nightly.yml` and `.github/workflows/windows-lint-nightly.yml` as nightly profiles.
-
-## Minimum Enforcement Policy
-
-- PR merges require green deterministic checks.
-- Nightly failures create follow-up issues before next release cut.
-- Performance regression failures require either:
-  - benchmark baseline update with reviewer sign-off, or
-  - code fix restoring baseline.
+- `main` is PR-only with required checks.
+- PRs must have required checks green before merge.
+- Nightly regressions must be triaged before next release.
+- Performance budget failures require either a fix or an explicit reviewed baseline update.

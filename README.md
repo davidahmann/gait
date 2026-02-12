@@ -1,81 +1,67 @@
-# Gait — Agent Control Plane
+# Gait - Agent Control Plane
 
-Enforce policy, capture signed proof, and regression-test every AI agent tool call. One CLI, no network required.
+Enforce policy at the tool-call boundary, capture signed proof, and turn incidents into deterministic regressions. One CLI, offline-first.
 
+![PR Fast](https://github.com/davidahmann/gait/actions/workflows/pr-fast.yml/badge.svg)
+![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
 ![Intent+Receipt Conformance](https://github.com/davidahmann/gait/actions/workflows/intent-receipt-conformance.yml/badge.svg)
 
-Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)
-Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)
+Public docs: [https://davidahmann.github.io/gait/](https://davidahmann.github.io/gait/)  
+Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki)  
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-## Gait In 60s
-
-Terminal speaks for itself: control + proof + regression in under a minute.
+## Gait In 60 Seconds
 
 ![Gait in 60 seconds terminal demo](docs/assets/gait_demo_60s.gif)
 
-## Signature Demo (Artifact First)
+## Why Gait
 
-```bash
-bash scripts/signature_demo.sh ./gait
-```
+AI agents now execute high-authority actions: write data, mutate repos, call external APIs, rotate infra. Most stacks still rely on prompt scanning and after-the-fact observability.
 
-Runs one canonical artifact path:
+Gait adds an execution boundary with deterministic artifacts:
 
-- `gait demo`
-- `gait verify run_demo`
-- `gait run diff run_demo run_demo_changed`
-- `gait run receipt --from run_demo` (ticket footer)
+- decide `allow`, `block`, `require_approval`, or `dry_run` before side effects
+- emit signed traces and runpacks that verify offline
+- convert real incidents into CI regressions that fail on drift
 
-## The Problem
+This is governance you can run locally, prove cryptographically, and automate in CI.
 
-AI agents execute tool calls — database writes, API calls, file mutations — with real authority and real consequences. When something goes wrong, there is no artifact trail, no regression test, and no policy gate that can block the next one. Guardrails scan prompts. Gait decides whether the action runs, and signs the proof either way.
+## First Win
 
-## Install And First Win (60 Seconds)
+Install (Linux/macOS):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
 ```
 
-Linux and macOS. Windows: see `docs/install.md`.
-Homebrew (tap) alternative:
+Homebrew alternative:
 
 ```bash
 brew tap davidahmann/tap
 brew install gait
 ```
 
-Tap-first release details: `docs/homebrew.md`.
+Run the first deterministic flow:
 
 ```bash
 gait demo
-```
-
-```text
-run_id=run_demo
-bundle=./gait-out/runpack_run_demo.zip
-ticket_footer=GAIT run_id=run_demo manifest=sha256:88913ed... verify="gait verify run_demo"
-verify=ok
-```
-
-You now have a signed, portable execution artifact. Verify it:
-
-```bash
 gait verify run_demo
+gait run receipt --from run_demo
 ```
 
-Paste the `ticket_footer` line into any incident ticket or PR. Anyone with the artifact can verify it offline.
-If your agent touched prod, attach the runpack.
+Expected output includes:
 
-## What Just Happened
+- `run_id=run_demo`
+- signed bundle under `gait-out/`
+- `ticket_footer=GAIT run_id=...` for PRs/incidents
 
-- **runpack** = a signed ZIP of exactly what the agent did (intents, results, receipts, manifest with SHA-256 hashes)
-- **verify** = offline integrity proof anyone can run, no network needed
-- **ticket_footer** = the one line you paste into tickets so incidents are traceable
+If your agent touched production, attach the runpack.
 
-Full mental model: `docs/concepts/mental_model.md`
+Install details: [`docs/install.md`](docs/install.md) and [`docs/homebrew.md`](docs/homebrew.md)
 
 ## Optional Local UI
+
+Run a local-only UI for guided demo and onboarding flows:
 
 ```bash
 go build -o ./gait ./cmd/gait
@@ -83,107 +69,54 @@ go build -o ./gait ./cmd/gait
 # open http://127.0.0.1:7980
 ```
 
-- One-click 15-minute flow: `demo`, `verify`, `receipt`, `regress init/run`, `policy test`
-- Controlled inputs only (`run_id`, allowlisted policy and intent fixtures)
-- Per-click deltas: last action/time plus changed artifact `modified_at` indicators
-- Local-only by default; CLI and core remain source of truth
+Details: [`docs/ui_localhost.md`](docs/ui_localhost.md) and [`docs/contracts/ui_contract.md`](docs/contracts/ui_contract.md)
 
-Details: `docs/ui_localhost.md` and `docs/contracts/ui_contract.md`
+## Core OSS Surfaces
 
-## Why Gait Exists
+- `runpack`: record, inspect, verify, diff, receipt, replay (stub default)
+- `regress`: incident-to-regression workflow with CI/JUnit outputs
+- `gate`: policy evaluation for tool intent with signed trace output
+- `doctor`: first-run diagnostics and production-readiness checks
+- `scout`: local snapshot/diff/signal analysis for drift clustering
+- `guard` and `incident`: deterministic evidence and incident bundles
+- `registry`: signed/pinned skill-pack install and verify workflows
+- `mcp proxy/bridge/serve`: transport adapters that enforce through Gate
 
-**What it does:** Gait sits at the tool-call boundary — the point where an agent exercises real authority. It decides `allow`, `block`, `require_approval`, or `dry_run` before side effects execute, and emits a signed trace for every decision. Most runtime governance tools observe and alert after the fact. Gait decides before the action runs and proves what happened.
+## Turn Incidents Into CI Regressions
 
-**What it is:**
-
-- an execution-boundary guard for production agent tool calls
-- a verifiable artifact standard (runpack + trace) for incidents, CI, and audits
-- a vendor-neutral CLI that works across frameworks and model providers
-
-**What it is not:**
-
-- not a hosted dashboard
-- not prompt-only filtering
-- not a replacement for your identity provider, SIEM, or ticketing system
-
-**Works with your existing stack:**
-
-- identity and vault systems (CyberArk, HashiCorp Vault, cloud IAM)
-- AI gateway/guardrail scanners for prompt and output inspection
-- SIEM and observability (Splunk, Datadog, Elastic)
-
-## Turn That Into A CI Regression (2 Minutes)
-
-Fast path (one command):
+One command path:
 
 ```bash
 gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
 
-This incident is now a permanent test. If agent behavior drifts, CI fails.
-
-Equivalent explicit path:
+Explicit path:
 
 ```bash
 gait regress init --from run_demo --json
 gait regress run --json --junit ./gait-out/junit.xml
 ```
 
-What you get:
+Deterministic failure contract:
 
-- `gait.yaml` and `fixtures/run_demo/runpack.zip`
-- `regress_result.json`
-- `junit.xml` for CI test reporting
+- exit `0` = pass
+- exit `5` = regression failed
 
-Exit codes are stable and CI-friendly:
+Template workflow: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
 
-- `0` success
-- `5` regression failed
+## Enforce At The Tool Boundary
 
-When regress fails, JSON output includes `top_failure_reason`, `next_command`, and `artifact_paths` so you can act without parsing large files.
+Gait does not auto-intercept your framework. Your dispatcher must call Gait and enforce non-`allow` as non-executable.
 
-Canonical CI template: `.github/workflows/adoption-regress-template.yml`
-
-## Long-Running Sessions And Delegation (v2.1)
-
-Checkpoint long-running runs without losing deterministic verification:
-
-```bash
-gait run session start --journal ./gait-out/sessions/demo.journal.jsonl --session-id sess_demo --run-id run_demo --json
-gait run session append --journal ./gait-out/sessions/demo.journal.jsonl --tool tool.write --verdict allow --intent-id intent_1 --json
-gait run session checkpoint --journal ./gait-out/sessions/demo.journal.jsonl --out ./gait-out/runpack_demo_cp_0001.zip --json
-gait verify session-chain --chain ./gait-out/sessions/demo.journal_chain.json --json
+```python
+def dispatch_tool(tool_call):
+    decision = gait_evaluate(tool_call)
+    if decision["verdict"] != "allow":
+        return {"executed": False, "verdict": decision["verdict"]}
+    return {"executed": True, "result": execute_real_tool(tool_call)}
 ```
 
-Use delegation tokens when high-risk tool actions are delegated between agents:
-
-```bash
-gait delegate mint --delegator agent.lead --delegate agent.specialist --scope tool:tool.write --scope-class write --ttl 1h --private-key ./delegation_private.key --out ./gait-out/delegation_token.json --json
-gait gate eval --policy examples/policy/base_high_risk.yaml --intent examples/policy/intents/intent_delegated_egress_valid.json --delegation-token ./gait-out/delegation_token.json --delegation-public-key ./delegation_public.key --json
-```
-
-## Block Dangerous Tool Calls (5 Minutes)
-
-Gate examples use fixture files from this repository:
-
-```bash
-git clone https://github.com/davidahmann/gait.git && cd gait
-```
-
-Test policies deterministically (no side effects, no keys needed):
-
-```bash
-gait policy validate examples/policy/base_low_risk.yaml --json
-gait policy fmt examples/policy/base_low_risk.yaml --write --json
-gait policy test examples/policy/base_low_risk.yaml examples/policy/intents/intent_read.json --json
-gait policy test examples/policy/base_high_risk.yaml examples/policy/intents/intent_delete.json --json
-gait policy simulate --baseline examples/policy/base_low_risk.yaml --policy examples/policy/base_high_risk.yaml --fixtures examples/policy/intents --json
-```
-
-- low risk read -> `allow`
-- high risk destructive call -> `block`
-
-Evaluate a real intent through Gate:
+Minimal evaluation command:
 
 ```bash
 gait gate eval \
@@ -193,86 +126,46 @@ gait gate eval \
   --json
 ```
 
-Every gate decision produces a signed `trace_<id>.json`. Every block is auditable.
+Policy authoring and rollout docs: [`docs/policy_authoring.md`](docs/policy_authoring.md), [`docs/policy_rollout.md`](docs/policy_rollout.md), [`docs/approval_runbook.md`](docs/approval_runbook.md)
 
-Block a prompt-injection-style tool call:
+## Long-Running Sessions And Delegation
 
-```bash
-gait policy test examples/prompt-injection/policy.yaml examples/prompt-injection/intent_injected.json --json
-```
-
-Result: `verdict: block`, `reason_codes: ["blocked_prompt_injection"]`, and `matched_rule` for fast rule-debug context.
-
-Gate evaluates structured tool-call intent, not prompt text. If verdict is not `allow`, execution does not run.
-
-## Where Enforcement Lives In Your Code
-
-Gait does not automatically intercept tools. Your runtime must call Gait at the tool-dispatch chokepoint and enforce the verdict before any side effects execute.
-
-Minimal insertion pattern:
-
-```python
-def dispatch_tool(tool_call):
-    decision = gait_evaluate(tool_call)  # gate eval / mcp proxy / POST /v1/evaluate
-    if decision["verdict"] != "allow":
-        return {
-            "executed": False,
-            "verdict": decision["verdict"],
-            "reason_codes": decision.get("reason_codes", []),
-        }
-    result = execute_real_tool(tool_call)
-    return {"executed": True, "result": result}
-```
-
-If you run `gait mcp serve`, the service still returns a decision only. The caller must enforce non-`allow` outcomes as non-executable.
-
-## Integrate With Your Framework
-
-Blessed v2.3 lane (default first path):
-
-- `examples/integrations/openai_agents/`
-- `.github/workflows/adoption-regress-template.yml`
-
-**OpenClaw** — install the official boundary package in one command:
+Checkpoint multi-day runs without losing deterministic history:
 
 ```bash
-bash scripts/install_openclaw_skill.sh
+gait run session start --journal ./gait-out/sessions/demo.journal.jsonl --session-id sess_demo --run-id run_demo --json
+gait run session append --journal ./gait-out/sessions/demo.journal.jsonl --tool tool.write --verdict allow --intent-id intent_1 --json
+gait run session checkpoint --journal ./gait-out/sessions/demo.journal.jsonl --out ./gait-out/runpack_demo_cp_0001.zip --json
+gait verify session-chain --chain ./gait-out/sessions/demo.journal_chain.json --json
 ```
 
-**Gas Town** — wire the worker hook to gate eval. Adapter and secure deployment guide:
-
-- `examples/integrations/gastown`
-- `docs/launch/secure_deployment_gastown.md`
-
-**Other frameworks** — adapters ship for OpenAI Agents, LangChain, AutoGen, and AutoGPT:
-
-- `examples/integrations/openai_agents`
-- `examples/integrations/langchain`
-- `examples/integrations/autogen`
-- `examples/integrations/autogpt`
-- `sdk/python/examples/openai_style_tool_decorator.py`
-- `sdk/python/examples/langchain_style_tool_decorator.py`
-
-Full integration walkthrough: `docs/integration_checklist.md`
-Reduce repeated flags with a project config: `docs/project_defaults.md`
-Intent + receipt boundary conformance: `docs/contracts/intent_receipt_conformance.md`
-Intent + Receipt Spec (short): `docs/contracts/intent_receipt_spec.md`
-
-For long-running MCP interception instead of one-shot calls:
+Use delegation tokens for controlled multi-agent handoffs:
 
 ```bash
-gait mcp serve --policy examples/policy-test/allow.yaml --listen 127.0.0.1:8787 --trace-dir ./gait-out/mcp-serve/traces
+gait delegate mint --delegator agent.lead --delegate agent.specialist --scope tool:tool.write --scope-class write --ttl 1h --private-key ./delegation_private.key --out ./gait-out/delegation_token.json --json
+gait gate eval --policy examples/policy/base_high_risk.yaml --intent examples/policy/intents/intent_delegated_egress_valid.json --delegation-token ./gait-out/delegation_token.json --delegation-public-key ./delegation_public.key --json
 ```
 
-Transport endpoints from one service config:
+## Integrations
 
-- `POST /v1/evaluate` (JSON response)
-- `POST /v1/evaluate/sse` (SSE response)
-- `POST /v1/evaluate/stream` (NDJSON response)
+Blessed v2.3 lane:
 
-## Production Posture (oss-prod Profile)
+- [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
+- [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
 
-For fail-closed production enforcement, use `--profile oss-prod` with explicit keys and a credential broker:
+Additional maintained references:
+
+- [`examples/integrations/langchain/`](examples/integrations/langchain/)
+- [`examples/integrations/autogen/`](examples/integrations/autogen/)
+- [`examples/integrations/autogpt/`](examples/integrations/autogpt/)
+- [`examples/integrations/openclaw/`](examples/integrations/openclaw/)
+- [`examples/integrations/gastown/`](examples/integrations/gastown/)
+
+Integration runbook: [`docs/integration_checklist.md`](docs/integration_checklist.md)
+
+## Production Posture
+
+High-risk profile (`oss-prod`) is fail-closed on policy/approval ambiguity:
 
 ```bash
 gait gate eval \
@@ -280,151 +173,97 @@ gait gate eval \
   --intent examples/policy/intents/intent_delete.json \
   --profile oss-prod \
   --key-mode prod \
-  --private-key examples/scenarios/keys/approval_private.key \
-  --credential-broker stub \
-  --trace-out ./gait-out/trace_delete_prod.json \
+  --private-key ./gait-out/keys/prod_private.key \
+  --credential-broker env \
   --json
 ```
 
-The demo key in `examples/scenarios/keys/` is for walkthroughs only. In production, provision your own key and replace `stub` with `env` or `command` broker.
-
-Run strict readiness checks before rollout:
+Readiness command:
 
 ```bash
 gait doctor --production-readiness --json
 ```
 
-Generate and validate local signing keys:
+Hardening references: [`docs/hardening/v2_2_contract.md`](docs/hardening/v2_2_contract.md), [`docs/hardening/prime_time_runbook.md`](docs/hardening/prime_time_runbook.md)
 
-```bash
-gait keys init --out-dir ./gait-out/keys --prefix prod --json
-gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./gait-out/keys/prod_public.key --json
-```
+## Command Surface
 
-For staged rollout, simulate mode reports what *would have* happened without enforcing:
-
-```bash
-gait gate eval \
-  --policy examples/policy/base_medium_risk.yaml \
-  --intent examples/policy/intents/intent_write.json \
-  --simulate --json
-```
-
-References: `docs/policy_authoring.md`, `docs/approval_runbook.md`, `docs/policy_rollout.md`
-Prime-time hardening docs: `docs/hardening/v2_2_contract.md`, `docs/hardening/prime_time_runbook.md`
-
-## Local Signal Engine
-
-Cluster incident families and rank top issues offline:
-
-```bash
-gait scout signal --runs ./gait-out/runpack_run_demo.zip --json
-```
-
-If you also have regress results or traces, pass them for richer analysis:
-
-```bash
-gait scout signal --runs ./gait-out/runpack_run_demo.zip --regress ./gait-out/regress_result.json --traces ./gait-out/trace_delete.json --json
-```
-
-Output includes deterministic fingerprints, family grouping, ranked top issues with driver attribution (`policy_change`, `tool_result_shape_change`, `reference_set_change`, `configuration_change`), and bounded fix suggestions.
-
-## Why Now
-
-Agent frameworks are shipping tool-use to production faster than security tooling can keep up. OpenClaw's recent RCE advisory and Gas Town's worker-escape disclosure both trace back to unguarded tool-call boundaries — exactly the problem Gait is built to solve. If your agents call tools with real authority, the window between "works in staging" and "incident in production" is closing.
-
-## Commands
+Most-used commands:
 
 ```text
-gait demo                                          # offline first win
-gait verify <run_id|path>                          # offline integrity proof
-gait run replay <run_id|path>                      # deterministic stub replay
-gait run diff <left> <right>                       # artifact diff
-gait run receipt --from <run_id|path>              # regenerate ticket footer
-gait run inspect --from <run_id|path>              # readable run timeline (terminal/json)
-gait regress bootstrap --from <run_id|path>        # incident to CI test (one command)
-gait regress init --from <run_id|path>             # create fixture from runpack
-gait regress run [--junit junit.xml]               # run regressions
-gait policy validate <policy.yaml>                 # strict syntax+semantic validation
-gait policy fmt <policy.yaml> [--write]            # deterministic policy formatting
-gait policy test <policy.yaml> <fixture.json>      # test policy offline
-gait policy simulate --baseline <p> --policy <p> --fixtures <csv>  # compare candidate policy vs baseline
-gait gate eval --policy <p> --intent <i>           # evaluate tool intent
-gait keys init|rotate|verify                        # local signing key lifecycle
-gait mcp proxy --policy <p> --call <payload.json>  # one-shot MCP/tool-call boundary
-gait mcp serve --policy <p> --listen <addr>        # long-running local interception service
-gait approve --intent-digest ... --ttl ...         # mint approval token
-gait scout signal --runs <csv>                     # cluster incidents
-gait guard pack --run <id> --out <path>            # evidence bundle
-gait incident pack --from <id> --window <dur>      # incident bundle
-gait trace verify <trace.json>                     # verify signed trace
-gait doctor --json                                 # environment diagnostics
+gait demo
+gait verify <run_id|path>
+gait run inspect --from <run_id|path>
+gait regress bootstrap --from <run_id|path>
+gait gate eval --policy <policy.yaml> --intent <intent.json>
+gait policy test <policy.yaml> <intent_fixture.json>
+gait doctor --json
+gait ui --open-browser=false
 ```
 
-All commands support `--json`. Most support `--explain`.
+All commands support `--json`; most support `--explain`.
 
-## Contracts
+## Contract Commitments
 
-- Primitive contract: `docs/contracts/primitive_contract.md`
-- Determinism: verify, diff, and stub replay are deterministic for identical artifacts
-- Offline-first: core workflows require no network
-- Fail-closed: high-risk paths block on policy or approval ambiguity
-- Schema stability: versioned artifacts, backward-compatible readers
-- Exit codes: `0` success, `2` verification failed, `3` policy block, `4` approval required, `5` regress failed, `6` invalid input
-- Runtime SLOs: `docs/slo/runtime_slo.md`
+- determinism: verify/diff/stub replay are deterministic on identical artifacts
+- offline-first: core workflows do not require network
+- fail-closed: high-risk paths block on policy/approval ambiguity
+- schema stability: versioned artifacts with backward-compatible readers
+- stable exit codes: `0` success, `2` verify failure, `3` policy block, `4` approval required, `5` regress failed, `6` invalid input
 
-## Ecosystem
+Normative contract: [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)
 
-- Discovery: `docs/ecosystem/awesome.md`
-- Contribute: `docs/ecosystem/contribute.md`
-- Machine-readable index: `docs/ecosystem/community_index.json`
-- Adapter proposal: `.github/ISSUE_TEMPLATE/adapter.yml`
-- Skill proposal: `.github/ISSUE_TEMPLATE/skill.yml`
+## Documentation Map
 
-## Docs
+Start here:
 
-- Start here: `docs/README.md`
-- Mental model: `docs/concepts/mental_model.md`
-- Architecture: `docs/architecture.md`
-- Integration checklist: `docs/integration_checklist.md`
-- All docs, contracts, and references: `docs/README.md`
+1. [`docs/README.md`](docs/README.md)
+2. [`docs/concepts/mental_model.md`](docs/concepts/mental_model.md)
+3. [`docs/architecture.md`](docs/architecture.md)
+4. [`docs/flows.md`](docs/flows.md)
+5. [`docs/contracts/primitive_contract.md`](docs/contracts/primitive_contract.md)
 
-Wiki: [https://github.com/davidahmann/gait/wiki](https://github.com/davidahmann/gait/wiki) (playbook layer synced from `docs/wiki/`)
-
-## Development
+## Developer Workflow
 
 ```bash
-make fmt && make lint && make test
+make fmt
+make lint
+make test
 make test-e2e
 make test-adoption
 make test-contracts
 make test-hardening-acceptance
-make test-release-smoke
 make test-uat-local
-make docs-site-install
-make docs-site-build
 ```
 
-`make test-uat-local` now includes policy compliance, adapter parity, integration, perf regression (`bench-check`), and docs-site lint/build checks.
-Use `bash scripts/test_uat_local.sh --skip-docs-site` when npm is unavailable locally.
+Local push hooks:
 
-90-second terminal demo: `bash scripts/demo_90s.sh`
+```bash
+make hooks
+```
 
-Enable required pre-push hook: `make hooks`
+- default pre-push path: `make prepush` (fast)
+- full local gate: `GAIT_PREPUSH_MODE=full git push`
+
+Apply `main` guardrails (PR-only + required checks):
+
+```bash
+make github-guardrails
+```
+
+Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+
+## OSS And Enterprise Boundary
+
+- OSS is the executable substrate: runpack, regress, gate, doctor, scout, guard, adapters
+- Enterprise is a separate fleet governance layer that consumes OSS artifacts
+- Enterprise packaging does not change OSS runtime contracts
+
+Boundary details: [`docs/packaging.md`](docs/packaging.md)
 
 ## Feedback
 
-Something broken, confusing, or wrong? Open an issue or start a discussion. Gait is pre-1.1 and the fastest way to improve it is honest feedback from people trying to use it.
-
 - Issues: [https://github.com/davidahmann/gait/issues](https://github.com/davidahmann/gait/issues)
-- `SECURITY.md` for vulnerability reports
-- `CONTRIBUTING.md`
-- `CODE_OF_CONDUCT.md`
-
-## OSS and Enterprise
-
-- OSS v1 is the free execution substrate: runpack, regress, gate, doctor, scout, and adapter kits.
-- Enterprise is a separate control-plane layer for fleet governance, consuming OSS artifacts.
-- Artifact contracts remain stable regardless of enterprise adoption.
-
-Details: `docs/packaging.md`
+- Security reporting: [`SECURITY.md`](SECURITY.md)
+- Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Community expectations: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)

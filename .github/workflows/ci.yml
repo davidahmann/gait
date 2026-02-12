@@ -6,9 +6,8 @@ on:
     branches: [main]
     paths-ignore:
       - "LICENSE"
-  pull_request:
-    paths-ignore:
-      - "LICENSE"
+  merge_group:
+    branches: [main]
 
 permissions:
   contents: read
