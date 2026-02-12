@@ -32,6 +32,7 @@ Applies to:
 - A `RegressResult` SHOULD reference fixture/run identity so failures can map back to captured artifacts.
 - Evidence bundles SHOULD include pointers back to the exact runpack/trace/regress artifacts they summarize.
 - Delegation audits SHOULD reference the trace and delegation token IDs used for allow/block outcomes.
+- Consumer projections SHOULD preserve intent/receipt digest continuity (`intent_digest`, `policy_digest`, `refs.receipts[*].{query_digest,content_digest}`) when deriving audit views.
 
 ## Compatibility Model
 

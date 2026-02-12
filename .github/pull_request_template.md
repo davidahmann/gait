@@ -16,3 +16,4 @@
 ## Operational Notes
 
 - [ ] User-facing docs updated where behavior changed (`README.md`, `docs/hardening/*`, runbooks)
+- [ ] For new/expanded official integration lane proposals, attached `gait-out/integration_lane_scorecard.json` evidence and decision outcome

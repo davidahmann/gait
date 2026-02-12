@@ -19,7 +19,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      adoption_critical: ${{ steps.filter.outputs.adoption_critical }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            adoption_critical:
+              - 'cmd/gait/**'
+              - 'core/runpack/**'
+              - 'core/regress/**'
+              - 'core/gate/**'
+              - 'schemas/**'
+              - 'docs/integration_checklist.md'
+              - 'docs/ci_regress_kit.md'
+              - '.agents/skills/**'
+
   lint:
+    needs: changes
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 2
@@ -60,6 +81,7 @@ jobs:
           python -m uv run --extra dev bandit -q -r gait
 
   docs-site:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +98,7 @@ jobs:
           npm run build
 
   test:
+    needs: changes
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 2
@@ -110,6 +133,7 @@ jobs:
           python -m uv run --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=85
 
   e2e:
+    needs: changes
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 2
@@ -125,6 +149,7 @@ jobs:
           go test ./internal/e2e -count=1
 
   v1-acceptance:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -139,6 +164,7 @@ jobs:
           make test-acceptance
 
   v1-6-acceptance:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -153,6 +179,7 @@ jobs:
           make test-v1-6-acceptance
 
   v1-7-acceptance:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -167,6 +194,7 @@ jobs:
           make test-v1-7-acceptance
 
   v1-8-acceptance:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -181,6 +209,7 @@ jobs:
           make test-v1-8-acceptance
 
   release-smoke:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -195,6 +224,7 @@ jobs:
           make test-release-smoke
 
   install-smoke:
+    needs: changes
     runs-on: ${{ matrix.os }}
     strategy:
       max-parallel: 2
@@ -211,6 +241,7 @@ jobs:
           make test-install
 
   contracts:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -225,6 +256,7 @@ jobs:
           make test-contracts
 
   policy-compliance:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -245,6 +277,7 @@ jobs:
             gait-out/policy_compliance_results.jsonl
 
   adoption-smoke:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -259,7 +292,43 @@ jobs:
         run: |
           make test-adoption
 
+  adoption-regress:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    uses: ./.github/workflows/adoption-regress-template.yml
+    with:
+      fixture_runpack_path: fixtures/run_demo/runpack.zip
+      config_path: gait.yaml
+      source_run: run_demo
+
+  v2-3-acceptance:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.3 acceptance gate
+        shell: bash
+        run: |
+          make test-v2-3-acceptance
+      - name: Upload v2.3 metrics snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-3-metrics-${{ github.run_id }}
+          path: |
+            gait-out/v2_3_metrics_snapshot.json
+            gait-out/integration_lane_scorecard.json
+            gait-out/adoption_metrics.json
+
   adapter-parity:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -275,6 +344,7 @@ jobs:
           make test-adapter-parity
 
   ecosystem-automation:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -293,6 +363,7 @@ jobs:
           path: gait-out/ecosystem_release_notes.md
 
   skill-supply-chain:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -308,6 +379,7 @@ jobs:
           make test-skill-supply-chain
 
   hardening:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -321,6 +393,7 @@ jobs:
           make test-hardening-acceptance
 
   build:
+    needs: changes
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -254,4 +254,7 @@ if not verify.get("ok"):
     raise SystemExit("legacy migrated verify failed")
 PY
 
+echo "==> intent + receipt conformance gate"
+bash "$REPO_ROOT/scripts/test_intent_receipt_conformance.sh" "$BIN_PATH"
+
 echo "contracts: pass"

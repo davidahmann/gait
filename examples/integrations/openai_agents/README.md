@@ -1,11 +1,16 @@
-# OpenAI Agents Quickstart (Wrapped Tool Boundary)
+# OpenAI Agents Quickstart (Blessed v2.3 Lane)
 
-This guide shows the minimal wrapped execution path:
+This is the top-of-funnel integration lane for v2.3:
 
-1. OpenAI tool call payload -> normalized intent payload.
-2. `gait gate eval` against policy.
-3. Execute only on `allow`.
-4. Persist trace artifact path for audit/debug.
+- local wrapper enforcement for OpenAI-style tool calls
+- direct mapping to GitHub Actions regress gate
+
+## Wrapper Contract
+
+1. normalize framework tool call into `IntentRequest`
+2. evaluate with `gait gate eval`
+3. execute tool only on `allow`
+4. persist deterministic trace path
 
 ## Run
 
@@ -15,30 +20,29 @@ From repo root:
 go build -o ./gait ./cmd/gait
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
 python3 examples/integrations/openai_agents/quickstart.py --scenario block
+python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
 ```
 
-Expected allow output:
+Expected outputs:
 
-```text
-framework=openai_agents
-scenario=allow
-verdict=allow
-executed=true
-trace_path=/.../gait-out/integrations/openai_agents/trace_allow.json
-executor_output=/.../gait-out/integrations/openai_agents/executor_allow.json
-```
+- allow: `verdict=allow`, `executed=true`
+- block: `verdict=block`, `executed=false`
+- require approval: `verdict=require_approval`, `executed=false`
 
-Expected block output:
-
-```text
-framework=openai_agents
-scenario=block
-verdict=block
-executed=false
-trace_path=/.../gait-out/integrations/openai_agents/trace_block.json
-```
-
-Trace record location:
+Trace locations:
 
 - `gait-out/integrations/openai_agents/trace_allow.json`
 - `gait-out/integrations/openai_agents/trace_block.json`
+- `gait-out/integrations/openai_agents/trace_require_approval.json`
+
+## Local -> CI Regress Mapping
+
+```bash
+gait demo
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
+```
+
+Then use `.github/workflows/adoption-regress-template.yml` in CI.
+
+Detailed CI contract: `docs/ci_regress_kit.md`.

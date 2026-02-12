@@ -32,6 +32,7 @@ jobs:
         run: |
           make test-e2e
           make test-acceptance
+          make test-v2-3-acceptance
 
       - name: Session soak and contention profile
         run: |
@@ -50,5 +51,6 @@ jobs:
             coverage-go.out
             perf/bench_output.txt
             perf/bench_report.json
+            gait-out/v2_3_metrics_snapshot.json
             sdk/python/.coverage
             gait-out/

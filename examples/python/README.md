@@ -1,20 +1,29 @@
-# Python Reference Adapter (Epic 9.2)
+# Python Reference Adapter
 
-This example shows the recommended high-risk execution path:
+This path is the minimal Python wrapper integration contract.
 
-1. Build a typed `IntentRequest` from model output.
-2. Evaluate policy with `gait gate eval` through the Python SDK.
-3. Execute side effects only after an `allow` verdict.
-4. Capture a runpack and create a regress fixture for CI.
+## Canonical Flow
 
-Non-negotiable wrapper rules:
-
-- Only wrapped tools are registered with the agent.
-- Any non-`allow` decision blocks execution (fail-closed).
-- Approval tokens and keys stay outside prompt/model context.
+1. capture typed `IntentRequest`
+2. evaluate with `ToolAdapter.execute(...)`
+3. execute side effects only on `allow`
+4. capture runpack and initialize regress fixture
 
 Run from repo root:
 
 ```bash
 uv run --python 3.13 --directory sdk/python python ../../examples/python/reference_adapter_demo.py
 ```
+
+## 15-Minute Checklist
+
+Stop if any expected field is missing:
+
+- `gate verdict=allow executed=True`
+- `runpack run_id=... bundle=...`
+- `regress fixture=... config=...`
+
+Decorator examples:
+
+- `sdk/python/examples/openai_style_tool_decorator.py`
+- `sdk/python/examples/langchain_style_tool_decorator.py`

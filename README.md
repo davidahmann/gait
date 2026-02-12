@@ -197,6 +197,11 @@ If you run `gait mcp serve`, the service still returns a decision only. The call
 
 ## Integrate With Your Framework
 
+Blessed v2.3 lane (default first path):
+
+- `examples/integrations/openai_agents/`
+- `.github/workflows/adoption-regress-template.yml`
+
 **OpenClaw** — install the official boundary package in one command:
 
 ```bash
@@ -219,6 +224,7 @@ bash scripts/install_openclaw_skill.sh
 
 Full integration walkthrough: `docs/integration_checklist.md`
 Reduce repeated flags with a project config: `docs/project_defaults.md`
+Intent + receipt boundary conformance: `docs/contracts/intent_receipt_conformance.md`
 
 For long-running MCP interception instead of one-shot calls:
 

@@ -19,4 +19,12 @@ Each script enforces deterministic expectations:
   - scope mismatch path returns exit `4`
   - valid approval path returns exit `0` with `approval_granted`
 
+Incident conversion flow reference (OSS-safe):
+
+1. `gait demo` (or `gait run record --input <incident_record.json> --json`)
+2. `gait verify <run_id> --json`
+3. `gait run receipt --from <run_id> --json`
+4. `gait regress init --from <run_id> --json`
+5. `gait regress run --json --junit ./gait-out/junit.xml`
+
 The key under `examples/scenarios/keys/` is for demo/testing only.

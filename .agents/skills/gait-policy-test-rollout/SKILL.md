@@ -12,7 +12,7 @@ Execute this workflow to validate policy behavior before enforcement.
 1. Require both files:
    - `<policy.yaml>`
    - `<intent_fixture.json>`
-2. Run deterministic policy test:
+2. Run deterministic policy test (required):
    - `gait policy test <policy.yaml> <intent_fixture.json> --json`
 3. Parse and report fields:
    - `ok`, `policy_digest`, `intent_digest`, `verdict`, `reason_codes`, `violations`, `summary`
@@ -36,6 +36,7 @@ Execute this workflow to validate policy behavior before enforcement.
 - For replay workflows, prefer `gait run replay` (stub mode default); require explicit unsafe flags for real tool replay.
 - Never claim a policy digest or verdict without command output.
 - Keep simulation and enforcement clearly separated in reporting.
+- Keep this skill wrapper-only: do not re-implement policy parsing or verdict logic.
 
 ## Determinism Rules
 

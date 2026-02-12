@@ -148,7 +148,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="OpenAI Agents wrapped tool-call quickstart"
     )
-    parser.add_argument("--scenario", choices=["allow", "block"], required=True)
+    parser.add_argument(
+        "--scenario",
+        choices=["allow", "block", "require_approval"],
+        required=True,
+    )
     args = parser.parse_args()
 
     repo_root = resolve_repo_root()
@@ -187,12 +191,18 @@ def main() -> int:
         print(f"executor_output={executor_path}")
         return 0
 
-    if verdict != "block" or exit_code not in (0, 3):
+    expected_verdict = "block"
+    expected_exit_codes = (0, 3)
+    if scenario == "require_approval":
+        expected_verdict = "require_approval"
+        expected_exit_codes = (0, 4)
+
+    if verdict != expected_verdict or exit_code not in expected_exit_codes:
         raise RuntimeError(
-            f"expected block flow, got exit_code={exit_code} verdict={verdict}"
+            f"expected {expected_verdict} flow, got exit_code={exit_code} verdict={verdict}"
         )
     print(f"framework={FRAMEWORK}")
-    print("scenario=block")
+    print(f"scenario={scenario}")
     print(f"verdict={verdict}")
     print("executed=false")
     print(f"trace_path={traced}")

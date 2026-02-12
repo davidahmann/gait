@@ -23,7 +23,12 @@ const (
 var (
 	adoptionMilestoneOrder = []string{"A1", "A2", "A3", "A4", "E1", "E2", "E3"}
 	activationMilestones   = []string{"A1", "A2", "A3", "A4"}
-	fixedAdoptionTime      = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
+	officialSkillWorkflows = []string{
+		"gait-capture-runpack",
+		"gait-incident-to-regression",
+		"gait-policy-test-rollout",
+	}
+	fixedAdoptionTime = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 )
 
 type AdoptionCommandStats struct {
@@ -38,21 +43,42 @@ type AdoptionMilestoneStatus struct {
 	Achieved bool   `json:"achieved"`
 }
 
+type AdoptionSkillWorkflowStats struct {
+	Workflow              string  `json:"workflow"`
+	Total                 int     `json:"total"`
+	Success               int     `json:"success"`
+	Failure               int     `json:"failure"`
+	SuccessRate           float64 `json:"success_rate"`
+	MedianRuntimeMS       int64   `json:"median_runtime_ms"`
+	MostCommonFailureCode int     `json:"most_common_failure_code,omitempty"`
+}
+
 type AdoptionReport struct {
-	SchemaID           string                    `json:"schema_id"`
-	SchemaVersion      string                    `json:"schema_version"`
-	CreatedAt          time.Time                 `json:"created_at"`
-	ProducerVersion    string                    `json:"producer_version"`
-	Source             string                    `json:"source"`
-	TotalEvents        int                       `json:"total_events"`
-	SuccessEvents      int                       `json:"success_events"`
-	FailedEvents       int                       `json:"failed_events"`
-	FirstEventAt       time.Time                 `json:"first_event_at,omitempty"`
-	LastEventAt        time.Time                 `json:"last_event_at,omitempty"`
-	Commands           []AdoptionCommandStats    `json:"commands"`
-	Milestones         []AdoptionMilestoneStatus `json:"milestones"`
-	ActivationComplete bool                      `json:"activation_complete"`
-	Blockers           []string                  `json:"blockers,omitempty"`
+	SchemaID           string                       `json:"schema_id"`
+	SchemaVersion      string                       `json:"schema_version"`
+	CreatedAt          time.Time                    `json:"created_at"`
+	ProducerVersion    string                       `json:"producer_version"`
+	Source             string                       `json:"source"`
+	TotalEvents        int                          `json:"total_events"`
+	SuccessEvents      int                          `json:"success_events"`
+	FailedEvents       int                          `json:"failed_events"`
+	FirstEventAt       time.Time                    `json:"first_event_at,omitempty"`
+	LastEventAt        time.Time                    `json:"last_event_at,omitempty"`
+	Commands           []AdoptionCommandStats       `json:"commands"`
+	Milestones         []AdoptionMilestoneStatus    `json:"milestones"`
+	ActivationTimingMS map[string]int64             `json:"activation_timing_ms,omitempty"`
+	ActivationMedians  map[string]int64             `json:"activation_medians_ms,omitempty"`
+	SkillWorkflows     []AdoptionSkillWorkflowStats `json:"skill_workflows,omitempty"`
+	ActivationComplete bool                         `json:"activation_complete"`
+	Blockers           []string                     `json:"blockers,omitempty"`
+}
+
+type adoptionWorkflowAccumulator struct {
+	Total        int
+	Success      int
+	Failure      int
+	RuntimeMS    []int64
+	FailureCodes map[int]int
 }
 
 func NewAdoptionEvent(
@@ -61,6 +87,7 @@ func NewAdoptionEvent(
 	elapsed time.Duration,
 	producerVersion string,
 	now time.Time,
+	workflowID string,
 ) schemascout.AdoptionEvent {
 	createdAt := now.UTC()
 	if createdAt.IsZero() {
@@ -78,12 +105,14 @@ func NewAdoptionEvent(
 		trimmedProducerVersion = "0.0.0-dev"
 	}
 	success := exitCode == 0
+	trimmedWorkflowID := strings.TrimSpace(workflowID)
 	return schemascout.AdoptionEvent{
 		SchemaID:        adoptionEventSchemaID,
 		SchemaVersion:   adoptionEventSchemaV1,
 		CreatedAt:       createdAt,
 		ProducerVersion: trimmedProducerVersion,
 		Command:         trimmedCommand,
+		WorkflowID:      trimmedWorkflowID,
 		Success:         success,
 		ExitCode:        exitCode,
 		ElapsedMS:       elapsed.Milliseconds(),
@@ -170,6 +199,12 @@ func BuildAdoptionReport(
 	}
 	statsByCommand := map[string]AdoptionCommandStats{}
 	milestonesAchieved := map[string]struct{}{}
+	milestoneFirstSuccessAt := map[string]time.Time{}
+	milestoneElapsedSamples := map[string][]int64{
+		"A1": {},
+		"A4": {},
+	}
+	workflowAccumulators := map[string]*adoptionWorkflowAccumulator{}
 	totalSuccess := 0
 	totalFailed := 0
 	firstEventAt := time.Time{}
@@ -193,7 +228,38 @@ func BuildAdoptionReport(
 		statsByCommand[command] = stats
 
 		for _, tag := range event.Milestones {
-			milestonesAchieved[strings.TrimSpace(tag)] = struct{}{}
+			trimmedTag := strings.TrimSpace(tag)
+			if trimmedTag == "" {
+				continue
+			}
+			milestonesAchieved[trimmedTag] = struct{}{}
+			if event.Success {
+				if _, ok := milestoneFirstSuccessAt[trimmedTag]; !ok || event.CreatedAt.Before(milestoneFirstSuccessAt[trimmedTag]) {
+					milestoneFirstSuccessAt[trimmedTag] = event.CreatedAt
+				}
+				if _, collect := milestoneElapsedSamples[trimmedTag]; collect {
+					milestoneElapsedSamples[trimmedTag] = append(milestoneElapsedSamples[trimmedTag], event.ElapsedMS)
+				}
+			}
+		}
+		workflowID := resolveSkillWorkflowID(event)
+		if workflowID != "" {
+			accumulator, ok := workflowAccumulators[workflowID]
+			if !ok {
+				accumulator = &adoptionWorkflowAccumulator{
+					RuntimeMS:    make([]int64, 0, 8),
+					FailureCodes: map[int]int{},
+				}
+				workflowAccumulators[workflowID] = accumulator
+			}
+			accumulator.Total++
+			accumulator.RuntimeMS = append(accumulator.RuntimeMS, event.ElapsedMS)
+			if event.Success {
+				accumulator.Success++
+			} else {
+				accumulator.Failure++
+				accumulator.FailureCodes[event.ExitCode]++
+			}
 		}
 		if firstEventAt.IsZero() || event.CreatedAt.Before(firstEventAt) {
 			firstEventAt = event.CreatedAt
@@ -231,6 +297,29 @@ func BuildAdoptionReport(
 	}
 	blockers = uniqueSorted(blockers)
 
+	activationTimingMS := map[string]int64{}
+	if !firstEventAt.IsZero() {
+		for _, milestone := range activationMilestones {
+			if achievedAt, ok := milestoneFirstSuccessAt[milestone]; ok {
+				delta := achievedAt.Sub(firstEventAt).Milliseconds()
+				if delta < 0 {
+					delta = 0
+				}
+				activationTimingMS[milestone] = delta
+			}
+		}
+	}
+
+	activationMedians := map[string]int64{}
+	if median, ok := medianInt64(milestoneElapsedSamples["A1"]); ok {
+		activationMedians["m1_demo_elapsed_ms"] = median
+	}
+	if median, ok := medianInt64(milestoneElapsedSamples["A4"]); ok {
+		activationMedians["m2_regress_run_elapsed_ms"] = median
+	}
+
+	skillWorkflowStats := buildSkillWorkflowStats(workflowAccumulators)
+
 	if !lastEventAt.IsZero() {
 		createdAt = lastEventAt.UTC()
 	}
@@ -248,6 +337,9 @@ func BuildAdoptionReport(
 		LastEventAt:        lastEventAt,
 		Commands:           commandStats,
 		Milestones:         milestones,
+		ActivationTimingMS: activationTimingMS,
+		ActivationMedians:  activationMedians,
+		SkillWorkflows:     skillWorkflowStats,
 		ActivationComplete: activationComplete,
 		Blockers:           blockers,
 	}
@@ -279,6 +371,7 @@ func normalizeAdoptionEvent(event schemascout.AdoptionEvent) (schemascout.Adopti
 	if output.Command == "" {
 		return schemascout.AdoptionEvent{}, fmt.Errorf("command is required")
 	}
+	output.WorkflowID = strings.TrimSpace(output.WorkflowID)
 	if output.ExitCode < 0 {
 		return schemascout.AdoptionEvent{}, fmt.Errorf("exit_code must be >= 0")
 	}
@@ -298,6 +391,82 @@ func normalizeAdoptionEvent(event schemascout.AdoptionEvent) (schemascout.Adopti
 		return schemascout.AdoptionEvent{}, fmt.Errorf("environment.arch is required")
 	}
 	return output, nil
+}
+
+func resolveSkillWorkflowID(event schemascout.AdoptionEvent) string {
+	workflowID := strings.TrimSpace(event.WorkflowID)
+	if workflowID != "" {
+		return workflowID
+	}
+	switch strings.TrimSpace(event.Command) {
+	case "run record", "verify":
+		return "gait-capture-runpack"
+	case "regress init", "regress run", "regress bootstrap":
+		return "gait-incident-to-regression"
+	case "policy test", "policy simulate", "gate eval":
+		return "gait-policy-test-rollout"
+	default:
+		return ""
+	}
+}
+
+func buildSkillWorkflowStats(accumulators map[string]*adoptionWorkflowAccumulator) []AdoptionSkillWorkflowStats {
+	stats := make([]AdoptionSkillWorkflowStats, 0, len(accumulators))
+	for _, workflow := range officialSkillWorkflows {
+		accumulator, ok := accumulators[workflow]
+		if !ok || accumulator == nil || accumulator.Total == 0 {
+			continue
+		}
+		successRate := 0.0
+		if accumulator.Total > 0 {
+			successRate = float64(accumulator.Success) / float64(accumulator.Total)
+		}
+		medianRuntimeMS, _ := medianInt64(accumulator.RuntimeMS)
+		stats = append(stats, AdoptionSkillWorkflowStats{
+			Workflow:              workflow,
+			Total:                 accumulator.Total,
+			Success:               accumulator.Success,
+			Failure:               accumulator.Failure,
+			SuccessRate:           successRate,
+			MedianRuntimeMS:       medianRuntimeMS,
+			MostCommonFailureCode: mostCommonFailureCode(accumulator.FailureCodes),
+		})
+	}
+	return stats
+}
+
+func medianInt64(values []int64) (int64, bool) {
+	if len(values) == 0 {
+		return 0, false
+	}
+	copied := append([]int64(nil), values...)
+	sort.Slice(copied, func(i, j int) bool {
+		return copied[i] < copied[j]
+	})
+	mid := len(copied) / 2
+	if len(copied)%2 == 1 {
+		return copied[mid], true
+	}
+	return (copied[mid-1] + copied[mid]) / 2, true
+}
+
+func mostCommonFailureCode(failureCodes map[int]int) int {
+	if len(failureCodes) == 0 {
+		return 0
+	}
+	selectedCode := 0
+	selectedCount := -1
+	for code, count := range failureCodes {
+		if count > selectedCount {
+			selectedCount = count
+			selectedCode = code
+			continue
+		}
+		if count == selectedCount && code < selectedCode {
+			selectedCode = code
+		}
+	}
+	return selectedCode
 }
 
 func milestoneTags(command string, success bool) []string {

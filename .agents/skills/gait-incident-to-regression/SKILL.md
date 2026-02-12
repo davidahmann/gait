@@ -11,11 +11,11 @@ Execute this workflow to transform an observed run into repeatable CI checks.
 
 1. Resolve source run artifact:
    - use `<run_id>` or `<runpack_path>`
-2. Initialize fixture deterministically:
+2. Initialize fixture deterministically (required):
    - `gait regress init --from <run_id_or_path> --json`
 3. Parse and report:
    - `ok`, `run_id`, `fixture_name`, `fixture_dir`, `config_path`, `next_commands`
-4. Run regression suite:
+4. Run regression suite (required):
    - `gait regress run --json`
 5. If CI output is requested, add JUnit:
    - `gait regress run --json --junit junit.xml`
@@ -32,6 +32,7 @@ Execute this workflow to transform an observed run into repeatable CI checks.
 - For replay workflows, prefer `gait run replay` (stub mode default); require explicit unsafe flags for real tool replay.
 - Do not pass `--allow-nondeterministic` unless explicitly requested.
 - Treat non-zero regress run exits as regressions, not soft warnings.
+- Keep this skill wrapper-only: no inline grading logic and no policy-evaluator behavior outside CLI calls.
 
 ## Determinism Rules
 

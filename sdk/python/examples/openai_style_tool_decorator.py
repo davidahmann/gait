@@ -12,7 +12,7 @@ adapter = ToolAdapter(policy_path="gait.policy.yaml", gait_bin="gait")
     trace_out="./gait-out/trace_openai_write.json",
 )
 def write_customer_note(customer_id: str, note: str) -> dict[str, str]:
-    # Place your real side-effecting tool logic here.
+    # Side effects run only on explicit allow; non-allow raises GateEnforcementError.
     return {"customer_id": customer_id, "status": "written"}
 
 

@@ -1,44 +1,44 @@
-# Local-Agent Integration Template
+# Local-Agent Integration Template (Canonical Wrapper Contract)
 
-This is the canonical OSS integration template for local/offline agent runtimes.
+This template is the canonical minimal wrapper path for OSS v2.3.
 
-It shows the three supported paths:
+Primary sequence (copy/paste):
 
-- wrapper mode (this folder `quickstart.py`)
-- sidecar mode (`examples/sidecar/gate_sidecar.py`)
-- MCP proxy mode (`gait mcp proxy`)
+1. tool payload -> `IntentRequest`
+2. `gait gate eval`
+3. execute real tool only when `verdict=allow`
+4. persist trace path
 
-The wrapper template demonstrates:
-
-1. framework payload -> `IntentRequest`
-2. endpoint mapping (`endpoint_class`)
-3. skill provenance attachment (`skill_provenance`)
-4. `gait gate eval`
-5. execute only on `allow`
-
-## Wrapper quickstart
+## 15-Minute Commands
 
 ```bash
 go build -o ./gait ./cmd/gait
 python3 examples/integrations/template/quickstart.py --scenario allow
 python3 examples/integrations/template/quickstart.py --scenario block
+python3 examples/integrations/template/quickstart.py --scenario require_approval
 ```
 
-## Sidecar quickstart
+Expected stop/go outputs:
+
+- allow: `verdict=allow`, `executed=true`
+- block: `verdict=block`, `executed=false`
+- require approval: `verdict=require_approval`, `executed=false`
+
+## CI Mapping
+
+After local wrapper validation:
 
 ```bash
-python3 examples/sidecar/gate_sidecar.py \
-  --policy examples/policy-test/allow.yaml \
-  --intent-file core/schema/testdata/gate_intent_request_valid.json \
-  --trace-out ./gait-out/trace_sidecar_allow.json
+gait demo
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
 ```
 
-## MCP proxy quickstart
+This path maps directly to `.github/workflows/adoption-regress-template.yml`.
 
-```bash
-gait mcp proxy \
-  --policy examples/policy-test/allow.yaml \
-  --call examples/mcp/openai_function_call.json \
-  --adapter openai \
-  --json
-```
+## Secondary Paths
+
+- sidecar mode: `examples/sidecar/gate_sidecar.py`
+- MCP proxy mode: `gait mcp proxy`
+
+Use secondary paths only after wrapper lane is green.

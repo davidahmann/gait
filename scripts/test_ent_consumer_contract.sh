@@ -139,6 +139,11 @@ def parse_consumer_projection(
             *endpoint_approval.get("reason_codes", []),
         }
     )
+    receipt_digests = sorted(
+        f"{row.get('query_digest', '')}:{row.get('content_digest', '')}"
+        for row in (refs.get("receipts") or [])
+        if isinstance(row, dict)
+    )
     projection = {
         "run_id": manifest["run_id"],
         "runpack_manifest_digest": manifest["manifest_digest"],
@@ -146,8 +151,11 @@ def parse_consumer_projection(
         "intent_count": len(intents),
         "result_count": len(results),
         "receipt_count": len((refs.get("receipts") or [])),
+        "receipt_digest_vector": receipt_digests,
         "trace_id": trace_record["trace_id"],
         "trace_verdict": trace_record["verdict"],
+        "trace_intent_digest": trace_record.get("intent_digest", ""),
+        "trace_policy_digest": trace_record.get("policy_digest", ""),
         "trace_skill_source": skill_provenance.get("source", ""),
         "trace_skill_publisher": skill_provenance.get("publisher", ""),
         "endpoint_verdicts": [
@@ -210,6 +218,8 @@ require(trace_record.get("skill_provenance", {}).get("source") == "registry", "e
 require(endpoint_allow.get("verdict") == "allow", "expected endpoint allow verdict")
 require(endpoint_block.get("verdict") == "block", "expected endpoint block verdict")
 require(endpoint_approval.get("verdict") == "require_approval", "expected endpoint approval verdict")
+require(bool(trace_record.get("intent_digest")), "expected trace intent_digest")
+require(bool(trace_record.get("policy_digest")), "expected trace policy_digest")
 require("endpoint_path_denied" in (endpoint_block.get("reason_codes") or []), "missing endpoint_path_denied reason code")
 require("endpoint_destructive_operation" in (endpoint_approval.get("reason_codes") or []), "missing endpoint_destructive_operation reason code")
 

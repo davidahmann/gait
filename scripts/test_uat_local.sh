@@ -158,6 +158,7 @@ run_step "quality_adoption" make -C "${REPO_ROOT}" test-adoption
 run_step "quality_adapter_parity" make -C "${REPO_ROOT}" test-adapter-parity
 run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_compliance_ci.sh"
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
+run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
 run_step "quality_session_soak" bash "${REPO_ROOT}/scripts/test_session_soak.sh"

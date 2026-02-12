@@ -12,7 +12,7 @@ adapter = ToolAdapter(policy_path="gait.policy.yaml", gait_bin="gait")
     trace_out="./gait-out/trace_langchain_search.json",
 )
 def search_docs(query: str, top_k: int = 3) -> str:
-    # Replace this with your retrieval implementation.
+    # Side effects run only on explicit allow; non-allow raises GateEnforcementError.
     return f"top_{top_k}_results_for:{query}"
 
 

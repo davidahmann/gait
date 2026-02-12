@@ -2,7 +2,49 @@ name: adoption-regress-template
 
 on:
   workflow_dispatch:
+    inputs:
+      fixture_runpack_path:
+        description: "Path to fixture runpack.zip"
+        required: false
+        default: "fixtures/run_demo/runpack.zip"
+      config_path:
+        description: "Path to gait regress config"
+        required: false
+        default: "gait.yaml"
+      source_run:
+        description: "Run ID used when fixture restore fallback is needed"
+        required: false
+        default: "run_demo"
   workflow_call:
+    inputs:
+      fixture_runpack_path:
+        required: false
+        type: string
+        default: "fixtures/run_demo/runpack.zip"
+      config_path:
+        required: false
+        type: string
+        default: "gait.yaml"
+      source_run:
+        required: false
+        type: string
+        default: "run_demo"
+    outputs:
+      regress_status:
+        description: "regress_result status field"
+        value: ${{ jobs.regress.outputs.regress_status }}
+      regress_exit_code:
+        description: "stable regress exit code"
+        value: ${{ jobs.regress.outputs.regress_exit_code }}
+      top_failure_reason:
+        description: "top failure reason from regress result"
+        value: ${{ jobs.regress.outputs.top_failure_reason }}
+      next_command:
+        description: "next command hint from regress result"
+        value: ${{ jobs.regress.outputs.next_command }}
+      artifact_root:
+        description: "artifact directory path"
+        value: ${{ jobs.regress.outputs.artifact_root }}
 
 permissions:
   contents: read
@@ -11,6 +53,17 @@ permissions:
 jobs:
   regress:
     runs-on: ubuntu-latest
+    outputs:
+      regress_status: ${{ steps.regress_parse.outputs.regress_status }}
+      regress_exit_code: ${{ steps.regress_run.outputs.exit_code }}
+      top_failure_reason: ${{ steps.regress_parse.outputs.top_failure_reason }}
+      next_command: ${{ steps.regress_parse.outputs.next_command }}
+      artifact_root: ${{ steps.paths.outputs.artifact_root }}
+    env:
+      FIXTURE_RUNPACK_PATH: ${{ inputs.fixture_runpack_path || github.event.inputs.fixture_runpack_path || 'fixtures/run_demo/runpack.zip' }}
+      CONFIG_PATH: ${{ inputs.config_path || github.event.inputs.config_path || 'gait.yaml' }}
+      SOURCE_RUN: ${{ inputs.source_run || github.event.inputs.source_run || 'run_demo' }}
+      ARTIFACT_ROOT: gait-out/adoption_regress
     steps:
       - uses: actions/checkout@v4
 
@@ -22,34 +75,83 @@ jobs:
         shell: bash
         run: go build -o ./gait ./cmd/gait
 
+      - name: Resolve template paths
+        id: paths
+        shell: bash
+        run: |
+          mkdir -p "${ARTIFACT_ROOT}"
+          echo "artifact_root=${ARTIFACT_ROOT}" >> "$GITHUB_OUTPUT"
+          echo "fixture_runpack=${FIXTURE_RUNPACK_PATH}" >> "$GITHUB_OUTPUT"
+          echo "config_path=${CONFIG_PATH}" >> "$GITHUB_OUTPUT"
+          echo "source_run=${SOURCE_RUN}" >> "$GITHUB_OUTPUT"
+
       - name: Restore deterministic fixture
         shell: bash
         run: |
-          if [[ -f fixtures/run_demo/runpack.zip && -f gait.yaml ]]; then
-            echo "using existing fixtures/run_demo/runpack.zip"
+          fixture_runpack="${FIXTURE_RUNPACK_PATH}"
+          config_path="${CONFIG_PATH}"
+
+          if [[ -f "${fixture_runpack}" && -f "${config_path}" ]]; then
+            echo "using existing fixture=${fixture_runpack} config=${config_path}"
           else
+            echo "fixture/config missing; generating deterministic fallback from ${SOURCE_RUN}"
             ./gait demo
-            ./gait regress init --from run_demo --json
+            ./gait regress init --from "${SOURCE_RUN}" --json > "${ARTIFACT_ROOT}/regress_init_result.json"
           fi
 
-      - name: Run regress and enforce stable exit codes
+      - name: Run regress (capture stable exit code)
+        id: regress_run
         shell: bash
         run: |
-          mkdir -p gait-out
           set +e
-          ./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+          ./gait regress run --json --junit="${ARTIFACT_ROOT}/junit.xml" > "${ARTIFACT_ROOT}/regress_result.json"
           status=$?
           set -e
-          if [[ "$status" -eq 0 ]]; then
-            echo "regression passed"
-            exit 0
+
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${status}" -ne 0 && "${status}" -ne 5 ]]; then
+            echo "unexpected regress exit code: ${status}" >&2
+            exit "${status}"
           fi
-          if [[ "$status" -eq 5 ]]; then
-            echo "regression failed with stable exit code 5"
-            exit 5
-          fi
-          echo "unexpected regress exit code: $status"
-          exit "$status"
+
+      - name: Parse regress result fields
+        id: regress_parse
+        shell: bash
+        run: |
+          python3 - "${ARTIFACT_ROOT}/regress_result.json" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+
+          def sanitize(value: object) -> str:
+              text = str(value).replace("\n", " ").strip()
+              if not text:
+                  return "none"
+              return text
+
+          status = sanitize(payload.get("status", "unknown"))
+          top_failure_reason = sanitize(payload.get("top_failure_reason", "none"))
+          next_command = sanitize(payload.get("next_command", "none"))
+          artifact_paths = payload.get("artifact_paths")
+          if isinstance(artifact_paths, list):
+              artifact_paths_text = ", ".join(str(item) for item in artifact_paths if str(item).strip())
+          else:
+              artifact_paths_text = ""
+          artifact_paths_text = sanitize(artifact_paths_text or "none")
+
+          output_path = os.environ.get("GITHUB_OUTPUT", "")
+          if not output_path:
+              raise SystemExit("GITHUB_OUTPUT is not set")
+          with Path(output_path).open("a", encoding="utf-8") as out:
+              out.write(f"regress_status={status}\n")
+              out.write(f"top_failure_reason={top_failure_reason}\n")
+              out.write(f"next_command={next_command}\n")
+              out.write(f"artifact_paths={artifact_paths_text}\n")
+          PY
 
       - name: Endpoint policy fixture checks
         shell: bash
@@ -75,13 +177,45 @@ jobs:
         run: |
           bash scripts/test_skill_supply_chain.sh
 
+      - name: Publish regress summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Adoption Regress Summary"
+            echo ""
+            echo "- status: `${{ steps.regress_parse.outputs.regress_status }}`"
+            echo "- exit_code: `${{ steps.regress_run.outputs.exit_code }}`"
+            echo "- top_failure_reason: `${{ steps.regress_parse.outputs.top_failure_reason }}`"
+            echo "- next_command: `${{ steps.regress_parse.outputs.next_command }}`"
+            echo "- artifact_root: `${ARTIFACT_ROOT}`"
+            echo "- artifact_paths: `${{ steps.regress_parse.outputs.artifact_paths }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload regress artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gait-regress-artifacts
           path: |
-            gait-out/regress_result.json
-            gait-out/junit.xml
+            gait-out/adoption_regress/regress_result.json
+            gait-out/adoption_regress/junit.xml
+            gait-out/adoption_regress/regress_init_result.json
             gait.yaml
             fixtures/
+
+      - name: Enforce stable regress exit code contract
+        if: always()
+        shell: bash
+        run: |
+          status="${{ steps.regress_run.outputs.exit_code }}"
+          if [[ "$status" == "0" ]]; then
+            echo "regression passed"
+            exit 0
+          fi
+          if [[ "$status" == "5" ]]; then
+            echo "regression failed with stable exit code 5"
+            exit 5
+          fi
+          echo "unexpected regress exit code: ${status}"
+          exit 1

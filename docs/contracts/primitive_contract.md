@@ -11,6 +11,10 @@ This document defines the four execution primitives that integrations must use a
 
 Within a major version, these contracts are backward-compatible.
 
+Intent + receipt continuity conformance profile:
+
+- `docs/contracts/intent_receipt_conformance.md`
+
 ## Versioning and compatibility rules
 
 - Producers MUST emit `schema_id` and `schema_version` for every primitive.

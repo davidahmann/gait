@@ -10,11 +10,11 @@ Execute this workflow to record an artifact safely and deterministically.
 ## Workflow
 
 1. Validate required input path: `<run_record.json>`.
-2. Run record with JSON output:
+2. Run record with JSON output (required):
    - `gait run record --input <run_record.json> --json`
 3. Parse output fields:
    - `ok`, `run_id`, `bundle`, `manifest_digest`, `ticket_footer`
-4. Verify artifact integrity:
+4. Verify artifact integrity (required):
    - `gait verify <run_id_or_bundle_path> --json`
 5. Return a concise handoff block that includes:
    - `run_id`
@@ -30,6 +30,7 @@ Execute this workflow to record an artifact safely and deterministically.
 - For replay workflows, prefer `gait run replay` (stub mode default); require explicit unsafe flags for real tool replay.
 - Do not invent `run_id`, digests, or verify results.
 - Treat non-zero exit from `gait run record` or `gait verify` as blocking errors.
+- Keep this skill wrapper-only: do not parse policy YAML or implement custom evaluator logic.
 
 ## Determinism Rules
 

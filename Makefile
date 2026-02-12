@@ -18,7 +18,7 @@ BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypi
 BENCH_OUTPUT ?= perf/bench_output.txt
 BENCH_BASELINE ?= perf/bench_baseline.json
 
-.PHONY: fmt lint codeql test test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy
+.PHONY: fmt lint codeql test test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-contracts test-intent-receipt-conformance test-ci-regress-template test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge openclaw-skill-install build bench bench-check bench-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s homebrew-formula wiki-publish tool-allowlist-policy
 .PHONY: hooks
 .PHONY: docs-site-install docs-site-build docs-site-lint
 
@@ -85,6 +85,10 @@ test-v1-8-acceptance:
 	$(GO) build -o ./gait ./cmd/gait
 	bash scripts/test_v1_8_acceptance.sh ./gait
 
+test-v2-3-acceptance:
+	$(GO) build -o ./gait ./cmd/gait
+	bash scripts/test_v2_3_acceptance.sh ./gait
+
 test-adoption:
 	bash scripts/test_adoption_smoke.sh
 
@@ -93,6 +97,7 @@ test-adapter-parity:
 
 test-ecosystem-automation:
 	bash scripts/test_ecosystem_release_automation.sh
+	bash scripts/test_ci_regress_template.sh
 
 test-release-smoke: build
 	bash scripts/test_release_smoke.sh ./gait
@@ -103,6 +108,12 @@ test-install: build
 test-contracts: build
 	bash scripts/test_contracts.sh ./gait
 	bash scripts/test_ent_consumer_contract.sh ./gait
+
+test-intent-receipt-conformance: build
+	bash scripts/test_intent_receipt_conformance.sh ./gait
+
+test-ci-regress-template: build
+	bash scripts/test_ci_regress_template.sh
 
 test-ent-consumer-contract: build
 	bash scripts/test_ent_consumer_contract.sh ./gait

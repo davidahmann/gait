@@ -137,7 +137,8 @@ func writeAdoptionEvent(command string, exitCode int, elapsed time.Duration, now
 	if adoptionPath == "" {
 		return
 	}
-	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now)
+	workflowID := strings.TrimSpace(os.Getenv("GAIT_ADOPTION_WORKFLOW"))
+	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now, workflowID)
 	recordTelemetryWriteOutcome("adoption", scout.AppendAdoptionEvent(adoptionPath, event))
 }
 

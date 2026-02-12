@@ -20,6 +20,7 @@
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string" },
     "command": { "type": "string", "minLength": 1 },
+    "workflow_id": { "type": "string", "minLength": 1 },
     "success": { "type": "boolean" },
     "exit_code": { "type": "integer", "minimum": 0, "maximum": 255 },
     "elapsed_ms": { "type": "integer", "minimum": 0 },

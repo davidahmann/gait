@@ -28,6 +28,7 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v1_6_acceptance.sh` (v1.6 wedge/flow checks)
 - `scripts/test_v1_7_acceptance.sh` (v1.7 endpoint/provenance/fail-closed checks)
 - `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
+- `scripts/test_v2_3_acceptance.sh` (v2.3 adoption/conformance/distribution gate + metrics snapshot)
 - `scripts/test_release_smoke.sh` (release artifact + core smoke checks)
 - `scripts/test_hardening_acceptance.sh` (hardening acceptance + deterministic boundary checks)
 - `scripts/test_chaos_exporters.sh`, `scripts/test_chaos_service_boundary.sh`, `scripts/test_chaos_payload_limits.sh`, `scripts/test_chaos_sessions.sh`, `scripts/test_chaos_trace_uniqueness.sh` (v2.2 chaos gates)
@@ -52,6 +53,8 @@ The acceptance suites together exercise command families including:
 - `mcp bridge/proxy/serve` coverage through adapter and acceptance suites
 - v2.2 chaos abuse coverage (boundary abuse, payload limits, exporter corruption, session contention, trace uniqueness)
 - long-running session soak coverage (append/checkpoint/verify + contention budget)
+- v2.3 blessed lane coverage (OpenAI wrapper flow + reusable CI regress template assumptions)
+- intent+receipt conformance coverage (`scripts/test_intent_receipt_conformance.sh`)
 - OpenClaw installable skill package path
 - Gas Town adapter parity path
 - Beads bridge dry-run/live simulation path
@@ -95,7 +98,7 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 ## Pass Criteria
 
-- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
+- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
 - Runtime SLO budget check passes: `make test-runtime-slo`
 - Performance regression checks pass: `make bench-check`
 - Docs site lint/build passes (`make docs-site-lint docs-site-build`) unless explicitly skipped with `--skip-docs-site`

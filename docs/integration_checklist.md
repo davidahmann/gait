@@ -1,58 +1,95 @@
-# Gait Integration Checklist (Epic A3.3)
+# Gait Integration Checklist (v2.3 Blessed Lane)
 
-This checklist is for application teams integrating Gait at the tool-call boundary.
+This checklist is for OSS teams integrating Gait at the tool-call boundary.
 
-Target: complete first integration in 30 to 120 minutes (team and framework dependent).
+Target: first deterministic wrapper integration in <= 15 minutes from clean checkout.
 
-## Scope
+## Lane Governance (Locked for v2.3)
 
-This checklist verifies that a repository has the minimum integration needed for deterministic control:
+Blessed default lane:
 
-- tool registration boundary control
-- fail-closed wrapper or sidecar enforcement
-- endpoint-class intent mapping
-- skill provenance propagation
-- trace persistence
-- runpack recording and verification
-- CI regression enforcement
+- local coding-agent wrapper flow (`examples/integrations/openai_agents/`)
+- GitHub Actions CI regress gate (`.github/workflows/adoption-regress-template.yml`)
+
+Expansion policy (v2.3):
+
+- no new official lane is added unless scorecard threshold is met
+- scorecard command:
+
+```bash
+python3 scripts/check_integration_lane_scorecard.py \
+  --input gait-out/adoption_metrics.json \
+  --out gait-out/integration_lane_scorecard.json
+```
+
+Decision rule (enforced in docs/review): selected lane score >= `0.75` and confidence delta >= `0.03`.
 
 ## Prerequisites
 
-- `gait` is available in `PATH`
-- Python example dependencies are available (`uv`)
-- Repo contains the `examples/` fixtures from this project
+- `gait` available in `PATH` or built from source (`go build -o ./gait ./cmd/gait`)
+- Python 3 available for integration quickstarts
+- repository fixtures present (`examples/`, `schemas/`)
 
-Optional for reduced flag repetition:
+Optional but recommended:
 
-- `.gait/config.yaml` defaults (see `docs/project_defaults.md`)
+- export adoption telemetry to measure activation milestones:
 
-## Step 1: Tool Boundary Registration
+```bash
+export GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl
+```
 
-Required outcome:
+## 15-Minute Stop/Go Checklist
 
-- Agents can access only wrapped tools, not raw side-effecting executors.
+`STOP` if any expected output is missing.
 
-Validation:
+1. `gait demo` emits `run_id=...` and `ticket_footer=GAIT run_id=...`
+2. `gait verify <run_id> --json` returns `ok=true`
+3. `gait gate eval ... --json` returns deterministic `verdict`, `intent_digest`, `policy_digest`, `trace_path`
+4. wrapper quickstart allow flow returns `executed=true`
+5. wrapper quickstart block or approval flow returns `executed=false`
+6. `gait regress init --from <run_id> --json` creates fixture
+7. `gait regress run --json --junit ...` passes (`status=pass` or exit `0`)
 
-- Confirm your tool registry/factory exports wrapped callables only.
-- Confirm every side-effecting tool call path flows through `ToolAdapter.execute(...)`.
+## Canonical Execution Path (Primary)
 
-Evidence to capture:
+1. Emit `IntentRequest`
+2. Evaluate Gate
+3. Enforce fail-closed for non-`allow`
+4. Persist trace
+5. Emit runpack
+6. Convert runpack into regress fixture
 
-- Link to adapter or tool registry file in your repo.
+### Minimal Commands (Blessed Path)
 
-## Step 1B: Enforce At The Dispatch Chokepoint
+From repo root:
 
-Required outcome:
+```bash
+go build -o ./gait ./cmd/gait
+python3 examples/integrations/openai_agents/quickstart.py --scenario allow
+python3 examples/integrations/openai_agents/quickstart.py --scenario block
+python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+```
 
-- The exact code path that executes side effects performs a Gate decision check first.
-- The real tool executor is unreachable unless verdict is `allow`.
+Expected behavioral contract:
 
-Implementation guidance:
+- allow: `verdict=allow`, `executed=true`
+- block: `verdict=block`, `executed=false`
+- require approval: `verdict=require_approval`, `executed=false`
 
-- Identify the concrete dispatch method/function in your runtime (for example `ToolAdapter.execute`, `dispatch_tool`, worker action handler).
-- Insert one pre-execution guard that evaluates intent through Gait (`gait gate eval`, `gait mcp proxy`, or `gait mcp serve`).
-- Return non-executable output for `block`, `require_approval`, `dry_run`, invalid payloads, or evaluation failures.
+Then convert captured run into CI baseline:
+
+```bash
+gait demo
+gait regress init --from run_demo --json
+gait regress run --json --junit ./gait-out/junit.xml
+```
+
+## Fail-Closed Chokepoint Rules (Required)
+
+Your dispatch path MUST enforce:
+
+- only `verdict=allow` executes side effects
+- `block`, `require_approval`, `dry_run`, invalid payload, or Gate evaluation error return non-executable output
 
 Minimal pattern:
 
@@ -63,260 +100,68 @@ if decision["verdict"] != "allow":
 return execute_real_tool(tool_call)
 ```
 
-Validation:
+## CI Mapping (Local -> GitHub Actions)
 
-- Unit test: dispatcher does not call executor when verdict is `block`.
-- Unit test: dispatcher does not call executor when verdict is `require_approval`.
-- Unit test: dispatcher does not call executor when Gate evaluation errors.
+Use `.github/workflows/adoption-regress-template.yml` directly.
 
-Evidence to capture:
+Required parity between local and CI:
 
-- Exact path and line for chokepoint guard insertion (for example `src/agent/dispatch.py:87`).
-- Test output proving executor is not reachable on non-`allow` decisions.
+- same fixture source (`fixtures/run_demo/runpack.zip` + `gait.yaml` or `gait regress init` fallback)
+- same stable exit handling (`0` pass, `5` deterministic failure)
+- same retained artifacts (`regress_result.json`, `junit.xml`, fixture files)
 
-## Step 2: Wrapper Enforcement Semantics
+See `docs/ci_regress_kit.md` for workflow-call inputs/outputs and downstream reuse.
 
-Required outcome:
+## Activation Timing Metrics (M1/M2)
 
-- Execution occurs only on explicit `allow`.
-- `block`, `require_approval`, invalid decision, and evaluation failure do not execute side effects.
-- `dry_run` does not execute side effects.
-- Intents include explicit endpoint metadata (`operation`, `endpoint_class`) for side-effecting paths.
-- Intents include `skill_provenance` when execution is skill-triggered.
-- Intents SHOULD carry enterprise passthrough context when available:
-  - `context.auth_context`
-  - `context.credential_scopes`
-  - `context.environment_fingerprint`
-- Intents SHOULD carry session/delegation metadata when available:
-  - `context.session_id`
-  - `delegation.requester_identity`
-  - `delegation.chain`
-  - `delegation.token_refs`
-
-Canonical wrapper path:
-
-- Use `sdk/python/gait/adapter.py` (`ToolAdapter.execute`) as the reference behavior.
-- Treat integration-specific examples (`examples/integrations/*`) as adapter-specific usage only.
-
-Validation command:
+Collect local activation report:
 
 ```bash
-uv run --python 3.13 --directory sdk/python python ../../examples/python/reference_adapter_demo.py
+GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait demo
+GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait verify run_demo --json
+GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait regress init --from run_demo --json
+GAIT_ADOPTION_LOG=./gait-out/adoption.jsonl ./gait regress run --json
+./gait doctor adoption --from ./gait-out/adoption.jsonl --json
 ```
 
-Evidence to capture:
+Use report fields:
 
-- Command output showing `gate verdict=allow executed=True` for allow flow.
-- File and line reference where non-`allow` verdicts return non-executable responses.
-- Local test output showing fail-closed cases are covered:
+- `activation_timing_ms` for milestone timing deltas (`A1..A4`)
+- `activation_medians_ms` for stable command timing medians (M1/M2 calculations)
+- `skill_workflows` for skill workflow fitness signals
+
+## Intent + Receipt Conformance
+
+Before calling an integration complete, run contract checks:
 
 ```bash
-(cd sdk/python && PYTHONPATH=. uv run --python 3.13 --extra dev pytest tests/test_adapter.py tests/test_client.py -q)
+bash scripts/test_intent_receipt_conformance.sh ./gait
 ```
 
-## Step 2B: Framework Adapter Parity
+Contract doc:
 
-Required outcome:
+- `docs/contracts/intent_receipt_conformance.md`
 
-- Framework adapters produce the same contract behavior (`verdict`, `executed`, trace paths, fail-closed semantics).
+## Advanced / Secondary Lanes (Reference Only)
 
-Validation command:
+These remain supported parity references in v2.3 but are not top-of-funnel:
+
+- `examples/integrations/langchain/`
+- `examples/integrations/autogen/`
+- `examples/integrations/openclaw/`
+- `examples/integrations/autogpt/`
+- `examples/integrations/gastown/`
+- sidecar path: `examples/sidecar/gate_sidecar.py`
+- MCP proxy/serve path: `gait mcp proxy`, `gait mcp serve`
+
+For parity checks across official adapters:
 
 ```bash
 bash scripts/test_adapter_parity.sh
 ```
 
-Covered adapters:
-
-- `openai_agents`
-- `langchain`
-- `autogen`
-- `openclaw`
-- `autogpt`
-- `gastown`
-
-Additional parity assertions (v2.1):
-
-- `intent.context.session_id` exists and is non-empty
-- `intent.context.auth_context` exists and is object-typed
-- `intent.context.credential_scopes` exists and is non-empty list
-- `intent.context.environment_fingerprint` exists and is non-empty
-- `intent.delegation.chain` exists and includes delegator/delegate identity links
-
-## Step 2C: OpenClaw Installable Skill Path
-
-Required outcome:
-
-- OpenClaw teams can install one official Gait boundary package with one command.
-
-Validation commands:
+For full adoption smoke (wrapper + sidecar + scenarios):
 
 ```bash
-bash scripts/install_openclaw_skill.sh --json
-bash scripts/test_openclaw_skill_install.sh
+bash scripts/test_adoption_smoke.sh
 ```
-
-Evidence to capture:
-
-- Installed path includes `gait_openclaw_gate.py`, `skill_manifest.json`, and `skill_config.json`.
-- Skill entrypoint is executable and policy path is configured.
-
-## Step 2D: Gas Town Worker Hook
-
-Required outcome:
-
-- Gas Town worker actions pass through one fail-closed Gait wrapper path.
-
-Canonical artifact path:
-
-- `examples/integrations/gastown/`
-
-Validation commands:
-
-```bash
-python3 examples/integrations/gastown/quickstart.py --scenario allow
-python3 examples/integrations/gastown/quickstart.py --scenario block
-```
-
-Evidence to capture:
-
-- Deterministic traces under `gait-out/integrations/gastown/`.
-- `executed=true` only when verdict is `allow`.
-
-## Step 2A: Sidecar Enforcement (Non-Python Runtimes)
-
-Required outcome:
-
-- Non-Python runtimes can route tool intents through one sidecar command with fail-closed behavior.
-
-Canonical sidecar path:
-
-- `examples/sidecar/gate_sidecar.py`
-
-Validation commands:
-
-```bash
-python3 examples/sidecar/gate_sidecar.py --policy examples/policy-test/allow.yaml --intent-file core/schema/testdata/gate_intent_request_valid.json --trace-out ./gait-out/trace_sidecar_allow.json
-python3 examples/sidecar/gate_sidecar.py --policy examples/policy-test/block.yaml --intent-file core/schema/testdata/gate_intent_request_valid.json --trace-out ./gait-out/trace_sidecar_block.json
-```
-
-Evidence to capture:
-
-- JSON output includes `gate_result`, `trace_path`, and `exit_code`.
-- Blocked or approval-required decisions are treated as non-executable paths.
-- If using `gait mcp serve`, validate your chosen transport endpoint (`/v1/evaluate`, `/v1/evaluate/sse`, or `/v1/evaluate/stream`) returns the same non-`allow` enforcement semantics.
-- For non-loopback service binds, require service authentication (`--auth-mode token --auth-token-env <VAR>`) and set `--max-request-bytes`.
-- Prefer `--http-verdict-status strict` when upstream runtimes can safely handle non-2xx responses for non-`allow` decisions.
-- Configure artifact retention in service mode (`--trace-max-age`, `--trace-max-count`, `--runpack-max-age`, `--runpack-max-count`, `--session-max-age`, `--session-max-count`).
-- If using delegation-constrained policies, validate sidecar delegation passthrough flags:
-  - `--delegation-token`
-  - `--delegation-token-chain`
-  - `--delegation-public-key` / `--delegation-private-key`
-
-## Step 3: Gate Trace Persistence
-
-Required outcome:
-
-- Gate decisions produce persisted trace artifacts for audit and replay linkage.
-
-Validation command:
-
-```bash
-gait gate eval --policy examples/policy-test/block.yaml --intent examples/policy-test/intent.json --trace-out ./gait-out/trace_check.json --json
-```
-
-Evidence to capture:
-
-- `./gait-out/trace_check.json` exists and is non-empty.
-
-## Step 4: Runpack Recording And Verification
-
-Required outcome:
-
-- Team can create and verify deterministic run artifacts locally.
-
-Validation commands:
-
-```bash
-gait demo
-gait verify run_demo --json
-```
-
-Evidence to capture:
-
-- `./gait-out/runpack_run_demo.zip`
-- Successful `verify` result.
-
-## Step 5: CI Regression Path
-
-Required outcome:
-
-- At least one deterministic regression fixture runs in CI and can emit JUnit.
-
-Canonical CI path:
-
-- `.github/workflows/adoption-regress-template.yml`
-- `docs/ci_regress_kit.md`
-
-Validation commands:
-
-```bash
-gait regress init --from run_demo --json
-gait regress run --json --junit=./gait-out/junit.xml
-```
-
-Evidence to capture:
-
-- `gait.yaml` and `fixtures/` created.
-- `./gait-out/junit.xml` generated.
-
-## Step 6: Policy Regression Guard
-
-Required outcome:
-
-- Policy behavior changes are detectable before merge.
-
-Validation commands:
-
-```bash
-gait policy validate examples/policy-test/allow.yaml --json
-gait policy fmt examples/policy-test/allow.yaml --write --json
-gait policy test examples/policy-test/allow.yaml examples/policy-test/intent.json --json
-gait policy test examples/policy-test/block.yaml examples/policy-test/intent.json --json
-gait policy test examples/policy-test/require_approval.yaml examples/policy-test/intent.json --json
-gait policy simulate --baseline examples/policy-test/allow.yaml --policy examples/policy-test/block.yaml --fixtures examples/policy-test/intent.json --json
-gait keys init --out-dir ./gait-out/keys --prefix integration --json
-gait keys verify --private-key ./gait-out/keys/integration_private.key --public-key ./gait-out/keys/integration_public.key --json
-```
-
-## Framework Maintainer Production Checklist
-
-Use this as PR acceptance criteria for adapter/framework integration changes:
-
-1. Non-allow verdicts are fail-closed (`executed=false`) and never call side-effect executors.
-2. Service integrations use strict boundary mode (`--http-verdict-status strict`) when caller supports non-2xx handling.
-3. Service integrations set auth (`--auth-mode token`) for non-loopback binds.
-4. Service integrations set bounded payload and retention limits.
-5. SDK/adapter command paths have bounded timeout behavior.
-6. `gait doctor --production-readiness --json` passes in reference deployment setup.
-
-Evidence to capture:
-
-- Exit codes map to expected decisions (`0`, `3`, `4`).
-- `policy test --json` includes `matched_rule` when rule match is explicit.
-- `policy simulate --json` returns fixture-delta counts and stage recommendation before enforce changes.
-
-## Step 7: Integration Sign-Off
-
-Mark integration ready only when all are true:
-
-- Wrapped-tools-only registration is in place.
-- Wrapper enforces fail-closed execution semantics.
-- Trace persistence is configured.
-- Runpack record/verify is reproducible.
-- CI runs deterministic regress fixtures.
-- Policy tests are part of pre-merge checks.
-
-Recommended release gate:
-
-- Block production rollout if any step above fails.

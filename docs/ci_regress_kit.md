@@ -1,4 +1,4 @@
-# CI Regress Kit (Epic A5.1)
+# CI Regress Kit (v2.3 Blessed CI Lane)
 
 This kit makes incident-to-regression checks turnkey in CI.
 
@@ -6,37 +6,88 @@ Canonical default path:
 
 - `.github/workflows/adoption-regress-template.yml`
 
-## GitHub Actions Template
+## Reusable Workflow Contract
 
-Use `.github/workflows/adoption-regress-template.yml` as the baseline workflow.
+The workflow supports both:
 
-Template flow:
+- `workflow_dispatch`
+- `workflow_call`
 
-1. Build local `gait` binary.
-2. Restore fixture (`fixtures/run_demo/runpack.zip` + `gait.yaml`) or initialize from a run artifact.
-3. Run `gait regress run --json --junit=...`.
-4. Run endpoint policy fixture checks (`allow`, `block`, `require_approval`).
-5. Run skill provenance verification checks.
-6. Fail with stable exit codes (`5` for deterministic regression failure).
-7. Upload `regress_result.json`, `junit.xml`, and fixture artifacts.
+### Inputs
 
-## Generic Shell CI Snippet (Compatibility Only)
+- `fixture_runpack_path` (default: `fixtures/run_demo/runpack.zip`)
+- `config_path` (default: `gait.yaml`)
+- `source_run` (default: `run_demo`, used for deterministic fallback fixture generation)
 
-Use this in non-GitHub providers (Jenkins, Buildkite, CircleCI, etc.):
+### Outputs (workflow_call)
+
+- `regress_status`
+- `regress_exit_code`
+- `top_failure_reason`
+- `next_command`
+- `artifact_root`
+
+### Deterministic Artifact Root
+
+- `gait-out/adoption_regress/`
+  - `regress_result.json`
+  - `junit.xml`
+  - `regress_init_result.json` (when fallback init is used)
+
+The workflow also uploads fixture/config artifacts for triage.
+
+## Summary-First Failure Triage
+
+Job summary publishes:
+
+- status
+- exit code
+- top failure reason
+- next command
+- artifact root and artifact paths
+
+You can start triage from summary without opening raw logs first.
+
+Stable regress exit semantics are preserved:
+
+- `0`: pass
+- `5`: deterministic regression failure
+- other: unexpected error passthrough
+
+## Downstream Reuse Example
+
+```yaml
+name: downstream-regress
+
+on:
+  pull_request:
+
+jobs:
+  regress:
+    uses: ./.github/workflows/adoption-regress-template.yml
+    with:
+      fixture_runpack_path: fixtures/run_demo/runpack.zip
+      config_path: gait.yaml
+      source_run: run_demo
+```
+
+## Compatibility Shell Snippet (Non-GitHub CI)
+
+Use this for Jenkins/Buildkite/CircleCI style runners:
 
 ```bash
 set -euo pipefail
 
 go build -o ./gait ./cmd/gait
-mkdir -p gait-out
+mkdir -p gait-out/adoption_regress
 
 if [[ ! -f fixtures/run_demo/runpack.zip || ! -f gait.yaml ]]; then
   ./gait demo
-  ./gait regress init --from run_demo --json
+  ./gait regress init --from run_demo --json > gait-out/adoption_regress/regress_init_result.json
 fi
 
 set +e
-./gait regress run --json --junit=./gait-out/junit.xml > ./gait-out/regress_result.json
+./gait regress run --json --junit=./gait-out/adoption_regress/junit.xml > ./gait-out/adoption_regress/regress_result.json
 status=$?
 set -e
 
@@ -50,7 +101,6 @@ else
   exit "$status"
 fi
 
-# Endpoint policy fixture checks.
 ./gait policy test examples/policy/endpoint/allow_safe_endpoints.yaml examples/policy/endpoint/fixtures/intent_allow.json --json
 set +e
 ./gait policy test examples/policy/endpoint/block_denied_endpoints.yaml examples/policy/endpoint/fixtures/intent_block.json --json
@@ -67,24 +117,26 @@ if [[ "$approval_status" -ne 4 ]]; then
   exit 1
 fi
 
-# Skill provenance verification path.
 bash scripts/test_skill_supply_chain.sh
 ```
 
-Artifacts to retain:
+## Path-Filtered PR Guidance
 
-- `gait-out/regress_result.json`
-- `gait-out/junit.xml`
-- `gait.yaml`
-- `fixtures/`
+Require this lane for changes touching:
 
-## Recommended PR Gate
+- `cmd/gait/**`
+- `core/runpack/**`
+- `core/regress/**`
+- `core/gate/**`
+- `schemas/**`
+- `docs/integration_checklist.md`
+- `docs/ci_regress_kit.md`
+- `.agents/skills/**`
 
-- Run regress on pull requests that touch policy, runpack, regress, gate, and fixtures.
-- Require pass (`0`) for merge.
-- Treat `5` as deterministic regression failure requiring either code fix or fixture update with explicit review.
+This keeps adoption-critical changes gated while avoiding unnecessary runs on unrelated docs-only edits.
 
-Note:
+Downstream simulation test command:
 
-- Keep this file as the only source for CI snippet variants.
-- Prefer the workflow template above to avoid drift across docs.
+```bash
+bash scripts/test_ci_regress_template.sh
+```

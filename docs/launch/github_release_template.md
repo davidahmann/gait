@@ -1,6 +1,6 @@
 # GitHub Release Template
 
-Use this structure for all tagged releases.
+Use this structure for tagged releases.
 
 ## Title
 
@@ -38,6 +38,18 @@ Expected:
 - `verdict: block`
 - `reason_codes: ["blocked_prompt_injection"]`
 
+## v2.3 Release Gate Snapshot
+
+Attach and summarize:
+
+- `gait-out/v2_3_metrics_snapshot.json`
+- `gait-out/integration_lane_scorecard.json`
+
+Required release check:
+
+- `release_gate_passed: true`
+- `M1..M4`, `C1..C3`, `D1..D3` all pass
+
 ## Integrity Artifacts
 
 - `checksums.txt`
@@ -50,13 +62,15 @@ Expected:
 
 ## Upgrade Notes
 
-- Breaking changes: `<none | list>`
-- Schema or exit-code compatibility notes: `<notes>`
+- breaking changes: `<none | list>`
+- schema or exit-code compatibility notes: `<notes>`
 
 ## Docs
 
 - `README.md`
 - `docs/install.md`
+- `docs/integration_checklist.md`
+- `docs/contracts/intent_receipt_conformance.md`
 - `docs/ci_regress_kit.md`
 - `docs/ecosystem/awesome.md`
 - `docs/launch/README.md`

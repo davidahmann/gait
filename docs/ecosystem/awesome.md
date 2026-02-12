@@ -33,5 +33,6 @@ Validation:
 - Every adapter entry must pass `bash scripts/test_adapter_parity.sh` behavior.
 - Every skill entry must declare provenance and avoid direct policy logic in non-Go layers.
 - Every entry must include a public GitHub repo URL and a stable summary.
+- Official lane expansion in v2.3 requires scorecard evidence (`scripts/check_integration_lane_scorecard.py`) meeting threshold + confidence gates.
 
 See `docs/ecosystem/contribute.md` for the full submission workflow.

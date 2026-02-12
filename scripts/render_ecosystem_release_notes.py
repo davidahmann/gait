@@ -35,7 +35,9 @@ def load_index(path: Path) -> dict[str, Any]:
     return payload
 
 
-def render_markdown(index_payload: dict[str, Any]) -> str:
+def render_markdown(
+    index_payload: dict[str, Any], metrics_payload: dict[str, Any] | None = None
+) -> str:
     schema_id = require_str(index_payload.get("schema_id"), "schema_id")
     schema_version = require_str(index_payload.get("schema_version"), "schema_version")
     updated_at = require_str(index_payload.get("updated_at"), "updated_at")
@@ -111,22 +113,57 @@ def render_markdown(index_payload: dict[str, Any]) -> str:
             )
         lines.append("")
 
+    if metrics_payload is not None:
+        lines.append("## v2.3 Metrics Snapshot")
+        lines.append("")
+        lines.append(
+            f"- schema: `{metrics_payload.get('schema_id', '')}` `{metrics_payload.get('schema_version', '')}`"
+        )
+        lines.append(
+            f"- release_gate_passed: `{bool(metrics_payload.get('release_gate_passed', False))}`"
+        )
+        for key in ("M1", "M2", "M3", "M4", "C1", "C2", "C3", "D1", "D2", "D3"):
+            metric = metrics_payload.get(key)
+            if not isinstance(metric, dict):
+                continue
+            name = str(metric.get("name", key)).strip() or key
+            value = metric.get("value", "")
+            threshold = metric.get("threshold", "")
+            passed = bool(metric.get("pass", False))
+            lines.append(
+                f"- `{key}` {name}: value=`{value}` threshold=`{threshold}` pass=`{passed}`"
+            )
+        lines.append("")
+
     return "\n".join(lines).rstrip() + "\n"
 
 
 def main() -> int:
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 4:
         print(
-            "usage: render_ecosystem_release_notes.py [community_index.json] [output.md]",
+            "usage: render_ecosystem_release_notes.py [community_index.json] [output.md] [v2_3_metrics_snapshot.json]",
             file=sys.stderr,
         )
         return 2
 
     index_path = Path(sys.argv[1]) if len(sys.argv) >= 2 else DEFAULT_INDEX_PATH
-    output_path = Path(sys.argv[2]) if len(sys.argv) == 3 else DEFAULT_OUTPUT_PATH
+    output_path = Path(sys.argv[2]) if len(sys.argv) >= 3 else DEFAULT_OUTPUT_PATH
+    metrics_path = Path(sys.argv[3]) if len(sys.argv) == 4 else None
 
     payload = load_index(index_path)
-    rendered = render_markdown(payload)
+    metrics_payload = None
+    if metrics_path is not None:
+        if not metrics_path.exists():
+            fail(f"metrics snapshot file not found: {metrics_path}")
+        try:
+            loaded_metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as err:
+            fail(f"invalid metrics snapshot json: {err}")
+        if not isinstance(loaded_metrics, dict):
+            fail("metrics snapshot root must be a JSON object")
+        metrics_payload = loaded_metrics
+
+    rendered = render_markdown(payload, metrics_payload)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(rendered, encoding="utf-8")

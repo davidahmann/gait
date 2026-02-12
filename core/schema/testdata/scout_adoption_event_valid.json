@@ -4,6 +4,7 @@
   "created_at": "2026-02-06T00:00:00Z",
   "producer_version": "0.0.0-dev",
   "command": "regress run",
+  "workflow_id": "gait-incident-to-regression",
   "success": true,
   "exit_code": 0,
   "elapsed_ms": 247,

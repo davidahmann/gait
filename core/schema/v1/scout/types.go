@@ -28,6 +28,7 @@ type AdoptionEvent struct {
 	CreatedAt       time.Time          `json:"created_at"`
 	ProducerVersion string             `json:"producer_version"`
 	Command         string             `json:"command"`
+	WorkflowID      string             `json:"workflow_id,omitempty"`
 	Success         bool               `json:"success"`
 	ExitCode        int                `json:"exit_code"`
 	ElapsedMS       int64              `json:"elapsed_ms"`

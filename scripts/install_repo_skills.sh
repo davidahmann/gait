@@ -61,15 +61,14 @@ install_one_provider() {
   local installed=0
 
   mkdir -p "${dest_root}"
-  for skill_dir in "${SOURCE_ROOT}"/*; do
-    [[ -d "${skill_dir}" ]] || continue
+  while IFS= read -r skill_dir; do
     local skill_name
     skill_name="$(basename "${skill_dir}")"
     rm -rf "${dest_root:?}/${skill_name}"
     cp -R "${skill_dir}" "${dest_root}/${skill_name}"
     installed=$((installed + 1))
     echo "[${provider}] installed ${skill_name} -> ${dest_root}/${skill_name}"
-  done
+  done < <(find "${SOURCE_ROOT}" -mindepth 1 -maxdepth 1 -type d | LC_ALL=C sort)
 
   if [[ "${installed}" -eq 0 ]]; then
     return 1

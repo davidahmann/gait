@@ -41,6 +41,27 @@ func TestRunWritesAdoptionLogWhenEnabled(t *testing.T) {
 	}
 }
 
+func TestRunWritesAdoptionWorkflowIDFromEnv(t *testing.T) {
+	logPath := filepath.Join(t.TempDir(), "adoption_workflow.jsonl")
+	t.Setenv("GAIT_ADOPTION_LOG", logPath)
+	t.Setenv("GAIT_ADOPTION_WORKFLOW", "gait-capture-runpack")
+
+	if code := run([]string{"gait", "version"}); code != exitOK {
+		t.Fatalf("run version expected %d got %d", exitOK, code)
+	}
+
+	events, err := scout.LoadAdoptionEvents(logPath)
+	if err != nil {
+		t.Fatalf("load adoption events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 adoption event got %d", len(events))
+	}
+	if events[0].WorkflowID != "gait-capture-runpack" {
+		t.Fatalf("expected workflow_id propagation, got %q", events[0].WorkflowID)
+	}
+}
+
 func TestRunWritesOperationalLogWhenEnabled(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "operational.jsonl")
 	t.Setenv("GAIT_OPERATIONAL_LOG", logPath)
@@ -109,7 +130,7 @@ func TestRunJSONOutputIncludesCorrelationID(t *testing.T) {
 func TestRunDoctorAdoptionJSON(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "adoption.jsonl")
 	base := time.Date(2026, time.February, 6, 15, 0, 0, 0, time.UTC)
-	if err := scout.AppendAdoptionEvent(logPath, scout.NewAdoptionEvent("demo", 0, 100*time.Millisecond, "test", base)); err != nil {
+	if err := scout.AppendAdoptionEvent(logPath, scout.NewAdoptionEvent("demo", 0, 100*time.Millisecond, "test", base, "")); err != nil {
 		t.Fatalf("append event: %v", err)
 	}
 
@@ -122,9 +143,11 @@ func TestRunDoctorAdoptionJSON(t *testing.T) {
 	var decoded struct {
 		OK     bool `json:"ok"`
 		Report struct {
-			TotalEvents        int      `json:"total_events"`
-			ActivationComplete bool     `json:"activation_complete"`
-			Blockers           []string `json:"blockers"`
+			TotalEvents        int              `json:"total_events"`
+			ActivationComplete bool             `json:"activation_complete"`
+			Blockers           []string         `json:"blockers"`
+			ActivationTimingMS map[string]int64 `json:"activation_timing_ms"`
+			ActivationMedians  map[string]int64 `json:"activation_medians_ms"`
 		} `json:"report"`
 	}
 	if err := json.Unmarshal([]byte(output), &decoded); err != nil {
@@ -141,6 +164,12 @@ func TestRunDoctorAdoptionJSON(t *testing.T) {
 	}
 	if len(decoded.Report.Blockers) == 0 {
 		t.Fatalf("expected blockers for incomplete activation")
+	}
+	if decoded.Report.ActivationTimingMS["A1"] != 0 {
+		t.Fatalf("expected A1 activation timing 0ms, got %d", decoded.Report.ActivationTimingMS["A1"])
+	}
+	if decoded.Report.ActivationMedians["m1_demo_elapsed_ms"] != 100 {
+		t.Fatalf("expected m1 median 100ms, got %d", decoded.Report.ActivationMedians["m1_demo_elapsed_ms"])
 	}
 }
 

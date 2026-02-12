@@ -12,7 +12,33 @@ env:
   COSIGN_VERSION: v2.5.3
 
 jobs:
+  v2_3_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.3 acceptance gate
+        run: |
+          make test-v2-3-acceptance
+      - name: Upload v2.3 metrics snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-3-metrics-release-${{ github.run_id }}
+          path: |
+            gait-out/v2_3_metrics_snapshot.json
+            gait-out/integration_lane_scorecard.json
+            gait-out/adoption_metrics.json
+
   release:
+    needs: v2_3_gate
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -158,6 +184,8 @@ jobs:
           test -s dist/checksums.txt.intoto.jsonl
           test -s sbom.spdx.json
           test -s provenance.json
+          test -s gait-out/v2_3_metrics_snapshot.json
+          test -s gait-out/integration_lane_scorecard.json
 
           (
             cd dist
@@ -199,9 +227,21 @@ jobs:
           if subject_digest != digest:
               raise SystemExit("attestation digest mismatch")
           PY
+      - name: Download v2.3 metrics snapshot
+        uses: actions/download-artifact@v4
+        with:
+          name: v2-3-metrics-release-${{ github.run_id }}
+          path: .
       - name: Generate ecosystem release notes
         run: |
-          python scripts/render_ecosystem_release_notes.py docs/ecosystem/community_index.json gait-out/ecosystem_release_notes.md
+          if [ -f gait-out/v2_3_metrics_snapshot.json ]; then
+            python scripts/render_ecosystem_release_notes.py \
+              docs/ecosystem/community_index.json \
+              gait-out/ecosystem_release_notes.md \
+              gait-out/v2_3_metrics_snapshot.json
+          else
+            python scripts/render_ecosystem_release_notes.py docs/ecosystem/community_index.json gait-out/ecosystem_release_notes.md
+          fi
           test -s gait-out/ecosystem_release_notes.md
       - name: Render Homebrew formula asset
         run: |
@@ -225,6 +265,8 @@ jobs:
               grype.json \
               provenance.json \
               gait-out/ecosystem_release_notes.md \
+              gait-out/v2_3_metrics_snapshot.json \
+              gait-out/integration_lane_scorecard.json \
               dist/gait.rb \
               dist/checksums.txt.pem \
               dist/checksums.txt.sig \
