@@ -116,6 +116,19 @@ jobs:
         run: |
           bash scripts/check_ui_deps_freshness.sh
 
+  ui-acceptance:
+    needs: changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run local UI acceptance gate
+        shell: bash
+        run: |
+          make test-ui-acceptance
+
   test:
     needs: changes
     runs-on: ${{ matrix.os }}
@@ -137,7 +150,8 @@ jobs:
       - name: Go tests with coverage
         shell: bash
         run: |
-          go test ./...
+          go test ./... -cover | tee coverage-go-packages.out
+          python scripts/check_go_package_coverage.py coverage-go-packages.out 75
           go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             python scripts/check_go_coverage.py coverage-go.out 85

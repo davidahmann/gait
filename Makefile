@@ -3,6 +3,7 @@ SHELL := /bin/sh
 GO ?= go
 PYTHON ?= python3
 GO_COVERAGE_THRESHOLD ?= 85
+GO_PACKAGE_COVERAGE_THRESHOLD ?= 75
 PYTHON_COVERAGE_THRESHOLD ?= 85
 GAIT_BINARY ?= ./gait
 
@@ -54,7 +55,8 @@ codeql:
 	bash scripts/run_codeql_local.sh
 
 test:
-	$(GO) test ./...
+	$(GO) test ./... -cover | tee coverage-go-packages.out
+	$(PYTHON) scripts/check_go_package_coverage.py coverage-go-packages.out $(GO_PACKAGE_COVERAGE_THRESHOLD)
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest --cov=gait --cov-report=term-missing --cov-fail-under=$(PYTHON_COVERAGE_THRESHOLD))

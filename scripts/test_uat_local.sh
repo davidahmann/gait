@@ -162,6 +162,7 @@ run_step "quality_policy_compliance" bash "${REPO_ROOT}/scripts/policy_complianc
 run_step "quality_contracts" make -C "${REPO_ROOT}" test-contracts
 run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
+run_step "quality_ui_acceptance" make -C "${REPO_ROOT}" test-ui-acceptance
 run_step "quality_packspec_tck" make -C "${REPO_ROOT}" test-packspec-tck
 run_step "quality_hardening_acceptance" make -C "${REPO_ROOT}" test-hardening-acceptance
 run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos

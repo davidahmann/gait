@@ -31,6 +31,7 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v1_8_acceptance.sh` (v1.8 interception/ecosystem checks)
 - `scripts/test_v2_3_acceptance.sh` (v2.3 adoption/conformance/distribution gate + metrics snapshot)
 - `scripts/test_v2_4_acceptance.sh` (v2.4 job/pack/signing/replay/credential-ttl acceptance gate)
+- `scripts/test_ui_acceptance.sh` (localhost UI command/API acceptance gate)
 - `scripts/test_packspec_tck.sh` (PackSpec v1 fixture/TCK determinism and verify contract)
 - `scripts/test_release_smoke.sh` (release artifact + core smoke checks)
 - `scripts/test_hardening_acceptance.sh` (hardening acceptance + deterministic boundary checks)
@@ -102,7 +103,7 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 ## Pass Criteria
 
-- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-packspec-tck`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
+- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-ui-acceptance`, `make test-packspec-tck`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
 - Runtime SLO budget check passes: `make test-runtime-slo`
 - Performance regression checks pass: `make bench-check`
 - Docs site lint/build passes (`make docs-site-lint docs-site-build`) unless explicitly skipped with `--skip-docs-site`
