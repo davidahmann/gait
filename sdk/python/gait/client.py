@@ -310,15 +310,38 @@ def record_runpack(
 
 def _run_command(command: Sequence[str], *, cwd: str | Path | None) -> _CommandResult:
     command_list = list(command)
+    resolved_cwd = str(cwd) if cwd is not None else None
     try:
         completed = subprocess.run(  # nosec B603
             command_list,
-            cwd=str(cwd) if cwd is not None else None,
+            cwd=resolved_cwd,
             capture_output=True,
             text=True,
             check=False,
             timeout=DEFAULT_COMMAND_TIMEOUT_SECONDS,
         )
+    except FileNotFoundError as not_found_error:
+        if resolved_cwd is not None:
+            missing_path = str(getattr(not_found_error, "filename", "") or "")
+            if missing_path == resolved_cwd or not Path(resolved_cwd).exists():
+                raise GaitCommandError(
+                    f"unable to execute command: cwd not found: {resolved_cwd}",
+                    command=command_list,
+                    exit_code=-1,
+                    stdout="",
+                    stderr=str(not_found_error),
+                ) from not_found_error
+        binary = command_list[0] if command_list else "gait"
+        raise GaitCommandError(
+            (
+                f"unable to execute '{binary}': binary not found. "
+                "Install gait and ensure it is available on PATH, or pass gait_bin explicitly."
+            ),
+            command=command_list,
+            exit_code=127,
+            stdout="",
+            stderr=str(not_found_error),
+        ) from not_found_error
     except subprocess.TimeoutExpired as timeout_error:
         raise GaitCommandError(
             "gait command timed out",
