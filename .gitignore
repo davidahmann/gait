@@ -23,6 +23,8 @@ perf/bench_output.txt
 perf/bench_report.json
 perf/resource_budget_report.json
 perf/command_budget_report.json
+perf/context_budget_report.json
+perf/ui_budget_report.json
 /product/PLAN_ENT.md
 /trace_*.json
 /sdk/python/trace_*.json
@@ -36,6 +38,7 @@ docs-site/out/
 ui/local/node_modules/
 ui/local/.next/
 ui/local/out/
+ui/local/coverage/
 .codeql/
 /cmd/gait/sess-*.journal.jsonl
 /cmd/gait/sess-*.journal.jsonl.state.json
