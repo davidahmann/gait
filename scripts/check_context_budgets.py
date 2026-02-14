@@ -456,9 +456,7 @@ def main() -> int:
                     continue
                 samples_ms.append((time.perf_counter() - start) * 1000.0)
 
-            error_rate = 0.0
-            if repeats > 0:
-                error_rate = len(run_failures) / float(repeats)
+            error_rate = len(run_failures) / float(repeats)
             p50_ms = float(statistics.median(samples_ms)) if samples_ms else math.inf
             p95_ms = percentile_ms(samples_ms, 95.0)
             status = "pass"
