@@ -9,6 +9,14 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
   - Go coverage >= 85%
   - Python coverage >= 85%
 - [ ] `make test-hardening-acceptance` passes.
+- [ ] Versioned acceptance/context gates pass:
+  - `make test-v2-3-acceptance`
+  - `make test-v2-4-acceptance`
+  - `make test-v2-5-acceptance`
+  - `make test-context-conformance`
+  - `make test-context-chaos`
+- [ ] Full local UAT passes: `bash scripts/test_uat_local.sh`
+  - verify `.uat_local/summary.txt` contains `UAT COMPLETE: PASS`
 - [ ] CI `hardening` job is green on the release commit.
 
 ## 2) Contract Integrity (MANDATORY)
@@ -38,6 +46,10 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 ## 5) Supply Chain Integrity (MANDATORY)
 
 - [ ] Release workflow tool versions are pinned.
+- [ ] Release workflow gate jobs are green and release depends on all version gates:
+  - `v2_3_gate`
+  - `v2_4_gate`
+  - `v2_5_gate`
 - [ ] Checksums generated and verified.
 - [ ] Signatures/provenance artifacts generated and verifiable.
 - [ ] Homebrew formula asset rendered from release checksums (`dist/gait.rb`).
