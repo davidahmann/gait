@@ -89,7 +89,7 @@ bash scripts/test_uat_local.sh
 Options:
 
 ```bash
-GAIT_UAT_RELEASE_VERSION=vX.Y.Z bash scripts/test_uat_local.sh --output-dir ./gait-out/uat_local
+GAIT_UAT_RELEASE_VERSION=vX.Y.Z bash scripts/test_uat_local.sh --output-dir ./.uat_local
 bash scripts/test_uat_local.sh --skip-brew
 bash scripts/test_uat_local.sh --skip-docs-site
 ```
@@ -103,9 +103,10 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 ## Outputs
 
-- Human-readable logs: `gait-out/uat_local/logs/*.log`
-- Machine-readable summary: `gait-out/uat_local/summary.txt`
+- Human-readable logs: `.uat_local/logs/*.log`
+- Machine-readable summary: `.uat_local/summary.txt`
 - Primary path marker in summary: `PRIMARY_INSTALL_PATH_STATUS release-installer PASS`
+- Default output is `.uat_local` (outside `gait-out/`) so cleanup steps in downstream suites do not truncate the orchestrator summary.
 
 ## Pass Criteria
 
@@ -128,7 +129,7 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 On failure:
 
-1. Open failing log under `gait-out/uat_local/logs/`.
+1. Open failing log under `.uat_local/logs/`.
 2. Fix root cause in code/docs/scripts (not by weakening tests).
 3. Re-run `bash scripts/test_uat_local.sh`.
 4. Only merge when summary is fully green.

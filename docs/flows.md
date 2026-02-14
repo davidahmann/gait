@@ -43,6 +43,30 @@ sequenceDiagram
 
 Outcome: durable runtime control and portable evidence under one pack contract.
 
+## 1c) Context Evidence Proof Flow (v2.5)
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant Record as gait run record
+    participant Gate as gait gate eval
+    participant Pack as gait pack inspect/diff
+    participant Regress as gait regress run
+    participant FS as Local Filesystem
+
+    Dev->>Record: run record --context-envelope --context-evidence-mode required
+    Record->>FS: write runpack + refs.context_set_digest
+    Record->>FS: write context_envelope.json when receipts exist
+    Dev->>Gate: gate eval (high-risk intent)
+    Gate-->>Dev: allow/block with context reason codes + trace context_set_digest
+    Dev->>Pack: pack inspect / pack diff
+    Pack-->>Dev: deterministic context summary + drift classification
+    Dev->>Regress: regress run
+    Regress-->>Dev: context conformance grader result (semantic/runtime/none)
+```
+
+Outcome: context usage is deterministic, auditable, and release-gatable without weakening offline-first behavior.
+
 ## 2) Execution-Boundary Gate Flow
 
 ```mermaid

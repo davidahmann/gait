@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { canonicalUrl } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Gait | Agent Control and Proof',
+  title: 'Gait | Durable Agent Runtime with Signed Proof',
   description:
-    'Gait is the offline-first execution boundary for production AI agents: runpack, regress, gate, doctor.',
+    'Gait is an offline-first runtime for production AI agents: durable jobs, signed packs, deterministic regressions, and fail-closed policy gates.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
@@ -15,24 +15,24 @@ const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gai
 
 const features = [
   {
-    title: 'Runpack: Verifiable Incident Evidence',
-    description: 'Capture signed, deterministic execution artifacts you can verify offline and paste into tickets.',
+    title: 'Durable Jobs: Run Without Losing State',
+    description: 'Dispatch multi-step, multi-hour agent work with checkpoints, pause/resume/cancel, approval gates, and deterministic stop reasons.',
+    href: '/docs/flows',
+  },
+  {
+    title: 'Signed Packs: Portable Proof',
+    description: 'Every run and job emits a signed pack you can verify, diff, and inspect offline. Attach it to PRs, incidents, and audits.',
     href: '/docs/concepts/mental_model',
   },
   {
-    title: 'Regress: Incident -> Never Again',
-    description: 'Turn a runpack into deterministic CI regressions with machine-readable output and JUnit.',
+    title: 'Regress: Incident to CI Gate',
+    description: 'One command converts a failure into a permanent regression test with JUnit output and stable exit codes.',
     href: '/docs/ci_regress_kit',
   },
   {
-    title: 'Gate: Fail-Closed Tool Control',
-    description: 'Evaluate structured tool-call intent against YAML policy and approval constraints.',
+    title: 'Gate: Fail-Closed Policy Enforcement',
+    description: 'Evaluate structured tool-call intent against policy before side effects execute. Non-allow means non-execute.',
     href: '/docs/policy_rollout',
-  },
-  {
-    title: 'Doctor: First 5 Minutes',
-    description: 'Diagnose environment issues quickly with stable JSON and explicit fix guidance.',
-    href: '/docs/uat_functional_plan',
   },
   {
     title: 'Vendor-Neutral Integrations',
@@ -40,27 +40,27 @@ const features = [
     href: '/docs/integration_checklist',
   },
   {
-    title: 'Security and Contracts',
-    description: 'Stable artifacts, explicit schemas, skill provenance, and endpoint action taxonomy.',
+    title: 'Contracts and Schemas',
+    description: 'Stable artifacts, versioned schemas, deterministic outputs, and offline verification. No network dependency for core workflows.',
     href: '/docs/contracts/primitive_contract',
   },
 ];
 
 const faqs = [
   {
+    question: 'What problem does Gait solve for long-running agent work?',
+    answer:
+      'Multi-step and multi-hour agent jobs fail mid-flight, losing state and provenance. Gait dispatches durable jobs with checkpointed state, pause/resume/cancel, and deterministic stop reasons so work survives failures and stays auditable.',
+  },
+  {
     question: 'What does Gait do that logs do not?',
     answer:
-      'Gait produces signed runpacks and traces with deterministic verification, so incidents are reproducible evidence rather than best-effort log interpretation.',
+      'Gait produces signed packs and traces with deterministic verification, so incidents are portable, independently verifiable evidence rather than best-effort log interpretation.',
   },
   {
     question: 'Does Gait require a hosted service?',
     answer:
       'No. Core workflows are offline-first and run locally: capture, verify, diff, policy evaluation, and regressions can run without a network dependency.',
-  },
-  {
-    question: 'How long does integration typically take?',
-    answer:
-      'Most teams can go from demo to first boundary enforcement in 30 to 120 minutes using one wrapper or one sidecar plus policy fixtures.',
   },
   {
     question: 'How does Gait handle prompt-injection style risk?',
@@ -76,7 +76,7 @@ const softwareApplicationJsonLd = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Linux, macOS, Windows',
   description:
-    'Offline-first CLI for controlling and proving production AI agent actions with runpacks, regressions, and fail-closed policy gates.',
+    'Offline-first runtime for production AI agents: durable jobs, signed packs, deterministic regressions, and fail-closed policy gates at the tool boundary.',
   url: 'https://davidahmann.github.io/gait/',
   softwareHelp: 'https://davidahmann.github.io/gait/docs/',
   codeRepository: 'https://github.com/davidahmann/gait',
@@ -108,12 +108,12 @@ export default function HomePage() {
 
       <div className="text-center py-12 lg:py-20">
         <h1 className="text-4xl lg:text-6xl font-bold text-white mb-6">
-          Control and Prove
-          <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"> Agent Actions</span>
+          Run Durable Agent Jobs.
+          <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent"> Prove What Happened.</span>
         </h1>
         <p className="text-xl text-gray-400 max-w-3xl mx-auto mb-8">
-          Gait turns production agent behavior into a governable execution substrate: signed runpacks, deterministic regressions,
-          and fail-closed policy gates at the tool boundary.
+          Gait is an offline-first runtime that dispatches durable agent jobs, captures state-changing tool calls,
+          and emits signed packs you can verify, diff, and turn into deterministic CI regressions.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link href="/docs/install" className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
@@ -156,14 +156,19 @@ export default function HomePage() {
           </thead>
           <tbody className="divide-y divide-gray-800">
             <tr>
+              <td className="py-3 px-4 text-gray-300 font-medium">Long-running agent work</td>
+              <td className="py-3 px-4 text-gray-500">fails mid-flight, lost state</td>
+              <td className="py-3 px-4 text-gray-300">durable jobs with checkpoints + resume</td>
+            </tr>
+            <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">Incident evidence</td>
               <td className="py-3 px-4 text-gray-500">logs + screenshots</td>
-              <td className="py-3 px-4 text-gray-300">signed runpack + ticket footer</td>
+              <td className="py-3 px-4 text-gray-300">signed pack + ticket footer</td>
             </tr>
             <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">Regression loop</td>
               <td className="py-3 px-4 text-gray-500">manual repro, often skipped</td>
-              <td className="py-3 px-4 text-gray-300">deterministic fixture + CI lane</td>
+              <td className="py-3 px-4 text-gray-300">deterministic fixture + CI gate</td>
             </tr>
             <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">High-risk tool calls</td>
@@ -173,7 +178,7 @@ export default function HomePage() {
             <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">Audit posture</td>
               <td className="py-3 px-4 text-gray-500">incomplete reconstruction</td>
-              <td className="py-3 px-4 text-gray-300">offline verifiable artifacts</td>
+              <td className="py-3 px-4 text-gray-300">offline verifiable signed artifacts</td>
             </tr>
           </tbody>
         </table>
@@ -192,8 +197,8 @@ export default function HomePage() {
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
-        <h2 className="text-2xl font-bold text-white mb-4">Start with one command. Keep the evidence forever.</h2>
-        <p className="text-gray-400 mb-6">Read the install and integration checklist, then wire your first policy-gated tool boundary.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">First pack in 60 seconds. Durable jobs from day one.</h2>
+        <p className="text-gray-400 mb-6">Install, run the demo, then wire your first durable job or policy-gated tool boundary.</p>
         <Link href="/docs/install" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Install Guide
         </Link>

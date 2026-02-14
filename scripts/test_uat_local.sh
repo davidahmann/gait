@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-OUTPUT_DIR="${REPO_ROOT}/gait-out/uat_local"
+OUTPUT_DIR="${REPO_ROOT}/.uat_local"
 RELEASE_VERSION="${GAIT_UAT_RELEASE_VERSION:-}"
 SKIP_BREW="false"
 SKIP_DOCS_SITE="false"
@@ -19,7 +19,7 @@ Usage:
   test_uat_local.sh [--output-dir <path>] [--release-version <tag>] [--skip-brew] [--skip-docs-site] [--baseline-install-paths]
 
 Options:
-  --output-dir <path>      UAT artifacts directory (default: gait-out/uat_local)
+  --output-dir <path>      UAT artifacts directory (default: .uat_local)
   --release-version <tag>  GitHub release tag for installer path (default: latest published release)
   --skip-brew              Skip Homebrew install path checks
   --skip-docs-site         Skip docs-site lint/build checks in local quality gate

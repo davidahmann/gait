@@ -9,6 +9,7 @@ This contract defines how Gait artifacts compose into a verifiable graph over ti
 Applies to:
 
 - Runpack artifacts (`gait.runpack.*`)
+- Context evidence artifacts (`gait.context.envelope`, `gait.context.reference_record`, `gait.context.budget_report`)
 - Session artifacts (`gait.runpack.session_journal`, `gait.runpack.session_checkpoint`, `gait.runpack.session_chain`)
 - Gate traces (`gait.gate.trace`)
 - Delegation artifacts (`gait.gate.delegation_token`, `gait.gate.delegation_audit_record`)
@@ -26,13 +27,15 @@ Applies to:
 ## Graph Integrity Expectations
 
 - A `TraceRecord` MUST bind verdict context (`intent_digest`, `policy_digest`) for one tool decision.
+- A `TraceRecord` SHOULD carry `context_set_digest` when context evidence is present in the evaluated intent path.
 - A `Runpack` MUST include the deterministic run timeline and manifest digests for replay and verification.
+- A context-enabled `Runpack` SHOULD preserve `refs.context_set_digest` continuity with any bundled `context_envelope.json`.
 - A `SessionCheckpoint` MUST bind checkpoint index/range to runpack `manifest_digest` and `checkpoint_digest`.
 - A `SessionChain` MUST preserve `prev_checkpoint_digest` continuity across checkpoint sequence.
 - A `RegressResult` SHOULD reference fixture/run identity so failures can map back to captured artifacts.
 - Evidence bundles SHOULD include pointers back to the exact runpack/trace/regress artifacts they summarize.
 - Delegation audits SHOULD reference the trace and delegation token IDs used for allow/block outcomes.
-- Consumer projections SHOULD preserve intent/receipt digest continuity (`intent_digest`, `policy_digest`, `refs.receipts[*].{query_digest,content_digest}`) when deriving audit views.
+- Consumer projections SHOULD preserve intent/receipt digest continuity (`intent_digest`, `policy_digest`, `refs.context_set_digest`, `refs.receipts[*].{query_digest,content_digest}`) when deriving audit views.
 
 ## Compatibility Model
 

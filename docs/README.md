@@ -29,6 +29,7 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 ## Contracts And Compatibility
 
 - Primitive contract: `docs/contracts/primitive_contract.md`
+- ContextSpec v1 contract: `docs/contracts/contextspec_v1.md`
 - PackSpec v1 contract: `docs/contracts/packspec_v1.md`
 - PackSpec TCK: `docs/contracts/packspec_tck.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
@@ -45,6 +46,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - Retention profiles: `docs/slo/retention_profiles.md`
 - CI regress runbook: `docs/ci_regress_kit.md`
 - UAT plan: `docs/uat_functional_plan.md`
+- Test cadence: `docs/test_cadence.md`
+- Hardening release checklist: `docs/hardening/release_checklist.md`
 
 ## Adoption And Ecosystem
 

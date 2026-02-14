@@ -1,6 +1,6 @@
-# Control and Prove Agent Tool Calls with Verifiable Runpacks
+# Gait — Run Durable Agent Jobs, Capture Tool Calls, Prove What Happened
 
-Gait captures a signed runpack for every tool-using AI run so you can verify, replay (stub mode), and diff behavior offline. Add regressions to stop drift in CI. Optionally gate high-risk tool calls with policy and approvals.
+Gait is an offline-first runtime for production AI agents. Dispatch durable jobs with checkpointed state. Capture every state-changing tool call as a signed pack you can verify, diff, and replay. Turn incidents into deterministic CI regressions. Gate high-risk actions with fail-closed policy and approvals before side effects execute.
 
 ![PR Fast](https://github.com/davidahmann/gait/actions/workflows/pr-fast.yml/badge.svg)
 ![CodeQL](https://github.com/davidahmann/gait/actions/workflows/codeql.yml/badge.svg)
@@ -12,14 +12,14 @@ Runpack format: [`docs/contracts/primitive_contract.md`](docs/contracts/primitiv
 PackSpec v1: [`docs/contracts/packspec_v1.md`](docs/contracts/packspec_v1.md)  
 Changelog: [CHANGELOG.md](CHANGELOG.md)
 
-Primary CTA: `gait demo` (offline, <60s)  
-Secondary CTA: verify artifacts with `gait verify <path>`
+**For platform and AI engineering teams** that run multi-step and multi-hour agent jobs and need state, provenance, and control without losing work mid-flight.
 
-- verifiable receipts: signed runpacks and trace records
-- debuggable by default: replay and diff two runs to see what changed
-- prevent repeats: convert a run into a regression test in CI
+**For security engineers and production owners** that need every high-risk tool call to pass a deterministic policy decision with portable, independently verifiable proof.
 
-Outputs: `run_id`, `runpack_<run_id>.zip`, and a ticket footer you can paste into incidents.
+- durable jobs: dispatch long-running work with checkpoints, pause/resume/cancel, and deterministic stop reasons
+- signed packs: every run and job emits a verifiable artifact you can attach to PRs, incidents, and audits
+- incident-to-regression: one command converts a failure into a permanent CI gate
+- fail-closed enforcement: policy decides before the action runs; non-allow means non-execute
 
 ## Try It (Offline, <60s)
 
@@ -51,16 +51,17 @@ Regenerate asset: `bash scripts/record_runpack_hero_demo.sh`
 
 ## Why Gait
 
-AI agents now execute high-authority actions: write data, mutate repos, call external APIs, rotate infra. Most stacks still rely on prompt scanning and after-the-fact observability.
+Autonomous agents are capable enough to execute real work, but teams cannot run them safely at scale. The limiting factor is not intelligence — it is operability and governance: long-running work fails mid-flight, state-changing tool calls are hard to reconstruct, and post-hoc logs are not dispute-grade evidence.
 
 Gait keeps the contract deterministic and offline-first:
 
-- runpack: signed artifact per run (`gait verify`, `gait run replay`, `gait run diff`)
-- regress: convert incidents into CI checks (`gait regress init`, `gait regress run`)
-- report top: rank highest-risk actions from runpacks/traces offline (`gait report top`)
-- optional gate: enforce policy and approvals at tool-call time (`gait gate eval`)
+- **durable jobs**: dispatch multi-step, multi-hour agent work with checkpointed state, pause/resume/cancel, and deterministic stop reasons (`gait job submit`, `gait job checkpoint`, `gait job status`)
+- **signed packs**: unified artifact for runs and jobs — verify, diff, and inspect offline (`gait pack build`, `gait pack verify`, `gait pack diff`)
+- **regress**: convert any incident into a permanent CI check with stable exit codes (`gait regress bootstrap`, `gait regress run`)
+- **report top**: rank highest-risk actions from runpacks/traces offline (`gait report top`)
+- **gate**: enforce policy and approvals at tool-call time — non-allow means non-execute (`gait gate eval`)
 
-If your agent touched production, attach the runpack.
+If your agent touched production, attach the pack.
 
 ## First Win
 
@@ -76,7 +77,7 @@ Expected output includes:
 - signed bundle under `gait-out/`
 - `ticket_footer=GAIT run_id=...` for PRs/incidents
 
-## Optional Local UI
+## Optional Local UI Playground
 
 Run a local-only UI for guided demo and onboarding flows:
 
@@ -90,16 +91,16 @@ Details: [`docs/ui_localhost.md`](docs/ui_localhost.md) and [`docs/contracts/ui_
 
 ## Core OSS Surfaces
 
-- `runpack`: record, inspect, verify, diff, receipt, replay (stub default)
-- `job`: durable lifecycle controls (submit/status/checkpoints/pause/approve/resume/cancel)
-- `pack`: unified artifact build/verify/inspect/diff for `run` and `job` evidence
-- `regress`: incident-to-regression workflow with CI/JUnit outputs
-- `gate`: policy evaluation for tool intent with signed trace output
+- `job`: dispatch durable long-running agent work with checkpointed state, pause/resume/cancel, approval gates, and deterministic stop reasons
+- `pack`: unified evidence artifact (run or job) — build, verify, inspect, diff offline with stable schemas and exit codes
+- `runpack`: record, inspect, verify, diff, receipt, replay (stub default) for individual tool-call runs
+- `regress`: incident-to-regression workflow with CI/JUnit outputs — one command to never ship the same failure again
+- `gate`: fail-closed policy evaluation for tool intent with signed trace output and approval/delegation token support
 - `doctor`: first-run diagnostics and production-readiness checks
+- `mcp proxy/bridge/serve`: transport adapters that enforce through Gate (one-shot, bridged, or long-running service)
 - `scout`: local snapshot/diff/signal analysis for drift clustering
 - `guard` and `incident`: deterministic evidence and incident bundles
 - `registry`: signed/pinned skill-pack install and verify workflows
-- `mcp proxy/bridge/serve`: transport adapters that enforce through Gate
 
 ## Turn Incidents Into CI Regressions
 
@@ -156,9 +157,9 @@ gait gate eval \
 
 Policy authoring and rollout docs: [`docs/policy_authoring.md`](docs/policy_authoring.md), [`docs/policy_rollout.md`](docs/policy_rollout.md), [`docs/approval_runbook.md`](docs/approval_runbook.md)
 
-## Long-Running Sessions And Delegation
+## Durable Sessions and Multi-Agent Delegation
 
-Checkpoint multi-day runs without losing deterministic history:
+Run multi-step, multi-day agent work without losing state or provenance. Checkpoints create verifiable runpacks at each boundary so you can resume, audit, or regress any segment:
 
 ```bash
 gait run session start --journal ./gait-out/sessions/demo.journal.jsonl --session-id sess_demo --run-id run_demo --json
@@ -287,8 +288,8 @@ Contributor guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## OSS And Enterprise Boundary
 
-- OSS is the executable substrate: runpack, regress, gate, doctor, scout, guard, adapters
-- Enterprise is a separate fleet governance layer that consumes OSS artifacts
+- OSS is the execution substrate: durable jobs, signed packs, regressions, fail-closed gates, diagnostics, and adapters
+- Enterprise is a separate fleet governance layer that consumes OSS artifacts for cross-team rollout, compliance, and fleet-scale simulation
 - Enterprise packaging does not change OSS runtime contracts
 
 Boundary details: [`docs/packaging.md`](docs/packaging.md)

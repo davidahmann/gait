@@ -553,6 +553,7 @@ Add required quality steps:
 
 Acceptance criteria:
 - Local UAT summary includes v2.5 and context lanes with PASS/FAIL.
+- Default UAT artifact path preserves the full orchestrator summary (`.uat_local/summary.txt`) even when downstream suites clean `gait-out/`.
 - Existing install-path checks (source/release/brew) remain intact.
 
 ### 6.4 Integration + e2e + acceptance additions
