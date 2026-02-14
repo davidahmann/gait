@@ -164,7 +164,11 @@ run_step "quality_chaos" make -C "${REPO_ROOT}" test-chaos
 run_step "quality_session_soak" bash "${REPO_ROOT}/scripts/test_session_soak.sh"
 run_step "quality_runtime_slo" make -C "${REPO_ROOT}" test-runtime-slo
 run_step "quality_perf_bench_check" make -C "${REPO_ROOT}" bench-check
-run_step "quality_install_path_versions" make -C "${REPO_ROOT}" test-install-path-versions
+if [[ "${SKIP_BREW}" == "true" ]]; then
+  run_step "quality_install_path_versions" bash "${REPO_ROOT}/scripts/test_cli_version_install_paths.sh" --skip-brew
+else
+  run_step "quality_install_path_versions" make -C "${REPO_ROOT}" test-install-path-versions
+fi
 
 if [[ "${SKIP_DOCS_SITE}" == "true" ]]; then
   log "SKIP quality_docs_site (requested)"
