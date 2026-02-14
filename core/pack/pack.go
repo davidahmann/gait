@@ -172,14 +172,16 @@ func BuildRunPack(options BuildRunOptions) (BuildResult, error) {
 		{Path: "run_payload.json", Data: payloadBytes, Mode: 0o644},
 		{Path: "source/runpack.zip", Data: rawRunpack, Mode: 0o644},
 	}
-	if envelope, ok, envelopeErr := contextproof.EnvelopeFromRefs(data.Refs); envelopeErr != nil {
-		return BuildResult{}, fmt.Errorf("build context envelope: %w", envelopeErr)
-	} else if ok {
-		envelopeBytes, encodeErr := canonicalJSON(envelope)
-		if encodeErr != nil {
-			return BuildResult{}, fmt.Errorf("encode context envelope: %w", encodeErr)
+	if len(data.Refs.Receipts) > 0 {
+		if envelope, ok, envelopeErr := contextproof.EnvelopeFromRefs(data.Refs); envelopeErr != nil {
+			return BuildResult{}, fmt.Errorf("build context envelope: %w", envelopeErr)
+		} else if ok {
+			envelopeBytes, encodeErr := canonicalJSON(envelope)
+			if encodeErr != nil {
+				return BuildResult{}, fmt.Errorf("encode context envelope: %w", encodeErr)
+			}
+			files = append(files, zipx.File{Path: "context_envelope.json", Data: envelopeBytes, Mode: 0o644})
 		}
-		files = append(files, zipx.File{Path: "context_envelope.json", Data: envelopeBytes, Mode: 0o644})
 	}
 
 	return buildPackWithFiles(buildPackOptions{

@@ -169,7 +169,7 @@ func TestRunDiffToleranceRules(t *testing.T) {
 func TestRunContextConformanceRuntimeDrift(t *testing.T) {
 	workDir := t.TempDir()
 	sourceRunpack := createContextRunpack(t, workDir, "run_ctx", "ctx_1", time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC), strings.Repeat("a", 64))
-	candidatePath := createContextRunpack(t, workDir, "run_ctx", "ctx_1", time.Date(2026, time.February, 14, 0, 5, 0, 0, time.UTC), strings.Repeat("a", 64))
+	candidatePath := createContextRunpack(t, workDir, "run_ctx", "ctx_1", time.Date(2026, time.February, 14, 0, 5, 0, 0, time.UTC), strings.Repeat("b", 64))
 
 	if _, err := InitFixture(InitOptions{
 		SourceRunpackPath: sourceRunpack,
@@ -189,6 +189,7 @@ func TestRunContextConformanceRuntimeDrift(t *testing.T) {
 	meta.DiffAllowChangedFiles = summarizeChangedFiles(diffResult.Summary)
 	meta.ContextConformance = "required"
 	meta.AllowContextRuntimeDrift = false
+	meta.ExpectedContextSetDigest = strings.Repeat("a", 64)
 	if err := writeJSON(metaPath, meta); err != nil {
 		t.Fatalf("write fixture metadata: %v", err)
 	}

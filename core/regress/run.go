@@ -557,7 +557,7 @@ func (grader contextConformanceGrader) Grade(ctx FixtureContext) (schemaregress.
 	enforce := grader.enforce || strings.TrimSpace(ctx.Fixture.Meta.ContextConformance) == "required" || strings.TrimSpace(ctx.Fixture.Meta.ExpectedContextSetDigest) != ""
 	allowRuntime := grader.allowRuntimeDrift || ctx.Fixture.Meta.AllowContextRuntimeDrift
 	expectedDigest := strings.TrimSpace(ctx.Fixture.Meta.ExpectedContextSetDigest)
-	if expectedDigest != "" && !strings.EqualFold(candidatePack.Refs.ContextSetDigest, expectedDigest) {
+	if expectedDigest != "" && !strings.EqualFold(candidatePack.Refs.ContextSetDigest, expectedDigest) && classification != "runtime_only" {
 		result := failResult("context_conformance", "context_set_digest_mismatch", details)
 		result.ContextConformance = "semantic"
 		return result, nil

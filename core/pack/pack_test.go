@@ -347,6 +347,67 @@ func TestDetectContextPrivacyMode(t *testing.T) {
 	}
 }
 
+func TestBuildRunPackWithDigestOnlyContextRefs(t *testing.T) {
+	workDir := t.TempDir()
+	runID := "run_digest_only_context"
+	runpackPath := filepath.Join(workDir, "runpack_"+runID+".zip")
+	createdAt := time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC)
+
+	_, err := runpack.WriteRunpack(runpackPath, runpack.RecordOptions{
+		Run: schemarunpack.Run{
+			RunID:     runID,
+			CreatedAt: createdAt,
+			Env:       schemarunpack.RunEnv{OS: "darwin", Arch: "arm64", Runtime: "go"},
+			Timeline:  []schemarunpack.TimelineEvt{{Event: "start", TS: createdAt}},
+		},
+		Intents: []schemarunpack.IntentRecord{{
+			IntentID:   "intent_1",
+			ToolName:   "tool.echo",
+			ArgsDigest: strings.Repeat("2", 64),
+			Args:       map[string]any{"message": "hello"},
+		}},
+		Results: []schemarunpack.ResultRecord{{
+			IntentID:     "intent_1",
+			Status:       "ok",
+			ResultDigest: strings.Repeat("3", 64),
+			Result:       map[string]any{"ok": true},
+		}},
+		Refs: schemarunpack.Refs{
+			RunID:               runID,
+			ContextSetDigest:    strings.Repeat("a", 64),
+			ContextEvidenceMode: "required",
+			Receipts:            []schemarunpack.RefReceipt{},
+		},
+	})
+	if err != nil {
+		t.Fatalf("write runpack fixture: %v", err)
+	}
+
+	result, err := BuildRunPack(BuildRunOptions{RunpackPath: runpackPath})
+	if err != nil {
+		t.Fatalf("build run pack from digest-only refs runpack: %v", err)
+	}
+
+	bundle, err := openZip(result.Path)
+	if err != nil {
+		t.Fatalf("open built run pack: %v", err)
+	}
+	defer func() {
+		_ = bundle.Close()
+	}()
+	if _, ok := bundle.Files["context_envelope.json"]; ok {
+		t.Fatalf("did not expect context_envelope.json when receipts are empty")
+	}
+
+	inspectResult, err := Inspect(result.Path)
+	if err != nil {
+		t.Fatalf("inspect built run pack: %v", err)
+	}
+	if inspectResult.RunPayload == nil || inspectResult.RunPayload.ContextSetDigest != strings.Repeat("a", 64) {
+		t.Fatalf("expected run payload to retain context_set_digest from refs: %#v", inspectResult.RunPayload)
+	}
+}
+
 func TestVerifySignatureModesAndMissingDeclaredFiles(t *testing.T) {
 	workDir := t.TempDir()
 	runpackPath := createRunpackFixture(t, workDir, "run_signature_modes")
