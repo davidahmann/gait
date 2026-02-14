@@ -6,6 +6,8 @@ builds:
   - id: gait
     main: ./cmd/gait
     binary: gait
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
     goos:
       - linux
       - darwin
