@@ -55,7 +55,8 @@ codeql:
 	bash scripts/run_codeql_local.sh
 
 test:
-	$(GO) test ./... -cover | tee coverage-go-packages.out
+	$(GO) test ./... -cover > coverage-go-packages.out
+	cat coverage-go-packages.out
 	$(PYTHON) scripts/check_go_package_coverage.py coverage-go-packages.out $(GO_PACKAGE_COVERAGE_THRESHOLD)
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
 	$(PYTHON) scripts/check_go_coverage.py coverage-go.out $(GO_COVERAGE_THRESHOLD)

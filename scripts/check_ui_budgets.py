@@ -142,6 +142,7 @@ def main() -> int:
             try:
                 startup_start = time.perf_counter()
                 ready = False
+                last_health_error: str | None = None
                 for _ in range(120):
                     if process.poll() is not None:
                         break
@@ -150,13 +151,15 @@ def main() -> int:
                         if health.get("ok") is True:
                             ready = True
                             break
-                    except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError):
-                        pass
+                    except (error.URLError, TimeoutError, ValueError, json.JSONDecodeError) as err:
+                        last_health_error = str(err)
                     time.sleep(0.25)
                 startup_tti_ms = (time.perf_counter() - startup_start) * 1000.0
                 report["metrics"]["startup_tti_ms"] = startup_tti_ms
                 report["metrics"]["ready"] = ready
                 report["metrics"]["ui_log_path"] = str(ui_log)
+                if last_health_error is not None:
+                    report["metrics"]["last_health_error"] = last_health_error
 
                 if not ready:
                     failures.append("ui server did not become healthy")

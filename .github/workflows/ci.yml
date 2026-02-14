@@ -173,7 +173,8 @@ jobs:
       - name: Go tests with coverage
         shell: bash
         run: |
-          go test ./... -cover | tee coverage-go-packages.out
+          go test ./... -cover > coverage-go-packages.out
+          cat coverage-go-packages.out
           python scripts/check_go_package_coverage.py coverage-go-packages.out 75
           go test ./core/... ./cmd/gait -coverprofile=coverage-go.out
           if [[ "$RUNNER_OS" == "Linux" ]]; then
