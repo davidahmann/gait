@@ -189,6 +189,14 @@ Deterministic failure contract:
 Template workflow: [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml)
 Drop-in action: [`.github/actions/gait-regress/README.md`](.github/actions/gait-regress/README.md)
 
+### One-PR CI Adoption (GitHub First)
+
+1. Copy [`.github/workflows/adoption-regress-template.yml`](.github/workflows/adoption-regress-template.yml) into your repo.
+2. Commit fixture/config paths (or rely on deterministic fallback init from `run_demo`).
+3. Open a PR and confirm uploaded artifacts under `gait-out/adoption_regress/`.
+
+Portable follow-on kits for GitLab/Jenkins/Circle are documented in [`docs/ci_regress_kit.md`](docs/ci_regress_kit.md) and map to the same CLI exit/artifact contract.
+
 ## Triage Top Risks Fast
 
 ```bash

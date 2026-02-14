@@ -64,6 +64,7 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - Ecosystem contribution flow: `docs/ecosystem/contribute.md`
 - Launch/distribution assets: `docs/launch/README.md`
 - Activation KPI definition (v2.6): `docs/launch/activation_kpi_v2_6.md`
+- Distribution plan (v2.7 gravity wells): `docs/PLAN_v2.7_distribution.md`
 - Content cadence plan (v2.6): `docs/launch/content_cadence_v2_6.md`
 - Hero demo asset review (v2.6): `docs/launch/hero_demo_asset_review_v2_6.md`
 

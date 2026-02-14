@@ -72,6 +72,7 @@ Recommended indexed keys:
 - `reason_codes`
 - `policy_digest`
 - `intent_digest`
+- `decision_latency_ms`
 - `delegation_ref`
 - `delegation_depth`
 

@@ -1,0 +1,17 @@
+pipeline {
+  agent any
+
+  stages {
+    stage('Gait Regress Contract') {
+      steps {
+        sh 'bash scripts/ci_regress_contract.sh'
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'gait-out/adoption_regress/**', allowEmptyArchive: true
+    }
+  }
+}

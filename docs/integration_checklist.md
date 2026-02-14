@@ -14,6 +14,7 @@ Blessed default lane:
 
 - local coding-agent wrapper flow (`examples/integrations/openai_agents/`)
 - GitHub Actions CI regress gate (`.github/workflows/adoption-regress-template.yml`)
+- one-PR CI adoption target via reusable workflow or composite action
 
 Expansion policy:
 
@@ -205,7 +206,10 @@ return execute_real_tool(tool_call)
 
 ## CI Mapping (Local -> GitHub Actions)
 
-Use `.github/workflows/adoption-regress-template.yml` directly.
+Default path (GitHub Actions):
+
+- use `.github/workflows/adoption-regress-template.yml` directly for one-PR adoption
+- optional step-level control: `.github/actions/gait-regress/action.yml`
 
 Required parity:
 
@@ -213,4 +217,12 @@ Required parity:
 - same stable exit handling (`0` pass, `5` deterministic failure)
 - same retained artifacts (`regress_result.json`, `junit.xml`, fixture files)
 
-See `docs/ci_regress_kit.md` for workflow-call inputs/outputs.
+Non-GitHub portability path:
+
+- run `bash scripts/ci_regress_contract.sh` as the provider-agnostic CI contract
+- copy provider template from:
+  - `examples/ci/portability/gitlab/.gitlab-ci.yml`
+  - `examples/ci/portability/jenkins/Jenkinsfile`
+  - `examples/ci/portability/circleci/config.yml`
+
+See `docs/ci_regress_kit.md` for workflow/action contracts and portability guidance.

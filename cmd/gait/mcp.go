@@ -18,24 +18,25 @@ import (
 )
 
 type mcpProxyOutput struct {
-	OK           bool     `json:"ok"`
-	Executed     bool     `json:"executed"`
-	Adapter      string   `json:"adapter,omitempty"`
-	RunID        string   `json:"run_id,omitempty"`
-	SessionID    string   `json:"session_id,omitempty"`
-	ToolName     string   `json:"tool_name,omitempty"`
-	Verdict      string   `json:"verdict,omitempty"`
-	ReasonCodes  []string `json:"reason_codes,omitempty"`
-	Violations   []string `json:"violations,omitempty"`
-	PolicyDigest string   `json:"policy_digest,omitempty"`
-	IntentDigest string   `json:"intent_digest,omitempty"`
-	TraceID      string   `json:"trace_id,omitempty"`
-	TracePath    string   `json:"trace_path,omitempty"`
-	RunpackPath  string   `json:"runpack_path,omitempty"`
-	LogExport    string   `json:"log_export,omitempty"`
-	OTelExport   string   `json:"otel_export,omitempty"`
-	Warnings     []string `json:"warnings,omitempty"`
-	Error        string   `json:"error,omitempty"`
+	OK                bool     `json:"ok"`
+	Executed          bool     `json:"executed"`
+	Adapter           string   `json:"adapter,omitempty"`
+	RunID             string   `json:"run_id,omitempty"`
+	SessionID         string   `json:"session_id,omitempty"`
+	ToolName          string   `json:"tool_name,omitempty"`
+	Verdict           string   `json:"verdict,omitempty"`
+	ReasonCodes       []string `json:"reason_codes,omitempty"`
+	Violations        []string `json:"violations,omitempty"`
+	PolicyDigest      string   `json:"policy_digest,omitempty"`
+	IntentDigest      string   `json:"intent_digest,omitempty"`
+	DecisionLatencyMS int64    `json:"decision_latency_ms,omitempty"`
+	TraceID           string   `json:"trace_id,omitempty"`
+	TracePath         string   `json:"trace_path,omitempty"`
+	RunpackPath       string   `json:"runpack_path,omitempty"`
+	LogExport         string   `json:"log_export,omitempty"`
+	OTelExport        string   `json:"otel_export,omitempty"`
+	Warnings          []string `json:"warnings,omitempty"`
+	Error             string   `json:"error,omitempty"`
 }
 
 type mcpProxyEvalOptions struct {
@@ -182,6 +183,7 @@ func readMCPPayload(path string) ([]byte, error) {
 }
 
 func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxyEvalOptions) (mcpProxyOutput, int, error) {
+	decisionStarted := time.Now()
 	call, err := mcp.DecodeToolCall(options.Adapter, payload)
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
@@ -267,6 +269,11 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		}
 		exportEvent.DelegationDepth = traceResult.Trace.DelegationRef.DelegationDepth
 	}
+	decisionLatencyMS := time.Since(decisionStarted).Milliseconds()
+	if decisionLatencyMS < 0 {
+		decisionLatencyMS = 0
+	}
+	exportEvent.DecisionLatency = decisionLatencyMS
 	resolvedLogExport := ""
 	if strings.TrimSpace(options.LogExportPath) != "" {
 		resolvedLogExport = strings.TrimSpace(options.LogExportPath)
@@ -290,23 +297,24 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		exitCode = exitApprovalRequired
 	}
 	return mcpProxyOutput{
-		OK:           true,
-		Executed:     false,
-		Adapter:      strings.ToLower(strings.TrimSpace(options.Adapter)),
-		RunID:        resolvedRunID,
-		SessionID:    evalResult.Intent.Context.SessionID,
-		ToolName:     evalResult.Intent.ToolName,
-		Verdict:      evalResult.Outcome.Result.Verdict,
-		ReasonCodes:  evalResult.Outcome.Result.ReasonCodes,
-		Violations:   evalResult.Outcome.Result.Violations,
-		PolicyDigest: traceResult.PolicyDigest,
-		IntentDigest: traceResult.IntentDigest,
-		TraceID:      traceResult.Trace.TraceID,
-		TracePath:    traceResult.TracePath,
-		RunpackPath:  resolvedRunpackPath,
-		LogExport:    resolvedLogExport,
-		OTelExport:   resolvedOTelExport,
-		Warnings:     warnings,
+		OK:                true,
+		Executed:          false,
+		Adapter:           strings.ToLower(strings.TrimSpace(options.Adapter)),
+		RunID:             resolvedRunID,
+		SessionID:         evalResult.Intent.Context.SessionID,
+		ToolName:          evalResult.Intent.ToolName,
+		Verdict:           evalResult.Outcome.Result.Verdict,
+		ReasonCodes:       evalResult.Outcome.Result.ReasonCodes,
+		Violations:        evalResult.Outcome.Result.Violations,
+		PolicyDigest:      traceResult.PolicyDigest,
+		IntentDigest:      traceResult.IntentDigest,
+		DecisionLatencyMS: decisionLatencyMS,
+		TraceID:           traceResult.Trace.TraceID,
+		TracePath:         traceResult.TracePath,
+		RunpackPath:       resolvedRunpackPath,
+		LogExport:         resolvedLogExport,
+		OTelExport:        resolvedOTelExport,
+		Warnings:          warnings,
 	}, exitCode, nil
 }
 

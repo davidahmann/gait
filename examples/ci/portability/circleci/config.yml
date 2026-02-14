@@ -1,0 +1,19 @@
+version: 2.1
+
+jobs:
+  gait_regress:
+    docker:
+      - image: cimg/go:1.24
+    steps:
+      - checkout
+      - run:
+          name: Run Gait regress contract
+          command: bash scripts/ci_regress_contract.sh
+      - store_artifacts:
+          path: gait-out/adoption_regress
+          destination: gait-out/adoption_regress
+
+workflows:
+  regress:
+    jobs:
+      - gait_regress

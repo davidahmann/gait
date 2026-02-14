@@ -1,29 +1,34 @@
-# CI Regress Kit (v2.3 Blessed CI Lane)
+# CI Regress Kit (v2.7 GitHub-First Distribution Lane)
 
-This kit makes incident-to-regression checks turnkey in CI.
+This kit keeps CI adoption "one PR to adopt" while preserving deterministic regress contracts.
 
-Primary drop-in path:
+## One-PR Adoption Path (Default)
 
-- `.github/actions/gait-regress/action.yml` (composite action, v2 contract)
+GitHub Actions is the primary lane:
 
-Canonical default path:
+- reusable workflow: `.github/workflows/adoption-regress-template.yml`
+- step-level action: `.github/actions/gait-regress/action.yml`
 
-- `.github/workflows/adoption-regress-template.yml`
+Minimal adoption action:
+
+1. Add the workflow to your repo.
+2. Ensure fixture/config inputs are present (or keep deterministic fallback init enabled).
+3. Open a PR and verify artifacts under `gait-out/adoption_regress/`.
 
 ## Reusable Workflow Contract
 
-The workflow supports both:
+The workflow supports:
 
 - `workflow_dispatch`
 - `workflow_call`
 
-### Inputs
+Inputs:
 
 - `fixture_runpack_path` (default: `fixtures/run_demo/runpack.zip`)
 - `config_path` (default: `gait.yaml`)
-- `source_run` (default: `run_demo`, used for deterministic fallback fixture generation)
+- `source_run` (default: `run_demo`, deterministic fallback fixture source)
 
-### Outputs (workflow_call)
+Outputs:
 
 - `regress_status`
 - `regress_exit_code`
@@ -31,32 +36,67 @@ The workflow supports both:
 - `next_command`
 - `artifact_root`
 
-### Deterministic Artifact Root
-
-- `gait-out/adoption_regress/`
-  - `regress_result.json`
-  - `junit.xml`
-  - `regress_init_result.json` (when fallback init is used)
-
-The workflow also uploads fixture/config artifacts for triage.
-
-## Summary-First Failure Triage
-
-Job summary publishes:
-
-- status
-- exit code
-- top failure reason
-- next command
-- artifact root and artifact paths
-
-You can start triage from summary without opening raw logs first.
-
-Stable regress exit semantics are preserved:
+Stable exit semantics:
 
 - `0`: pass
 - `5`: deterministic regression failure
 - other: unexpected error passthrough
+
+Deterministic artifact root:
+
+- `gait-out/adoption_regress/`
+  - `regress_result.json`
+  - `junit.xml`
+  - `regress_init_result.json` (only when fallback init runs)
+
+## Composite Action Contract
+
+Use the action for step-level reuse:
+
+```yaml
+- uses: ./.github/actions/gait-regress
+  with:
+    version: latest
+    command: regress
+    workdir: .
+    upload_artifacts: true
+    artifact_name: gait-regress-artifacts
+```
+
+Supported `command` values:
+
+- `regress`
+- `policy-test`
+
+Action outputs:
+
+- `exit_code`
+- `summary_path`
+- `artifact_path`
+
+## CI Portability Contract (GitLab/Jenkins/Circle)
+
+Non-GitHub CI providers should call one compatibility contract script:
+
+- `scripts/ci_regress_contract.sh`
+
+Portable templates:
+
+- GitLab: `examples/ci/portability/gitlab/.gitlab-ci.yml`
+- Jenkins: `examples/ci/portability/jenkins/Jenkinsfile`
+- CircleCI: `examples/ci/portability/circleci/config.yml`
+
+Local parity check:
+
+```bash
+bash scripts/ci_regress_contract.sh
+```
+
+The portability templates are wrappers around this script and must preserve:
+
+- identical regress exit handling (`0`, `5`, passthrough)
+- identical artifact root (`gait-out/adoption_regress/`)
+- identical fixture fallback behavior (`run_demo` init path)
 
 ## Downstream Reuse Example
 
@@ -75,88 +115,6 @@ jobs:
       source_run: run_demo
 ```
 
-## Composite Action (Step-Level Reuse)
-
-Use the composite action when you want step-level control inside an existing job:
-
-```yaml
-- uses: ./.github/actions/gait-regress
-  with:
-    version: latest
-    workdir: .
-    command: regress
-    args: "--config gait.yaml"
-    upload_artifacts: true
-    artifact_name: gait-regress-artifacts
-```
-
-Supported `command` values:
-
-- `regress`: runs `gait regress run --json --junit ...`
-- `policy-test`: runs `gait policy test ... --json`
-
-Action outputs:
-
-- `exit_code`
-- `summary_path`
-- `artifact_path`
-
-The action downloads release binaries, verifies `checksums.txt`, prints a bounded summary (including ticket footer when available), uploads `./gait-ci` artifacts, and fails the job on non-zero exit code.
-
-Reference examples:
-
-- `.github/actions/gait-regress/README.md`
-- `examples/ci/gait-regress-failing/workflow.yml`
-
-## Compatibility Shell Snippet (Non-GitHub CI)
-
-Use this for Jenkins/Buildkite/CircleCI style runners:
-
-```bash
-set -euo pipefail
-
-go build -o ./gait ./cmd/gait
-mkdir -p gait-out/adoption_regress
-
-if [[ ! -f fixtures/run_demo/runpack.zip || ! -f gait.yaml ]]; then
-  ./gait demo
-  ./gait regress init --from run_demo --json > gait-out/adoption_regress/regress_init_result.json
-fi
-
-set +e
-./gait regress run --json --junit=./gait-out/adoption_regress/junit.xml > ./gait-out/adoption_regress/regress_result.json
-status=$?
-set -e
-
-if [[ "$status" -eq 0 ]]; then
-  echo "regress pass"
-elif [[ "$status" -eq 5 ]]; then
-  echo "regress fail (stable exit code 5)"
-  exit 5
-else
-  echo "unexpected regress exit code: $status"
-  exit "$status"
-fi
-
-./gait policy test examples/policy/endpoint/allow_safe_endpoints.yaml examples/policy/endpoint/fixtures/intent_allow.json --json
-set +e
-./gait policy test examples/policy/endpoint/block_denied_endpoints.yaml examples/policy/endpoint/fixtures/intent_block.json --json
-block_status=$?
-./gait policy test examples/policy/endpoint/require_approval_destructive.yaml examples/policy/endpoint/fixtures/intent_destructive.json --json
-approval_status=$?
-set -e
-if [[ "$block_status" -ne 3 ]]; then
-  echo "endpoint block fixture exit mismatch: $block_status"
-  exit 1
-fi
-if [[ "$approval_status" -ne 4 ]]; then
-  echo "endpoint approval fixture exit mismatch: $approval_status"
-  exit 1
-fi
-
-bash scripts/test_skill_supply_chain.sh
-```
-
 ## Path-Filtered PR Guidance
 
 Require this lane for changes touching:
@@ -170,10 +128,9 @@ Require this lane for changes touching:
 - `docs/ci_regress_kit.md`
 - `.agents/skills/**`
 
-This keeps adoption-critical changes gated while avoiding unnecessary runs on unrelated docs-only edits.
-
-Downstream simulation test command:
+Validation commands:
 
 ```bash
 bash scripts/test_ci_regress_template.sh
+bash scripts/test_ci_portability_templates.sh
 ```
