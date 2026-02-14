@@ -12,7 +12,8 @@ import (
 	"github.com/davidahmann/gait/core/scout"
 )
 
-const version = "0.0.0-dev"
+// version is stamped at release time via ldflags; default stays dev for local builds.
+var version = "0.0.0-dev"
 
 type telemetryStreamHealth struct {
 	Attempts int64 `json:"attempts"`

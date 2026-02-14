@@ -8,13 +8,14 @@ OUT_DEFAULT="dist/gait.rb"
 PROJECT_DEFAULT="gait"
 LICENSE_DEFAULT="Apache-2.0"
 DESC_DEFAULT="Offline-first control plane for production AI agent tool calls"
+RELEASE_BASE_URL_DEFAULT=""
 
 usage() {
   cat <<'EOF'
 Render a Homebrew formula from release checksums.
 
 Usage:
-  render_homebrew_formula.sh --version <tag> [--repo <owner/name>] [--checksums <path>] [--out <path>] [--project <name>]
+  render_homebrew_formula.sh --version <tag> [--repo <owner/name>] [--checksums <path>] [--out <path>] [--project <name>] [--release-base-url <url>]
 
 Options:
   --version <tag>      Release tag (required, e.g. v1.7.0)
@@ -22,6 +23,8 @@ Options:
   --checksums <path>   checksums.txt path (default: dist/checksums.txt)
   --out <path>         Output formula path (default: dist/gait.rb)
   --project <name>     Release archive prefix (default: gait)
+  --release-base-url <url>
+                        Override release base URL (default: GitHub release URL derived from --repo/--version)
   --license <id>       SPDX license id (default: Apache-2.0)
   --desc <text>        Formula description
   -h, --help           Show this help
@@ -35,6 +38,7 @@ out_path="$OUT_DEFAULT"
 project="$PROJECT_DEFAULT"
 license_id="$LICENSE_DEFAULT"
 formula_desc="$DESC_DEFAULT"
+release_base_url="$RELEASE_BASE_URL_DEFAULT"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -61,6 +65,11 @@ while [[ $# -gt 0 ]]; do
     --project)
       [[ $# -ge 2 ]] || { echo "error: --project requires a value" >&2; exit 2; }
       project="$2"
+      shift 2
+      ;;
+    --release-base-url)
+      [[ $# -ge 2 ]] || { echo "error: --release-base-url requires a value" >&2; exit 2; }
+      release_base_url="$2"
       shift 2
       ;;
     --license)
@@ -142,7 +151,11 @@ asset_arm64="${arm64_resolved%%|*}"
 sha_arm64="${arm64_resolved##*|}"
 
 homepage="https://github.com/${repo}"
-release_base="https://github.com/${repo}/releases/download/${version}"
+if [[ -n "$release_base_url" ]]; then
+  release_base="$release_base_url"
+else
+  release_base="https://github.com/${repo}/releases/download/${version}"
+fi
 formula_name="$(basename "$out_path")"
 formula_name="${formula_name%.rb}"
 formula_class="$(printf '%s' "$formula_name" | awk -F'[-_]' '{for (i=1;i<=NF;i++) printf toupper(substr($i,1,1)) tolower(substr($i,2)); print ""}')"
@@ -152,6 +165,7 @@ cat >"$out_path" <<EOF
 class ${formula_class} < Formula
   desc "${formula_desc}"
   homepage "${homepage}"
+  version "${version_no_v}"
   license "${license_id}"
 
   on_macos do

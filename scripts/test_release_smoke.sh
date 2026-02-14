@@ -109,6 +109,7 @@ bash "$REPO_ROOT/scripts/render_homebrew_formula.sh" \
   --out "$WORK_DIR/gait.rb"
 
 grep -q '^class Gait < Formula$' "$WORK_DIR/gait.rb"
+grep -q '^  version "0.0.0"$' "$WORK_DIR/gait.rb"
 grep -q 'gait_v0.0.0_darwin_amd64.tar.gz' "$WORK_DIR/gait.rb"
 grep -q 'gait_v0.0.0_darwin_arm64.tar.gz' "$WORK_DIR/gait.rb"
 grep -q '1111111111111111111111111111111111111111111111111111111111111111' "$WORK_DIR/gait.rb"
