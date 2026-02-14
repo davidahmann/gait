@@ -244,6 +244,23 @@ def test_run_command_binary_not_found_raises_actionable_error(
     assert raised.value.exit_code == 127
 
 
+def test_run_command_missing_cwd_raises_path_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    missing_cwd = tmp_path / "missing-cwd"
+
+    def missing_cwd_run(*args: object, **kwargs: object) -> object:
+        raise FileNotFoundError(2, "No such file or directory", str(missing_cwd))
+
+    monkeypatch.setattr(client_module.subprocess, "run", missing_cwd_run)
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        client_module._run_command(["gait", "demo"], cwd=missing_cwd)
+    assert "cwd not found" in str(raised.value)
+    assert "binary not found" not in str(raised.value)
+    assert str(missing_cwd) in str(raised.value)
+    assert raised.value.exit_code == -1
+
+
 def test_evaluate_gate_malformed_json_raises_command_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

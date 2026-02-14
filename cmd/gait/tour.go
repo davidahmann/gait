@@ -105,8 +105,10 @@ func runTour(arguments []string) int {
 
 	ok := runResult.Result.Status == regressStatusPass
 	exitCode := exitOK
+	failureError := ""
 	if !ok {
 		exitCode = exitRegressFailed
+		failureError = fmt.Sprintf("regress step failed: status=%s failed=%d", runResult.Result.Status, runResult.FailedGraders)
 	}
 
 	return writeTourOutput(jsonOutput, tourOutput{
@@ -130,6 +132,7 @@ func runTour(arguments []string) int {
 		},
 		MetricsOptIn: demoMetricsOptInCommand,
 		DurationMS:   time.Since(startedAt).Milliseconds(),
+		Error:        failureError,
 	}, exitCode)
 }
 
@@ -154,7 +157,23 @@ func writeTourOutput(jsonOutput bool, output tourOutput, exitCode int) int {
 		}
 		return exitCode
 	}
-	fmt.Printf("tour error: %s\n", output.Error)
+	if output.Error != "" {
+		fmt.Printf("tour error: %s\n", output.Error)
+	} else {
+		fmt.Println("tour failed")
+	}
+	if output.RunID != "" {
+		fmt.Printf("run_id=%s\n", output.RunID)
+	}
+	if output.VerifyStatus != "" || output.VerifyPath != "" {
+		fmt.Printf("a2_verify=%s path=%s\n", output.VerifyStatus, output.VerifyPath)
+	}
+	if output.FixtureName != "" || output.FixtureDir != "" {
+		fmt.Printf("a3_regress_init=fixture=%s dir=%s\n", output.FixtureName, output.FixtureDir)
+	}
+	if output.RegressStatus != "" || output.RegressFailed > 0 {
+		fmt.Printf("a4_regress_run=%s failed=%d\n", output.RegressStatus, output.RegressFailed)
+	}
 	return exitCode
 }
 

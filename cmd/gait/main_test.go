@@ -1502,6 +1502,30 @@ func TestTourJSONOutput(t *testing.T) {
 	}
 }
 
+func TestWriteTourOutputFailureShowsContext(t *testing.T) {
+	raw := captureStdout(t, func() {
+		code := writeTourOutput(false, tourOutput{
+			OK:            false,
+			RunID:         demoRunID,
+			VerifyStatus:  "ok",
+			VerifyPath:    "./gait-out/runpack_run_demo.zip",
+			FixtureName:   demoRunID,
+			FixtureDir:    "./fixtures/run_demo",
+			RegressStatus: "fail",
+			RegressFailed: 2,
+		}, exitRegressFailed)
+		if code != exitRegressFailed {
+			t.Fatalf("writeTourOutput expected %d got %d", exitRegressFailed, code)
+		}
+	})
+	if !strings.Contains(raw, "tour failed") {
+		t.Fatalf("expected generic tour failure output, got %q", raw)
+	}
+	if !strings.Contains(raw, "a4_regress_run=fail failed=2") {
+		t.Fatalf("expected regress failure details in output, got %q", raw)
+	}
+}
+
 func TestVerifyJSONIncludesGuidance(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)
