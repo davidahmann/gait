@@ -20,8 +20,8 @@ import (
 const (
 	commitmentIntentSchemaID = "gait.voice.commitment_intent"
 	commitmentIntentSchemaV1 = "1.0.0"
-	sayTokenSchemaID         = "gait.voice.say_token"
-	sayTokenSchemaV1         = "1.0.0"
+	sayCapabilitySchemaID    = "gait.voice.say_token"
+	sayCapabilitySchemaV1    = "1.0.0"
 
 	SayTokenCodeSchemaInvalid   = "say_token_invalid"
 	SayTokenCodeSignatureMiss   = "say_token_signature_missing"
@@ -269,8 +269,8 @@ func MintSayToken(opts MintSayTokenOptions) (MintSayTokenResult, error) {
 		producerVersion = "0.0.0-dev"
 	}
 	token := schemavoice.SayToken{
-		SchemaID:           sayTokenSchemaID,
-		SchemaVersion:      sayTokenSchemaV1,
+		SchemaID:           sayCapabilitySchemaID,
+		SchemaVersion:      sayCapabilitySchemaV1,
 		CreatedAt:          createdAt,
 		ProducerVersion:    producerVersion,
 		TokenID:            computeSayTokenID(intentDigest, policyDigest, callID, opts.TurnIndex, opts.CallSeq, commitmentClass, createdAt.Add(opts.TTL)),
@@ -407,15 +407,15 @@ func ValidateSayToken(token schemavoice.SayToken, publicKey ed25519.PublicKey, o
 func normalizeSayToken(token schemavoice.SayToken) (schemavoice.SayToken, error) {
 	normalized := token
 	if strings.TrimSpace(normalized.SchemaID) == "" {
-		normalized.SchemaID = sayTokenSchemaID
+		normalized.SchemaID = sayCapabilitySchemaID
 	}
-	if normalized.SchemaID != sayTokenSchemaID {
+	if normalized.SchemaID != sayCapabilitySchemaID {
 		return schemavoice.SayToken{}, fmt.Errorf("unsupported schema_id: %s", normalized.SchemaID)
 	}
 	if strings.TrimSpace(normalized.SchemaVersion) == "" {
-		normalized.SchemaVersion = sayTokenSchemaV1
+		normalized.SchemaVersion = sayCapabilitySchemaV1
 	}
-	if normalized.SchemaVersion != sayTokenSchemaV1 {
+	if normalized.SchemaVersion != sayCapabilitySchemaV1 {
 		return schemavoice.SayToken{}, fmt.Errorf("unsupported schema_version: %s", normalized.SchemaVersion)
 	}
 	normalized.TokenID = strings.TrimSpace(normalized.TokenID)

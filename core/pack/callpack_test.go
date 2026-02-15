@@ -10,6 +10,7 @@ import (
 	"time"
 
 	coreerrors "github.com/davidahmann/gait/core/errors"
+	schemapack "github.com/davidahmann/gait/core/schema/v1/pack"
 	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
 )
 
@@ -251,6 +252,267 @@ func TestVerifyRejectsCallPackManifestPrivacyMismatch(t *testing.T) {
 		t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
 	} else if !strings.Contains(err.Error(), "privacy_mode does not match") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateCallPayloadAndManifestContracts(t *testing.T) {
+	createdAt := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
+	basePayload := schemapack.CallPayload{
+		SchemaID:             callPayloadSchemaID,
+		SchemaVersion:        callPayloadSchemaVersion,
+		CreatedAt:            createdAt,
+		CallID:               "call_demo",
+		PrivacyMode:          privacyModeHashOnly,
+		EventCount:           1,
+		CommitmentCount:      1,
+		DecisionCount:        1,
+		SpeakReceiptCount:    1,
+		ReferenceDigestCount: 1,
+	}
+	baseManifest := schemavoice.CallpackManifest{
+		SchemaID:             callpackManifestSchemaID,
+		SchemaVersion:        callpackManifestSchemaV1,
+		CreatedAt:            createdAt,
+		ProducerVersion:      "test",
+		CallID:               "call_demo",
+		PrivacyMode:          privacyModeHashOnly,
+		EventCount:           1,
+		CommitmentCount:      1,
+		DecisionCount:        1,
+		SpeakReceiptCount:    1,
+		ReferenceDigestCount: 1,
+	}
+	if err := validateCallPayload(basePayload); err != nil {
+		t.Fatalf("expected valid call payload, got %v", err)
+	}
+	if err := validateCallpackManifest(baseManifest); err != nil {
+		t.Fatalf("expected valid callpack manifest, got %v", err)
+	}
+
+	payloadCases := []struct {
+		name    string
+		mutate  func(*schemapack.CallPayload)
+		wantErr string
+	}{
+		{name: "schema_id", mutate: func(payload *schemapack.CallPayload) { payload.SchemaID = "bad" }, wantErr: "schema_id"},
+		{name: "schema_version", mutate: func(payload *schemapack.CallPayload) { payload.SchemaVersion = "2.0.0" }, wantErr: "schema_version"},
+		{name: "created_at", mutate: func(payload *schemapack.CallPayload) { payload.CreatedAt = time.Time{} }, wantErr: "created_at"},
+		{name: "call_id", mutate: func(payload *schemapack.CallPayload) { payload.CallID = "" }, wantErr: "call_id"},
+		{name: "privacy_mode", mutate: func(payload *schemapack.CallPayload) { payload.PrivacyMode = "cleartext" }, wantErr: "privacy_mode"},
+		{name: "counts", mutate: func(payload *schemapack.CallPayload) { payload.EventCount = -1 }, wantErr: "counts must be >= 0"},
+	}
+	for _, testCase := range payloadCases {
+		t.Run("payload_"+testCase.name, func(t *testing.T) {
+			candidate := basePayload
+			testCase.mutate(&candidate)
+			if err := validateCallPayload(candidate); err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected payload error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
+	}
+
+	manifestCases := []struct {
+		name    string
+		mutate  func(*schemavoice.CallpackManifest)
+		wantErr string
+	}{
+		{name: "schema_id", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.SchemaID = "bad" }, wantErr: "schema_id"},
+		{name: "schema_version", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.SchemaVersion = "2.0.0" }, wantErr: "schema_version"},
+		{name: "created_at", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.CreatedAt = time.Time{} }, wantErr: "created_at"},
+		{name: "producer_version", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.ProducerVersion = " " }, wantErr: "producer_version"},
+		{name: "call_id", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.CallID = " " }, wantErr: "call_id"},
+		{name: "privacy_mode", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.PrivacyMode = "cleartext" }, wantErr: "privacy_mode"},
+		{name: "counts", mutate: func(manifest *schemavoice.CallpackManifest) { manifest.DecisionCount = -1 }, wantErr: "counts must be >= 0"},
+	}
+	for _, testCase := range manifestCases {
+		t.Run("manifest_"+testCase.name, func(t *testing.T) {
+			candidate := baseManifest
+			testCase.mutate(&candidate)
+			if err := validateCallpackManifest(candidate); err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected manifest error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestNormalizeReferenceDigestsAndVoiceRows(t *testing.T) {
+	referenceInput := []schemavoice.ReferenceDigest{
+		{RefID: "ref_b", SHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+		{RefID: "ref_a", SHA256: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+		{RefID: "ref_a", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		{RefID: "", SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+		{RefID: "ref_bad", SHA256: "not_a_digest"},
+	}
+	references := normalizeReferenceDigests(referenceInput)
+	if len(references) != 2 {
+		t.Fatalf("expected 2 normalized reference digests, got %#v", references)
+	}
+	if references[0].RefID != "ref_a" || references[1].RefID != "ref_b" {
+		t.Fatalf("expected sorted references, got %#v", references)
+	}
+
+	createdAt := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
+	validEvent := schemavoice.CallEvent{
+		SchemaID:        "gait.voice.call_event",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       createdAt,
+		CallID:          "call_demo",
+		CallSeq:         1,
+		TurnIndex:       0,
+		EventType:       "tts.emitted",
+		CommitmentClass: "quote",
+		IntentDigest:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		PolicyDigest:    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+		PayloadDigest:   "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+		SayTokenID:      "say_demo",
+	}
+	normalizedEvent, err := normalizeCallEvent(validEvent, "call_demo")
+	if err != nil {
+		t.Fatalf("normalize call event: %v", err)
+	}
+	if normalizedEvent.IntentDigest != strings.ToLower(validEvent.IntentDigest) {
+		t.Fatalf("expected lowercase intent digest, got %q", normalizedEvent.IntentDigest)
+	}
+
+	invalidEvent := validEvent
+	invalidEvent.PayloadDigest = "bad"
+	if _, err := normalizeCallEvent(invalidEvent, "call_demo"); err == nil || !strings.Contains(err.Error(), "payload_digest") {
+		t.Fatalf("expected invalid payload digest error, got %v", err)
+	}
+
+	validDecision := schemavoice.GateDecision{
+		CallID:          "call_demo",
+		CallSeq:         2,
+		TurnIndex:       0,
+		CommitmentClass: "quote",
+		Verdict:         "allow",
+		ReasonCodes:     []string{"allow_rule", " allow_rule ", "second"},
+		IntentDigest:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		PolicyDigest:    "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+	}
+	normalizedDecision, err := normalizeGateDecision(validDecision, "call_demo")
+	if err != nil {
+		t.Fatalf("normalize gate decision: %v", err)
+	}
+	if len(normalizedDecision.ReasonCodes) != 2 {
+		t.Fatalf("expected deduped reason codes, got %#v", normalizedDecision.ReasonCodes)
+	}
+
+	invalidDecision := validDecision
+	invalidDecision.Verdict = "unknown"
+	if _, err := normalizeGateDecision(invalidDecision, "call_demo"); err == nil || !strings.Contains(err.Error(), "unsupported gate decision verdict") {
+		t.Fatalf("expected verdict validation error, got %v", err)
+	}
+
+	validReceipt := schemavoice.SpeakReceipt{
+		CallID:          "call_demo",
+		CallSeq:         3,
+		TurnIndex:       0,
+		CommitmentClass: "quote",
+		SayTokenID:      "say_demo",
+		SpokenDigest:    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		EmittedAt:       createdAt,
+	}
+	normalizedReceipt, err := normalizeSpeakReceipt(validReceipt, "call_demo")
+	if err != nil {
+		t.Fatalf("normalize speak receipt: %v", err)
+	}
+	if normalizedReceipt.SpokenDigest != strings.ToLower(validReceipt.SpokenDigest) {
+		t.Fatalf("expected lowercase spoken digest, got %q", normalizedReceipt.SpokenDigest)
+	}
+
+	invalidReceipt := validReceipt
+	invalidReceipt.SayTokenID = " "
+	if _, err := normalizeSpeakReceipt(invalidReceipt, "call_demo"); err == nil || !strings.Contains(err.Error(), "say_token_id is required") {
+		t.Fatalf("expected missing say_token_id error, got %v", err)
+	}
+}
+
+func TestNormalizeCallRecordValidationPaths(t *testing.T) {
+	workDir := t.TempDir()
+	runpackPath := createRunpackFixture(t, workDir, "run_voice_record_validation")
+	callRecordPath := writeCallRecordFixture(t, workDir, runpackPath, "call_voice_record_validation")
+
+	recordBytes, err := os.ReadFile(callRecordPath)
+	if err != nil {
+		t.Fatalf("read call record fixture: %v", err)
+	}
+	var base voiceCallRecord
+	if err := json.Unmarshal(recordBytes, &base); err != nil {
+		t.Fatalf("decode call record fixture: %v", err)
+	}
+	if _, err := normalizeCallRecord(base); err != nil {
+		t.Fatalf("expected baseline call record to normalize, got %v", err)
+	}
+
+	clone := func(input voiceCallRecord) voiceCallRecord {
+		raw, err := json.Marshal(input)
+		if err != nil {
+			t.Fatalf("marshal clone source: %v", err)
+		}
+		var copied voiceCallRecord
+		if err := json.Unmarshal(raw, &copied); err != nil {
+			t.Fatalf("unmarshal clone: %v", err)
+		}
+		return copied
+	}
+
+	cases := []struct {
+		name    string
+		mutate  func(*voiceCallRecord)
+		wantErr string
+	}{
+		{name: "schema_id", mutate: func(record *voiceCallRecord) { record.SchemaID = "bad" }, wantErr: "unsupported call record schema_id"},
+		{name: "schema_version", mutate: func(record *voiceCallRecord) { record.SchemaVersion = "2.0.0" }, wantErr: "unsupported call record schema_version"},
+		{name: "created_at", mutate: func(record *voiceCallRecord) { record.CreatedAt = time.Time{} }, wantErr: "created_at is required"},
+		{name: "call_id", mutate: func(record *voiceCallRecord) { record.CallID = "" }, wantErr: "call_id is required"},
+		{name: "runpack_path", mutate: func(record *voiceCallRecord) { record.RunpackPath = "" }, wantErr: "runpack_path is required"},
+		{name: "privacy_mode", mutate: func(record *voiceCallRecord) { record.PrivacyMode = "cleartext" }, wantErr: "privacy_mode must be hash_only or dispute_encrypted"},
+		{
+			name: "missing_required_event_type",
+			mutate: func(record *voiceCallRecord) {
+				record.Events = record.Events[1:]
+			},
+			wantErr: "missing required type",
+		},
+		{
+			name: "commitment_call_id_mismatch",
+			mutate: func(record *voiceCallRecord) {
+				record.Commitments[0].CallID = "other_call"
+			},
+			wantErr: "commitment call_id does not match call record",
+		},
+		{
+			name: "decision_invalid_verdict",
+			mutate: func(record *voiceCallRecord) {
+				record.GateDecisions[0].Verdict = "unknown"
+			},
+			wantErr: "unsupported gate decision verdict",
+		},
+		{
+			name: "gated_event_missing_receipt",
+			mutate: func(record *voiceCallRecord) {
+				record.SpeakReceipts = nil
+			},
+			wantErr: "missing speak receipt",
+		},
+		{
+			name: "gated_event_token_mismatch",
+			mutate: func(record *voiceCallRecord) {
+				record.SpeakReceipts[0].SayTokenID = "different"
+			},
+			wantErr: "say_token_id mismatch",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			candidate := clone(base)
+			testCase.mutate(&candidate)
+			if _, err := normalizeCallRecord(candidate); err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
+				t.Fatalf("expected normalizeCallRecord error containing %q, got %v", testCase.wantErr, err)
+			}
+		})
 	}
 }
 
