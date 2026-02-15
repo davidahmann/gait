@@ -53,6 +53,7 @@ Deterministic artifact root:
   - `regress_result.json`
   - `junit.xml`
   - `regress_init_result.json` (only when fallback init runs)
+  - `pack_verify_fixture.json` (fixture integrity evidence)
 
 ## Composite Action Contract
 

@@ -120,6 +120,21 @@ jobs:
             exit "${status}"
           fi
 
+      - name: Verify fixture pack integrity
+        shell: bash
+        run: |
+          : "${FIXTURE_RUNPACK_PATH:?FIXTURE_RUNPACK_PATH must be set}"
+          ./gait pack verify "${FIXTURE_RUNPACK_PATH}" --json > "${ARTIFACT_ROOT}/pack_verify_fixture.json"
+          python3 - "${ARTIFACT_ROOT}/pack_verify_fixture.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if payload.get("ok") is not True:
+              raise SystemExit(f"pack verify expected ok=true, got: {payload}")
+          PY
+
       - name: Parse regress result fields
         id: regress_parse
         shell: bash
@@ -201,6 +216,8 @@ jobs:
             echo "- artifact_root: `${ARTIFACT_ROOT}`"
             # shellcheck disable=SC2006
             echo "- artifact_paths: `${{ steps.regress_parse.outputs.artifact_paths }}`"
+            # shellcheck disable=SC2006
+            echo "- pack_verify: `${ARTIFACT_ROOT}/pack_verify_fixture.json`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload regress artifacts
@@ -212,6 +229,7 @@ jobs:
             gait-out/adoption_regress/regress_result.json
             gait-out/adoption_regress/junit.xml
             gait-out/adoption_regress/regress_init_result.json
+            gait-out/adoption_regress/pack_verify_fixture.json
             gait.yaml
             fixtures/
 

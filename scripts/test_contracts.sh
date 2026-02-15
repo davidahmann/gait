@@ -286,4 +286,7 @@ PY
 echo "==> intent + receipt conformance gate"
 bash "$REPO_ROOT/scripts/test_intent_receipt_conformance.sh" "$BIN_PATH"
 
+echo "==> pack producer kit compatibility"
+bash "$REPO_ROOT/scripts/test_pack_producer_kit.sh" "$BIN_PATH"
+
 echo "contracts: pass"
