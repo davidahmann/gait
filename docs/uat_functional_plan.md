@@ -33,6 +33,7 @@ The UAT script refreshes Homebrew taps before reinstall to avoid stale formula r
 - `scripts/test_v2_4_acceptance.sh` (v2.4 job/pack/signing/replay/credential-ttl acceptance gate)
 - `scripts/test_v2_5_acceptance.sh` (v2.5 context-evidence and context-policy gate)
 - `scripts/test_v2_6_acceptance.sh` (v2.6 activation guidance + durable/policy demo + tour gate)
+- `scripts/test_voice_acceptance.sh` (voice mode commitment gate + say-token + callpack gate)
 - `scripts/test_context_conformance.sh` (regress context conformance gate)
 - `scripts/test_context_chaos.sh` (context chaos and drift-classification gate)
 - `scripts/test_ui_acceptance.sh` (localhost UI command/API acceptance gate)
@@ -58,6 +59,7 @@ The acceptance suites together exercise command families including:
 - `gate eval`, `approve`
 - `scout signal`
 - `guard pack`, `guard verify`, `incident pack`
+- `voice token mint`, `voice token verify`, `voice pack build|verify|inspect|diff`
 - `registry install`, `registry verify`
 - `mcp bridge/proxy/serve` coverage through adapter and acceptance suites
 - v2.2 chaos abuse coverage (boundary abuse, payload limits, exporter corruption, session contention, trace uniqueness)
@@ -112,7 +114,7 @@ bash scripts/test_uat_local.sh --baseline-install-paths
 
 ## Pass Criteria
 
-- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-v2-5-acceptance`, `make test-v2-6-acceptance`, `make test-context-conformance`, `make test-context-chaos`, `make test-ui-acceptance`, `make test-ui-unit`, `make test-ui-e2e-smoke`, `make test-ui-perf`, `make test-packspec-tck`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
+- All quality gates pass: `make lint`, `make test`, `make test-e2e`, `go test ./internal/integration -count=1`, `make test-adoption`, `make test-adapter-parity`, `scripts/policy_compliance_ci.sh`, `make test-contracts`, `make test-v2-3-acceptance`, `make test-v2-4-acceptance`, `make test-v2-5-acceptance`, `make test-v2-6-acceptance`, `make test-voice-acceptance`, `make test-context-conformance`, `make test-context-chaos`, `make test-ui-acceptance`, `make test-ui-unit`, `make test-ui-e2e-smoke`, `make test-ui-perf`, `make test-packspec-tck`, `make test-hardening-acceptance`, `make test-chaos`, `bash scripts/test_session_soak.sh`
 - Runtime SLO budget check passes: `make test-runtime-slo`
 - Performance regression checks pass: `make bench-check`
 - Docs site lint/build/render checks pass (`make docs-site-lint docs-site-build docs-site-check`) unless explicitly skipped with `--skip-docs-site`

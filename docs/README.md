@@ -14,6 +14,7 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 
 - Architecture: `docs/architecture.md`
 - Runtime flows: `docs/flows.md`
+- Voice mode boundary: `docs/voice_mode.md`
 - Simple tool-boundary scenario: `docs/scenarios/simple_agent_tool_boundary.md`
 - Install paths: `docs/install.md`
 - Packaging boundary (OSS vs enterprise): `docs/packaging.md`

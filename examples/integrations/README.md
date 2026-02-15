@@ -10,6 +10,7 @@ Current adapters:
 - `openclaw`
 - `autogpt`
 - `gastown`
+- `voice_reference`
 - `template` (canonical copy/paste template)
 
 ## Contract (Must Stay Identical)

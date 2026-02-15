@@ -111,7 +111,7 @@ Autonomous agents are capable enough to execute real work, but teams cannot run 
 Gait keeps the contract deterministic and offline-first:
 
 - **durable jobs**: dispatch multi-step, multi-hour agent work with checkpointed state, pause/resume/cancel, and deterministic stop reasons (`gait job submit`, `gait job checkpoint`, `gait job status`)
-- **signed packs**: unified artifact for runs and jobs — verify, diff, and inspect offline (`gait pack build`, `gait pack verify`, `gait pack diff`)
+- **signed packs**: unified artifact for runs, jobs, and call boundaries — verify, diff, and inspect offline (`gait pack build`, `gait pack verify`, `gait pack diff`)
 - **regress**: convert any incident into a permanent CI check with stable exit codes (`gait regress bootstrap`, `gait regress run`)
 - **report top**: rank highest-risk actions from runpacks/traces offline (`gait report top`)
 - **gate**: enforce policy and approvals at tool-call time — non-allow means non-execute (`gait gate eval`)
@@ -156,7 +156,8 @@ Details: [`docs/ui_localhost.md`](docs/ui_localhost.md) and [`docs/contracts/ui_
 ## Core OSS Surfaces
 
 - `job`: dispatch durable long-running agent work with checkpointed state, pause/resume/cancel, approval gates, and deterministic stop reasons
-- `pack`: unified evidence artifact (run or job) — build, verify, inspect, diff offline with stable schemas and exit codes
+- `pack`: unified evidence artifact (run, job, or call) — build, verify, inspect, diff offline with stable schemas and exit codes
+- `voice`: pre-utterance commitment gate, signed say-token capability, and callpack artifacts for voice agent boundaries
 - `runpack`: record, inspect, verify, diff, receipt, replay (stub default) for individual tool-call runs
 - `regress`: incident-to-regression workflow with CI/JUnit outputs — one command to never ship the same failure again
 - `gate`: fail-closed policy evaluation for tool intent with signed trace output and approval/delegation token support
@@ -237,6 +238,7 @@ gait gate eval \
 
 Policy authoring and rollout docs: [`docs/policy_authoring.md`](docs/policy_authoring.md), [`docs/policy_rollout.md`](docs/policy_rollout.md), [`docs/approval_runbook.md`](docs/approval_runbook.md)
 SDK docs: [`docs/sdk/python.md`](docs/sdk/python.md)
+Voice mode docs: [`docs/voice_mode.md`](docs/voice_mode.md)
 
 ## Durable Sessions and Multi-Agent Delegation
 
@@ -270,6 +272,7 @@ Additional maintained references:
 - [`examples/integrations/autogpt/`](examples/integrations/autogpt/)
 - [`examples/integrations/openclaw/`](examples/integrations/openclaw/)
 - [`examples/integrations/gastown/`](examples/integrations/gastown/)
+- [`examples/integrations/voice_reference/`](examples/integrations/voice_reference/)
 
 Integration runbook: [`docs/integration_checklist.md`](docs/integration_checklist.md)
 
@@ -305,12 +308,14 @@ gait demo
 gait verify <run_id|path>
 gait run inspect --from <run_id|path>
 gait job submit --id <job_id>
-gait pack build --type <run|job> --from <id|path>
+gait pack build --type <run|job|call> --from <id|path>
 gait pack verify <pack.zip>
 gait regress bootstrap --from <run_id|path>
 gait report top --runs <csv|run_id|dir> [--traces <csv|dir>]
 gait gate eval --policy <policy.yaml> --intent <intent.json>
 gait policy test <policy.yaml> <intent_fixture.json>
+gait voice token mint --intent <commitment_intent.json> --policy <policy.yaml>
+gait voice pack build --from <call_record.json>
 gait doctor --json
 gait ui --open-browser=false
 ```

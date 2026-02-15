@@ -154,6 +154,7 @@ Supported references:
 - `examples/integrations/openclaw/`
 - `examples/integrations/autogpt/`
 - `examples/integrations/gastown/`
+- `examples/integrations/voice_reference/`
 - sidecar path: `examples/sidecar/gate_sidecar.py`
 - MCP proxy/serve: `gait mcp proxy`, `gait mcp serve`
 
@@ -180,6 +181,9 @@ go build -o ./gait ./cmd/gait
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
 python3 examples/integrations/openai_agents/quickstart.py --scenario block
 python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+python3 examples/integrations/voice_reference/quickstart.py --scenario allow
+python3 examples/integrations/voice_reference/quickstart.py --scenario block
+python3 examples/integrations/voice_reference/quickstart.py --scenario require_approval
 ```
 
 Expected contract:
@@ -187,6 +191,11 @@ Expected contract:
 - allow: `verdict=allow`, `executed=true`
 - block: `verdict=block`, `executed=false`
 - require approval: `verdict=require_approval`, `executed=false`
+
+Voice boundary addendum:
+
+- allow: `speak_emitted=true` and `callpack_path` emitted
+- block/require approval: `speak_emitted=false` and no gated speech side effects
 
 ## Fail-Closed Chokepoint Rules (Required)
 

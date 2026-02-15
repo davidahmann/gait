@@ -10,6 +10,7 @@ import (
 	"github.com/davidahmann/gait/core/pack"
 	"github.com/davidahmann/gait/core/runpack"
 	schemarunpack "github.com/davidahmann/gait/core/schema/v1/runpack"
+	schemavoice "github.com/davidahmann/gait/core/schema/v1/voice"
 )
 
 func TestInitFixtureCreatesLayout(t *testing.T) {
@@ -147,6 +148,35 @@ func TestInitFixtureAcceptsPackRunArtifactSource(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("init fixture from pack run artifact: %v", err)
+	}
+	if result.RunID != "run_demo" {
+		t.Fatalf("expected run_id run_demo, got %s", result.RunID)
+	}
+	if _, err := os.Stat(filepath.Join(workDir, result.RunpackPath)); err != nil {
+		t.Fatalf("expected materialized fixture runpack: %v", err)
+	}
+}
+
+func TestInitFixtureAcceptsCallPackArtifactSource(t *testing.T) {
+	workDir := t.TempDir()
+	sourceRunpack := createRunpack(t, workDir, "run_demo")
+	callRecordPath := filepath.Join(workDir, "call_record.json")
+	writeCallRecordForRegress(t, callRecordPath, sourceRunpack, "call_regress_demo")
+
+	callPackPath := filepath.Join(workDir, "pack_call.zip")
+	if _, err := pack.BuildCallPack(pack.BuildCallOptions{
+		CallRecordPath: callRecordPath,
+		OutputPath:     callPackPath,
+	}); err != nil {
+		t.Fatalf("build call pack: %v", err)
+	}
+
+	result, err := InitFixture(InitOptions{
+		SourceRunpackPath: callPackPath,
+		WorkDir:           workDir,
+	})
+	if err != nil {
+		t.Fatalf("init fixture from call pack artifact: %v", err)
 	}
 	if result.RunID != "run_demo" {
 		t.Fatalf("expected run_id run_demo, got %s", result.RunID)
@@ -438,4 +468,74 @@ func createRunpack(t *testing.T, dir, runID string) string {
 		t.Fatalf("write runpack: %v", err)
 	}
 	return path
+}
+
+func writeCallRecordForRegress(t *testing.T, path string, runpackPath string, callID string) {
+	t.Helper()
+	createdAt := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
+	record := map[string]any{
+		"schema_id":        "gait.voice.call_record",
+		"schema_version":   "1.0.0",
+		"created_at":       createdAt.Format(time.RFC3339Nano),
+		"producer_version": "test",
+		"call_id":          callID,
+		"runpack_path":     runpackPath,
+		"privacy_mode":     "hash_only",
+		"events": []map[string]any{
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Format(time.RFC3339Nano), "call_id": callID, "call_seq": 1, "turn_index": 1, "event_type": "asr.final", "payload_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(1 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 2, "turn_index": 2, "event_type": "commitment.declared", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(2 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 3, "turn_index": 2, "event_type": "gate.decision", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(3 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 4, "turn_index": 2, "event_type": "tts.request", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(4 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 5, "turn_index": 2, "event_type": "tts.emitted", "commitment_class": "quote", "say_token_id": "say_demo"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(5 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 6, "turn_index": 2, "event_type": "tool.intent"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(6 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 7, "turn_index": 2, "event_type": "tool.result"},
+		},
+		"commitments": []schemavoice.CommitmentIntent{
+			{
+				SchemaID:        "gait.voice.commitment_intent",
+				SchemaVersion:   "1.0.0",
+				CreatedAt:       createdAt.Add(1 * time.Second),
+				ProducerVersion: "test",
+				CallID:          callID,
+				TurnIndex:       2,
+				CallSeq:         2,
+				CommitmentClass: "quote",
+				Context: schemavoice.CommitmentContext{
+					Identity:  "agent.voice",
+					Workspace: "/srv/voice",
+					RiskClass: "high",
+				},
+				QuoteMinCents: 1000,
+				QuoteMaxCents: 1200,
+			},
+		},
+		"gate_decisions": []schemavoice.GateDecision{
+			{
+				CallID:          callID,
+				CallSeq:         3,
+				TurnIndex:       2,
+				CommitmentClass: "quote",
+				Verdict:         "allow",
+			},
+		},
+		"speak_receipts": []schemavoice.SpeakReceipt{
+			{
+				CallID:          callID,
+				CallSeq:         5,
+				TurnIndex:       2,
+				CommitmentClass: "quote",
+				SayTokenID:      "say_demo",
+				SpokenDigest:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				EmittedAt:       createdAt.Add(4 * time.Second),
+			},
+		},
+	}
+	raw, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal call record: %v", err)
+	}
+	raw = append(raw, '\n')
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write call record: %v", err)
+	}
 }

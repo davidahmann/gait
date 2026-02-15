@@ -33,7 +33,12 @@ jobs:
               - 'core/runpack/**'
               - 'core/regress/**'
               - 'core/gate/**'
+              - 'core/pack/**'
+              - 'core/schema/v1/voice/**'
               - 'schemas/**'
+              - 'examples/integrations/voice_reference/**'
+              - 'scripts/test_voice_acceptance.sh'
+              - 'docs/voice_mode.md'
               - 'docs/integration_checklist.md'
               - 'docs/ci_regress_kit.md'
               - '.agents/skills/**'
@@ -424,6 +429,23 @@ jobs:
         shell: bash
         run: |
           make test-v2-5-acceptance
+
+  voice-acceptance:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.adoption_critical == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run voice acceptance gate
+        shell: bash
+        run: |
+          make test-voice-acceptance
 
   context-conformance:
     needs: changes

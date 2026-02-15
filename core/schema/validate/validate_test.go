@@ -225,6 +225,12 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_job_invalid.json"),
 		},
 		{
+			name:       "pack_call",
+			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "call.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_call_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "pack_call_invalid.json"),
+		},
+		{
 			name:       "pack_diff",
 			schemaPath: filepath.Join(root, "schemas", "v1", "pack", "diff.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "pack_diff_valid.json"),
@@ -253,6 +259,30 @@ func TestValidateSchemaFixtures(t *testing.T) {
 			schemaPath: filepath.Join(root, "schemas", "v1", "registry", "verification_report.schema.json"),
 			validPath:  filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_valid.json"),
 			invalid:    filepath.Join(root, "core", "schema", "testdata", "registry_verification_report_invalid.json"),
+		},
+		{
+			name:       "voice_commitment_intent",
+			schemaPath: filepath.Join(root, "schemas", "v1", "voice", "commitment_intent.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "voice_commitment_intent_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "voice_commitment_intent_invalid.json"),
+		},
+		{
+			name:       "voice_say_token",
+			schemaPath: filepath.Join(root, "schemas", "v1", "voice", "say_token.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "voice_say_token_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "voice_say_token_invalid.json"),
+		},
+		{
+			name:       "voice_call_event",
+			schemaPath: filepath.Join(root, "schemas", "v1", "voice", "call_event.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "voice_call_event_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "voice_call_event_invalid.json"),
+		},
+		{
+			name:       "voice_callpack_manifest",
+			schemaPath: filepath.Join(root, "schemas", "v1", "voice", "callpack_manifest.schema.json"),
+			validPath:  filepath.Join(root, "core", "schema", "testdata", "voice_callpack_manifest_valid.json"),
+			invalid:    filepath.Join(root, "core", "schema", "testdata", "voice_callpack_manifest_invalid.json"),
 		},
 		{
 			name:       "runpack_session_journal",

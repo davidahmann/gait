@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/voice/commitment_intent.schema.json",
+  "title": "Voice Commitment Intent",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "call_id",
+    "turn_index",
+    "call_seq",
+    "commitment_class",
+    "context"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.voice.commitment_intent" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "turn_index": { "type": "integer", "minimum": 0 },
+    "call_seq": { "type": "integer", "minimum": 1 },
+    "commitment_class": {
+      "type": "string",
+      "enum": ["refund", "quote", "eligibility", "schedule", "cancel", "account_change"]
+    },
+    "utterance_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "currency": { "type": "string", "minLength": 1 },
+    "quote_min_cents": { "type": "integer", "minimum": 0 },
+    "quote_max_cents": { "type": "integer", "minimum": 0 },
+    "refund_ceiling_cents": { "type": "integer", "minimum": 0 },
+    "approval_required": { "type": "boolean" },
+    "approval_artifact_refs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidence_reference_digests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+    },
+    "context": {
+      "type": "object",
+      "required": ["identity", "workspace", "risk_class"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1 },
+        "workspace": { "type": "string", "minLength": 1 },
+        "risk_class": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string" },
+        "request_id": { "type": "string" },
+        "environment_fingerprint": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

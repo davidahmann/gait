@@ -201,6 +201,7 @@ run_step "quality_v2_3_acceptance" make -C "${REPO_ROOT}" test-v2-3-acceptance
 run_step "quality_v2_4_acceptance" make -C "${REPO_ROOT}" test-v2-4-acceptance
 run_step "quality_v2_5_acceptance" make -C "${REPO_ROOT}" test-v2-5-acceptance
 run_step "quality_v2_6_acceptance" make -C "${REPO_ROOT}" test-v2-6-acceptance
+run_step "quality_voice_acceptance" make -C "${REPO_ROOT}" test-voice-acceptance
 run_step "quality_context_conformance" make -C "${REPO_ROOT}" test-context-conformance
 run_step "quality_context_chaos" make -C "${REPO_ROOT}" test-context-chaos
 run_step "quality_ui_acceptance" make -C "${REPO_ROOT}" test-ui-acceptance

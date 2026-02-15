@@ -56,6 +56,21 @@ type JobPayload struct {
 	ApprovalCount          int       `json:"approval_count"`
 }
 
+type CallPayload struct {
+	SchemaID               string    `json:"schema_id"`
+	SchemaVersion          string    `json:"schema_version"`
+	CreatedAt              time.Time `json:"created_at"`
+	CallID                 string    `json:"call_id"`
+	RunID                  string    `json:"run_id,omitempty"`
+	PrivacyMode            string    `json:"privacy_mode"`
+	EventCount             int       `json:"event_count"`
+	CommitmentCount        int       `json:"commitment_count"`
+	DecisionCount          int       `json:"decision_count"`
+	SpeakReceiptCount      int       `json:"speak_receipt_count"`
+	ReferenceDigestCount   int       `json:"reference_digest_count"`
+	EnvironmentFingerprint string    `json:"environment_fingerprint,omitempty"`
+}
+
 type DiffSummary struct {
 	Changed                    bool     `json:"changed"`
 	AddedFiles                 []string `json:"added_files,omitempty"`

@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/voice/say_token.schema.json",
+  "title": "Voice Say Token",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "token_id",
+    "commitment_class",
+    "intent_digest",
+    "policy_digest",
+    "call_id",
+    "turn_index",
+    "call_seq",
+    "expires_at"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.voice.say_token" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string" },
+    "token_id": { "type": "string", "minLength": 1 },
+    "commitment_class": {
+      "type": "string",
+      "enum": ["refund", "quote", "eligibility", "schedule", "cancel", "account_change"]
+    },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "turn_index": { "type": "integer", "minimum": 0 },
+    "call_seq": { "type": "integer", "minimum": 1 },
+    "currency": { "type": "string", "minLength": 1 },
+    "quote_min_cents": { "type": "integer", "minimum": 0 },
+    "quote_max_cents": { "type": "integer", "minimum": 0 },
+    "refund_ceiling_cents": { "type": "integer", "minimum": 0 },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "signature": {
+      "type": "object",
+      "required": ["alg", "key_id", "sig"],
+      "properties": {
+        "alg": { "type": "string", "minLength": 1 },
+        "key_id": { "type": "string", "minLength": 1 },
+        "sig": { "type": "string", "minLength": 1 },
+        "signed_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
