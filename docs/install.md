@@ -1,3 +1,8 @@
+---
+title: "Install Gait"
+description: "Step-by-step installation for Linux, macOS, and Windows with checksum verification and PATH setup."
+---
+
 # Install Gait
 
 Gait's default install path is the release installer script.
@@ -109,3 +114,25 @@ git clone https://github.com/davidahmann/gait.git
 cd gait
 go build -o ./gait ./cmd/gait
 ```
+
+## Frequently Asked Questions
+
+### Does Gait require Go to be installed?
+
+No. The install script downloads a prebuilt binary. Go is only needed if building from source.
+
+### Does Gait work on Windows?
+
+Yes. Download the Windows binary from the GitHub release and add it to your PATH.
+
+### How do I verify the install worked?
+
+Run `gait doctor --json`. All checks should pass. Then run `gait demo` to create your first signed artifact.
+
+### Can I install via Homebrew?
+
+Yes. See `docs/homebrew.md` for tap-based installation as an alternate path.
+
+### How large is the Gait binary?
+
+The compiled binary is a single static Go executable, typically under 30 MB with zero runtime dependencies.

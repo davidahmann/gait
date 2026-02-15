@@ -1,3 +1,8 @@
+---
+title: "Voice Mode"
+description: "Gate high-stakes spoken commitments before they are uttered with signed SayToken capability tokens and callpack artifacts."
+---
+
 # Voice Mode (v1)
 
 Voice mode adds a non-bypassable commitment boundary before gated speech and emits signed, offline-verifiable call evidence using the same PackSpec pipeline.
@@ -70,3 +75,25 @@ python3 examples/integrations/voice_reference/quickstart.py --scenario require_a
 - `make test-voice-acceptance`
 - `make test-adoption`
 - CI lane: `voice-acceptance` in `.github/workflows/ci.yml`
+
+## Frequently Asked Questions
+
+### What is a SayToken?
+
+A SayToken is a signed capability token minted only when gate evaluation returns allow. The voice adapter must hold a valid SayToken before producing gated speech.
+
+### What is a callpack?
+
+A callpack is a signed artifact (like a runpack but for voice calls) containing the event log, commitment intents, gate decisions, speech receipts, and tool effects for a single call.
+
+### Which commitment types are supported?
+
+v1 supports: refund, quote, eligibility, schedule, cancel, and account_change. Each is evaluated against YAML policy before the agent speaks.
+
+### Does voice mode require a live telephony connection?
+
+No. Voice mode is offline-first for verification, diff, and regression. Live gating integrates via a thin adapter at the speech boundary.
+
+### Can I replay a voice call?
+
+Yes. Callpacks support the same verify, diff, and replay workflows as runpacks. You can deterministically replay a gated call using recorded stubs.

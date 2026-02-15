@@ -1,3 +1,8 @@
+---
+title: "Intent and Receipt Spec"
+description: "Specification for structured tool-call intent requests and gate evaluation receipts."
+---
+
 # Intent And Receipt Spec
 
 This is the compact contract for boundary intent + receipt continuity in Gait.

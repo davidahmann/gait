@@ -1,3 +1,8 @@
+---
+title: "CI Regress Kit"
+description: "Wire Gait regression fixtures into GitHub Actions, GitLab CI, Jenkins, or CircleCI with JUnit output and stable exit codes."
+---
+
 # CI Regress Kit (v2.7 GitHub-First Distribution Lane)
 
 This kit keeps CI adoption "one PR to adopt" while preserving deterministic regress contracts.
@@ -134,3 +139,25 @@ Validation commands:
 bash scripts/test_ci_regress_template.sh
 bash scripts/test_ci_portability_templates.sh
 ```
+
+## Frequently Asked Questions
+
+### How do I add Gait regression to CI?
+
+Copy the template workflow (`.github/workflows/adoption-regress-template.yml`) or use the drop-in action (`.github/actions/gait-regress/`). Both produce JUnit output.
+
+### What does exit code 5 mean?
+
+Exit 5 means regression failed — the current run drifted from the baseline fixture. Exit 0 means pass.
+
+### Can I use Gait with GitLab CI?
+
+Yes. The CI regress kit provides portable templates for GitLab, Jenkins, and CircleCI that use the same CLI exit and artifact contract.
+
+### How do I create a regression fixture?
+
+Run `gait regress bootstrap --from <run_id> --junit <path>`. This creates a fixture directory and runs the first regression pass in one command.
+
+### Does regression testing require network access?
+
+No. Regression testing is fully offline. It compares the current run against the baseline fixture using deterministic stubs.

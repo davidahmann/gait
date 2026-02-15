@@ -1,3 +1,8 @@
+---
+title: "Policy Authoring"
+description: "Write, validate, format, test, and simulate YAML policies for agent tool-call enforcement."
+---
+
 # Policy Authoring Workflow
 
 Use this workflow to reduce policy rollout mistakes before runtime enforcement.
@@ -81,3 +86,25 @@ gait keys verify --private-key ./gait-out/keys/prod_private.key --public-key ./g
 - endpoint controls: `examples/policy/endpoint/*`
 - skill trust controls: `examples/policy/skills/*`
 - simple guard fixtures: `examples/policy-test/*`
+
+## Frequently Asked Questions
+
+### What happens if no rule matches a tool call?
+
+The default action applies. In fail-closed mode (`oss-prod` profile), the default is block. In standard mode, the default is configurable per policy.
+
+### Can I test a policy without affecting production?
+
+Yes. Use `gait policy test` against fixture intents, or `gait policy simulate` to compare candidate vs baseline policy across fixtures before deploying.
+
+### What policy formats are supported?
+
+Gait uses YAML policy files with structured rules. Use `gait policy init` to generate a baseline template and `gait policy validate` to check syntax.
+
+### Can I set different rules per tool class?
+
+Yes. Rules can match on tool name, tool class (read, write, delete, admin), endpoint patterns, risk class, and actor identity.
+
+### How do I roll out a policy change safely?
+
+Start with observe mode (dry_run), then require_approval for high-risk actions, then enforce. Use `gait policy simulate` to see verdict deltas before each step.

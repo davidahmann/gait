@@ -43,3 +43,4 @@ ui/local/coverage/
 .codeql/
 /cmd/gait/sess-*.journal.jsonl
 /cmd/gait/sess-*.journal.jsonl.state.json
+say_token_*.json

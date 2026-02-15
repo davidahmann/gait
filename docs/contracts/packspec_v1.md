@@ -1,3 +1,8 @@
+---
+title: "PackSpec v1"
+description: "Unified portable artifact envelope for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest."
+---
+
 # PackSpec v1 Contract
 
 Status: normative for v2.4+ producers/consumers.
@@ -75,3 +80,25 @@ Deprecation posture for v2.4:
 
 - No legacy command or artifact removal in v2.4.
 - Migration is additive (`run|guard` surfaces continue to work).
+
+## Frequently Asked Questions
+
+### What is PackSpec v1?
+
+PackSpec v1 is a unified artifact envelope that supports run, job, and call evidence in a single portable format with Ed25519 signatures and a SHA-256 manifest.
+
+### What is the difference between a runpack and a jobpack?
+
+A runpack captures a single agent run. A jobpack captures a durable job lifecycle including checkpoints, pauses, and approvals. Both use the same PackSpec v1 format.
+
+### Can I verify a pack without the signing key?
+
+You can verify schema and hash integrity without the key. Signature verification requires the corresponding public key.
+
+### What does the manifest contain?
+
+The manifest lists every file in the pack with its SHA-256 digest, the pack type, schema version, producer version, and an optional Ed25519 signature.
+
+### Are packs backward-compatible?
+
+Yes. Schema versioning is additive within major 1.x. Readers must tolerate unknown fields. Breaking changes require a major version bump.

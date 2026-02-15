@@ -1,3 +1,8 @@
+---
+title: "Intent+Receipt Conformance"
+description: "Conformance test vectors for intent request and gate receipt producers and consumers."
+---
+
 # Intent + Receipt Conformance (Normative v1.x)
 
 Status: normative for OSS v1.x producers/consumers that claim boundary-intent and receipt continuity.

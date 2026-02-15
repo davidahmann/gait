@@ -1,3 +1,8 @@
+---
+title: "Mental Model"
+description: "How Gait works: four deterministic primitives that make agent tool calls controllable and debuggable."
+---
+
 # Gait Mental Model
 
 Use this as the 5-minute bridge between `gait demo` and production integration.
@@ -66,3 +71,25 @@ Gait makes agent tool calls controllable by turning execution into four determin
 - Documentation ownership map: `docs/README.md`
 
 For implementation details and exact integration checks, use `docs/integration_checklist.md`.
+
+## Frequently Asked Questions
+
+### What is a runpack?
+
+A runpack is a tamper-evident ZIP bundle containing intents, results, reference receipts, and a SHA-256 manifest. It is the portable unit of proof for an agent run.
+
+### How is Gait different from LangSmith or LangFuse?
+
+Gait produces cryptographically signed, offline-verifiable artifacts. Observability platforms produce best-effort dashboard traces that require a hosted service.
+
+### Is Gait an agent orchestrator?
+
+No. Gait does not dispatch prompts, manage models, or route conversations. It is the deterministic control and evidence layer at the tool boundary.
+
+### What does offline-first mean?
+
+Core workflows — verify, diff, replay, regress, and policy evaluation — run without network access. No SaaS dependency for critical operations.
+
+### What does fail-closed mean?
+
+When policy evaluation cannot determine a clear allow verdict, the action is blocked. Ambiguity defaults to non-execution.

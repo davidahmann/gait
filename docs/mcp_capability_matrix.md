@@ -1,3 +1,8 @@
+---
+title: "MCP Capability Matrix"
+description: "Comparison of gait mcp proxy, bridge, and serve modes with capabilities, inputs, and enforcement boundaries."
+---
+
 # MCP Capability Matrix
 
 This page clarifies what `gait mcp proxy`, `gait mcp bridge`, and `gait mcp serve` do and do not do.
@@ -49,3 +54,25 @@ MCP modes do not replace operator/CI workflows such as:
 - `docs/flows.md`
 - `docs/agent_integration_boundary.md`
 - `docs/integration_checklist.md`
+
+## Frequently Asked Questions
+
+### What is gait mcp proxy?
+
+One-shot evaluation: accepts a tool-call payload via stdin, evaluates it against policy, and returns the verdict. Use for single evaluations or scripting.
+
+### What is gait mcp serve?
+
+A long-running HTTP evaluation service that listens for tool-call payloads and returns policy verdicts. Use for persistent integration with MCP-compatible runtimes.
+
+### Does MCP mode enforce policy automatically?
+
+No. MCP modes evaluate and return a verdict. The calling runtime is responsible for enforcing non-allow as non-execute.
+
+### What is the difference between proxy and bridge?
+
+Bridge is an alias for proxy. Both perform one-shot evaluation. The distinction is for compatibility with different MCP client conventions.
+
+### Can I run MCP serve in production?
+
+Yes. Use `gait mcp serve --policy <policy.yaml> --listen <addr>` with appropriate network policies. It supports the same fail-closed enforcement as CLI evaluation.
