@@ -1,3 +1,8 @@
+---
+title: "ContextSpec v1"
+description: "Deterministic context evidence envelopes for run capture, gate enforcement, pack diff, and regression conformance."
+---
+
 # ContextSpec v1 Contract
 
 Status: normative for v2.5+ producers and consumers.
@@ -120,3 +125,25 @@ gait regress run --context-conformance --allow-context-runtime-drift --json
 - ContextSpec v1 fields are additive to existing v1 contracts.
 - v1 consumers MUST ignore unknown optional fields.
 - v2.5 producers MUST remain backward-compatible with v1.0.0 envelope and record schemas.
+
+## Frequently Asked Questions
+
+### What is a context envelope?
+
+A context envelope is a deterministic JSON artifact that captures what context material the model was working from, with configurable privacy modes (metadata, hashes, or raw).
+
+### When does context evidence fail-closed?
+
+When policy requires context evidence for a high-risk action class and the evidence is missing or stale, the gate blocks execution with an explicit reason code.
+
+### What privacy modes are available?
+
+Three modes: metadata-only (file names), hashes (SHA-256 digests), and raw (full content). Raw requires explicit unsafe flags.
+
+### How does context drift classification work in pack diff?
+
+Pack diff separates semantic drift (different context inputs) from runtime-only drift (same context, different execution). This reduces noise in CI regressions.
+
+### Does context evidence add latency?
+
+Context envelopes are computed during capture, not gate evaluation. The overhead is bounded by the configured evidence mode and budget limits.

@@ -5,13 +5,23 @@ import { canonicalUrl } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Gait | Durable Agent Runtime with Signed Proof',
   description:
-    'Gait is an offline-first runtime for production AI agents: durable jobs, signed packs, deterministic regressions, and fail-closed policy gates.',
+    'Gait is an offline-first runtime for production AI agents: durable jobs, signed packs, voice agent gating, context evidence, deterministic regressions, and fail-closed policy gates.',
   alternates: {
     canonical: canonicalUrl('/'),
   },
 };
 
-const QUICKSTART = `curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash\ngait tour\ngait demo --durable\ngait demo --policy`;
+const QUICKSTART = `# Install
+curl -fsSL https://raw.githubusercontent.com/davidahmann/gait/main/scripts/install.sh | bash
+
+# Create a signed pack from a synthetic agent run
+gait demo
+
+# Prove it's intact
+gait verify run_demo
+
+# Turn it into a CI regression gate
+gait regress bootstrap --from run_demo --junit ./gait-out/junit.xml`;
 
 const features = [
   {
@@ -22,7 +32,7 @@ const features = [
   {
     title: 'Signed Packs: Portable Proof',
     description: 'Every run and job emits a signed pack you can verify, diff, and inspect offline. Attach it to PRs, incidents, and audits.',
-    href: '/docs/concepts/mental_model',
+    href: '/docs/contracts/packspec_v1',
   },
   {
     title: 'Regress: Incident to CI Gate',
@@ -32,17 +42,17 @@ const features = [
   {
     title: 'Gate: Fail-Closed Policy Enforcement',
     description: 'Evaluate structured tool-call intent against policy before side effects execute. Non-allow means non-execute.',
-    href: '/docs/policy_rollout',
+    href: '/docs/policy_authoring',
   },
   {
-    title: 'Vendor-Neutral Integrations',
-    description: 'One wrapper, one sidecar, one CI lane across OpenAI Agents, LangChain, Autogen, OpenClaw, and AutoGPT.',
-    href: '/docs/integration_checklist',
+    title: 'Voice Agent Gating',
+    description: 'Gate high-stakes spoken commitments before they are uttered. Signed SayToken capability tokens and callpack artifacts for voice boundaries.',
+    href: '/docs/voice_mode',
   },
   {
-    title: 'Contracts and Schemas',
-    description: 'Stable artifacts, versioned schemas, deterministic outputs, and offline verification. No network dependency for core workflows.',
-    href: '/docs/contracts/primitive_contract',
+    title: 'Context Evidence',
+    description: 'Deterministic proof of what context the model was working from. Privacy-aware envelopes with fail-closed enforcement when evidence is missing.',
+    href: '/docs/contracts/contextspec_v1',
   },
 ];
 
@@ -67,6 +77,26 @@ const faqs = [
     answer:
       'Gate evaluates structured tool-call intent at execution time and blocks or requires approval based on policy. Non-allow outcomes do not execute side effects.',
   },
+  {
+    question: 'Can Gait gate voice agent actions?',
+    answer:
+      'Yes. Voice mode gates high-stakes spoken commitments (refunds, quotes, eligibility) before they are uttered. A signed SayToken capability token must be present for gated speech, and every call produces a signed callpack artifact.',
+  },
+  {
+    question: 'What is context evidence?',
+    answer:
+      'Context evidence is a deterministic proof of what context material the model was working from at decision time. Gait captures privacy-aware context envelopes and enforces fail-closed policy when evidence is missing for high-risk actions.',
+  },
+  {
+    question: 'How do I turn a failed agent run into a CI gate?',
+    answer:
+      'Run gait regress bootstrap --from <run_id> --junit output.xml. This converts the run into a permanent regression fixture. Exit 0 means pass, exit 5 means the same drift was detected. Wire the JUnit output into any CI system.',
+  },
+  {
+    question: 'Can I replay an agent run without re-executing real API calls?',
+    answer:
+      'Yes. gait run replay uses recorded results as deterministic stubs so you can debug safely. gait pack diff then shows exactly what changed between two runs, including context drift classification.',
+  },
 ];
 
 const softwareApplicationJsonLd = {
@@ -76,7 +106,7 @@ const softwareApplicationJsonLd = {
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'Linux, macOS, Windows',
   description:
-    'Offline-first runtime for production AI agents: durable jobs, signed packs, deterministic regressions, and fail-closed policy gates at the tool boundary.',
+    'Offline-first runtime for production AI agents: durable jobs with checkpointed state, signed packs, voice agent gating, context evidence, deterministic regressions, and fail-closed policy gates at the tool boundary.',
   url: 'https://davidahmann.github.io/gait/',
   softwareHelp: 'https://davidahmann.github.io/gait/docs/',
   codeRepository: 'https://github.com/davidahmann/gait',
@@ -176,6 +206,11 @@ export default function HomePage() {
               <td className="py-3 px-4 text-gray-300">fail-closed policy + approvals</td>
             </tr>
             <tr>
+              <td className="py-3 px-4 text-gray-300 font-medium">Voice agent commitments</td>
+              <td className="py-3 px-4 text-gray-500">hope they say the right thing</td>
+              <td className="py-3 px-4 text-gray-300">gated before speech + signed callpack</td>
+            </tr>
+            <tr>
               <td className="py-3 px-4 text-gray-300 font-medium">Audit posture</td>
               <td className="py-3 px-4 text-gray-500">incomplete reconstruction</td>
               <td className="py-3 px-4 text-gray-300">offline verifiable signed artifacts</td>
@@ -197,8 +232,8 @@ export default function HomePage() {
       </div>
 
       <div className="text-center py-12 border-t border-gray-800">
-        <h2 className="text-2xl font-bold text-white mb-4">First pack in 60 seconds. Durable and policy paths included.</h2>
-        <p className="text-gray-400 mb-6">Install, run the guided tour, then branch into durable jobs and policy enforcement.</p>
+        <h2 className="text-2xl font-bold text-white mb-4">First pack in 60 seconds. Durable jobs, voice gating, and policy enforcement included.</h2>
+        <p className="text-gray-400 mb-6">Install, create a signed artifact, and turn it into a permanent CI gate — all offline.</p>
         <Link href="/docs/install" className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-gray-900 font-semibold rounded-lg transition-colors">
           Open Install Guide
         </Link>

@@ -1,3 +1,8 @@
+---
+title: "Flows"
+description: "End-to-end sequence diagrams for first-win, runtime gating, regression, sessions, delegation, and durable jobs."
+---
+
 # Gait Flow Diagrams
 
 This document is the canonical runtime flow reference for OSS v1.

@@ -1,3 +1,8 @@
+---
+title: "Simple Scenario"
+description: "One end-to-end scenario showing a Gait-gated tool call with allow, block, and require_approval outcomes."
+---
+
 # Simple Agent Tool-Boundary Scenario
 
 This is the canonical end-to-end scenario showing where Gait sits between an agent runtime and tool execution.
@@ -85,3 +90,25 @@ Only execute side effects when verdict is `allow`. All other outcomes are non-ex
 - `docs/flows.md`
 - `docs/integration_checklist.md`
 - `docs/demo_output_legend.md`
+
+## Frequently Asked Questions
+
+### What does a Gait-gated tool call look like end to end?
+
+The agent declares an intent, the adapter sends it to `gait gate eval`, the gate returns a verdict (allow/block/require_approval), and only allow executes the real tool. A signed trace is emitted for every outcome.
+
+### What artifacts does Gait produce from a single tool call?
+
+A gate trace (signed JSON), and optionally a runpack or pack if recording is enabled. The trace alone is sufficient for audit and regression.
+
+### What happens on a block verdict?
+
+The tool does not execute. The adapter returns a structured non-execution result to the agent. The signed trace records the block with matched rule and reason codes.
+
+### Can I run this scenario without an agent framework?
+
+Yes. Use `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` directly from the command line to see the full evaluation flow.
+
+### How do I convert this scenario into a CI test?
+
+Run the scenario once, then `gait regress bootstrap --from <run_id>`. The fixture becomes a permanent CI gate that fails on drift.

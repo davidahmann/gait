@@ -134,6 +134,7 @@ func TestValidateSayTokenMismatchAndExpired(t *testing.T) {
 		TTL:               1 * time.Minute,
 		Now:               now,
 		SigningPrivateKey: keyPair.Private,
+		TokenPath:         filepath.Join(t.TempDir(), "say_token.json"),
 	})
 	if err != nil {
 		t.Fatalf("mint say token: %v", err)
@@ -318,6 +319,7 @@ func TestValidateSayTokenAdditionalErrors(t *testing.T) {
 		TTL:               5 * time.Minute,
 		Now:               now,
 		SigningPrivateKey: keyPair.Private,
+		TokenPath:         filepath.Join(t.TempDir(), "say_token.json"),
 	})
 	if err != nil {
 		t.Fatalf("mint say token: %v", err)
@@ -442,6 +444,7 @@ func TestNormalizeSayTokenValidationPaths(t *testing.T) {
 		TTL:               5 * time.Minute,
 		Now:               now,
 		SigningPrivateKey: keyPair.Private,
+		TokenPath:         filepath.Join(t.TempDir(), "say_token.json"),
 	})
 	if err != nil {
 		t.Fatalf("mint say token: %v", err)

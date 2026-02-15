@@ -6,15 +6,15 @@ import { SITE_BASE_PATH, SITE_ORIGIN } from '@/lib/site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(`${SITE_ORIGIN}${SITE_BASE_PATH}`),
-  title: 'Gait | Agent Runpacks, Regressions, and Policy Gates',
+  title: 'Gait | Durable Agent Runtime with Signed Proof',
   description:
-    'Gait makes AI agent actions controllable and debuggable: signed runpacks, deterministic regressions, and fail-closed policy gates.',
+    'Gait is an offline-first runtime for production AI agents: durable jobs, signed packs, voice agent gating, context evidence, deterministic regressions, and fail-closed policy gates.',
   keywords:
-    'agent control plane, agent safety, ai governance, runpack, policy gate, deterministic regression, prompt injection defense, ai incident response',
+    'agent control plane, agent safety, ai governance, durable agent jobs, signed packs, voice agent gating, context evidence, callpack, saytoken, policy gate, deterministic regression, agent replay, prompt injection defense, ai incident response',
   openGraph: {
-    title: 'Gait | Control and Prove Agent Actions',
+    title: 'Gait | Durable Agent Runtime with Signed Proof',
     description:
-      'Turn agent incidents into verifiable evidence and deterministic regressions. Enforce high-risk tool calls with fail-closed policy gates.',
+      'Offline-first runtime for production AI agents: durable jobs, signed packs, voice gating, context evidence, and fail-closed policy enforcement.',
     url: 'https://davidahmann.github.io/gait',
     siteName: 'Gait',
     type: 'website',
@@ -29,9 +29,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gait | Control and Prove Agent Actions',
+    title: 'Gait | Durable Agent Runtime with Signed Proof',
     description:
-      'Signed runpacks, deterministic regressions, and policy-gated tool execution for production AI agents.',
+      'Durable agent jobs, signed packs, voice gating, context evidence, and fail-closed policy enforcement for production AI agents.',
     images: ['/og.svg'],
   },
 };

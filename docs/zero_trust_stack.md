@@ -1,3 +1,8 @@
+---
+title: "Zero Trust Stack"
+description: "How Gait implements zero trust for agent tool calls with fail-closed enforcement, signed traces, and offline verification."
+---
+
 # Gait In Your Zero Trust Stack
 
 This document explains where Gait fits, what it integrates with, and what it intentionally does not replace.
@@ -69,3 +74,25 @@ ACP in Gait is decision-and-proof at execution time:
 - ACP asks: "is this action allowed now?" and decides before side effects
 
 Use this language consistently in docs and customer conversations.
+
+## Frequently Asked Questions
+
+### How does Gait implement zero trust for agents?
+
+Every tool call is treated as untrusted until evaluated against policy. Non-allow verdicts do not execute. Every decision is signed and traceable.
+
+### What is fail-closed enforcement?
+
+When policy evaluation encounters ambiguity — no matching rule, missing context evidence, or invalid approval token — the default is block. Execution requires an explicit allow.
+
+### How are gate traces signed?
+
+Traces are signed with Ed25519 keys using JCS (RFC 8785) canonicalization for deterministic JSON serialization. This prevents ordering attacks and ensures verifiable integrity.
+
+### Can I verify traces offline?
+
+Yes. `gait trace verify` validates trace signatures and schema offline with no network dependency.
+
+### What is the difference between gate evaluation and prompt filtering?
+
+Gate evaluation operates on structured tool-call intent at execution time. Prompt filtering operates on free-form text at generation time. Gait enforces at the action boundary, not the prompt boundary.

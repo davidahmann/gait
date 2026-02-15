@@ -1,3 +1,8 @@
+---
+title: "Integration Boundary Guide"
+description: "Where Gait sits relative to your agent runtime and what interception tiers are supported for enforcement."
+---
+
 # Agent Integration Boundary Guide
 
 Use this guide when deciding how Gait fits with your agent runtime, especially managed/preloaded agents.

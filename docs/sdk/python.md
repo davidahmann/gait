@@ -1,3 +1,8 @@
+---
+title: "Python SDK"
+description: "Thin subprocess wrapper over the Gait CLI for Python integrations with zero external dependencies."
+---
+
 # Python SDK Contract (v1)
 
 The Python SDK (`sdk/python/gait`) is a thin subprocess wrapper over the local `gait` binary.
@@ -81,3 +86,25 @@ Reference docs:
 
 - `docs/policy_rollout.md`
 - `docs/integration_checklist.md`
+
+## Frequently Asked Questions
+
+### Does the Python SDK require Go?
+
+The SDK is a thin subprocess wrapper that calls the local `gait` binary. The Go binary must be installed and on PATH.
+
+### Does the SDK have external dependencies?
+
+No. The Python SDK has zero external runtime dependencies. Dev dependencies (pytest, ruff, mypy) are for development only.
+
+### What Python version is required?
+
+Python 3.13 or higher.
+
+### How do I wrap a tool function with Gait?
+
+Use the `@gate_tool` decorator from the SDK. It automatically evaluates gate policy before executing the tool and records the result.
+
+### What happens if the Gait binary is not found?
+
+The SDK raises a clear error with install instructions and PATH guidance instead of an opaque FileNotFoundError.

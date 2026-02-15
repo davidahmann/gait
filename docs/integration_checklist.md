@@ -1,3 +1,8 @@
+---
+title: "Integration Checklist"
+description: "Step-by-step checklist for integrating Gait with agent frameworks including OpenAI Agents, LangChain, and AutoGen."
+---
+
 # Gait Integration Checklist (Tiered v2.6)
 
 This checklist is for OSS teams integrating Gait at the tool-call boundary.
@@ -235,3 +240,25 @@ Non-GitHub portability path:
   - `examples/ci/portability/circleci/config.yml`
 
 See `docs/ci_regress_kit.md` for workflow/action contracts and portability guidance.
+
+## Frequently Asked Questions
+
+### How long does integration take?
+
+First deterministic wrapper integration targets 15 minutes. Full production rollout with policy, CI, and delegation typically takes 30-120 minutes.
+
+### Does Gait work with LangChain?
+
+Yes. See `examples/integrations/langchain/` for a maintained adapter that wraps tool calls through gate evaluation.
+
+### What if I cannot intercept tool calls?
+
+If your agent runtime is fully hosted with no interception point, Gait can still provide observe/report/regress value from exported traces. Full enforcement requires a tool boundary interception point.
+
+### Which integration path should I start with?
+
+The blessed lane is OpenAI Agents (`examples/integrations/openai_agents/`). All adapters follow the same wrapper pattern and emit the same artifacts.
+
+### Do I need to modify my agent code?
+
+You add a wrapper at the tool dispatch boundary. The wrapper calls `gait gate eval` before executing the tool and records the result. The agent logic itself does not change.

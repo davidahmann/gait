@@ -1,6 +1,6 @@
 # Gait
 
-> Offline-first, default-safe CLI for controllable and debuggable production AI agent runs.
+> Offline-first durable agent runtime: dispatch long-running jobs with checkpoints, capture signed packs, gate tool calls and voice commitments with fail-closed policy, and turn incidents into deterministic CI regressions.
 
 ## Canonical
 - https://github.com/davidahmann/gait
@@ -12,16 +12,37 @@
 - gait demo --policy
 - gait tour
 - gait verify <run_id|path>
-- gait regress init --from <run_id|path>
+- gait run replay <run_id>
+- gait pack verify <pack.zip>
+- gait pack diff <left.zip> <right.zip>
+- gait regress bootstrap --from <run_id|path> --junit <path>
 - gait regress run --json --junit <path>
 - gait policy test <policy.yaml> <intent.json>
 - gait gate eval --policy <policy.yaml> --intent <intent.json>
+- gait job submit --id <job_id>
+- gait job status --id <job_id>
+- gait job checkpoint add --id <job_id> --type <type> --summary <text>
+- gait job checkpoint list --id <job_id>
+- gait job pause --id <job_id>
+- gait job resume --id <job_id>
+- gait job cancel --id <job_id>
+- gait voice token mint --intent <intent.json> --policy <policy.yaml>
+- gait voice token verify --token <token.json>
+- gait voice pack build --from <call_record.json>
+- gait voice pack verify <callpack.zip>
+- gait voice pack diff <left.zip> <right.zip>
 - gait doctor --json
+- gait doctor --summary
+- gait ui
 
 ## Safety Model
-- Fail-closed in high-risk modes.
-- Offline verification for runpacks and traces.
-- Structured intent policy evaluation (not free-form prompt filtering).
+- Fail-closed by default for ambiguous high-risk policy outcomes.
+- Offline verification for packs, runpacks, and traces.
+- Structured intent model for policy decisions (not free-form prompt filtering).
+- SayToken capability tokens for voice agent commitment gating.
+- Context evidence envelopes with fail-closed enforcement when evidence is missing.
+- Signed traces and explicit reason codes for blocked actions.
+- No hosted service dependency required for core operation.
 
 ## LLM Resources
 - /llm/product.md

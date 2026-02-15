@@ -1,3 +1,8 @@
+---
+title: "Policy Rollout"
+description: "Roll out policy changes from observe to require_approval to enforce with simulation and impact analysis."
+---
+
 # Policy Rollout Guide (Epic A4.2)
 
 This guide defines a staged rollout from observe to enforce without service interruption.

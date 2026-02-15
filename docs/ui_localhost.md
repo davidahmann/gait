@@ -1,3 +1,8 @@
+---
+title: "Local UI Playground"
+description: "Run a local-only UI shell for guided Gait demos and onboarding flows at localhost:7980."
+---
+
 # Localhost UI (`gait ui`)
 
 The localhost UI is an optional adoption shell over existing CLI commands. It does not replace CLI contracts and it does not add hosted dependencies.

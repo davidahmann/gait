@@ -1,3 +1,8 @@
+---
+title: "Primitive Contract"
+description: "Normative contract defining Gait's four deterministic primitives: capture, enforce, regress, and diagnose."
+---
+
 # Primitive Contract (Normative)
 
 Status: normative for OSS v1.x producers and consumers.

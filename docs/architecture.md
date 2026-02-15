@@ -1,3 +1,8 @@
+---
+title: "Architecture"
+description: "Component boundaries, integration-first architecture diagram, and Go core internals for Gait."
+---
+
 # Gait Architecture
 
 This document is the canonical architecture view for OSS v1.
