@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/davidahmann/gait/core/jcs"
 )
@@ -50,6 +51,24 @@ func TestRunPackLifecycleCommands(t *testing.T) {
 		t.Fatalf("unexpected job pack build output: %#v", jobBuildOut)
 	}
 
+	runpackPath, err := resolveRunpackPath("run_demo")
+	if err != nil {
+		t.Fatalf("resolve runpack path: %v", err)
+	}
+	callRecordPath := writeVoiceCallRecordForPackCLI(t, workDir, runpackPath, "call_pack_cli")
+	callBuildCode, callBuildOut := runPackJSON(t, []string{
+		"build",
+		"--type", "call",
+		"--from", callRecordPath,
+		"--json",
+	})
+	if callBuildCode != exitOK {
+		t.Fatalf("pack build call expected %d got %d output=%#v", exitOK, callBuildCode, callBuildOut)
+	}
+	if callBuildOut.Path == "" || callBuildOut.PackType != "call" {
+		t.Fatalf("unexpected call pack build output: %#v", callBuildOut)
+	}
+
 	verifyCode, verifyOut := runPackJSON(t, []string{"verify", runBuildOut.Path, "--json"})
 	if verifyCode != exitOK {
 		t.Fatalf("pack verify expected %d got %d output=%#v", exitOK, verifyCode, verifyOut)
@@ -64,6 +83,14 @@ func TestRunPackLifecycleCommands(t *testing.T) {
 	}
 	if inspectOut.Inspect == nil || inspectOut.Inspect.PackType != "run" {
 		t.Fatalf("unexpected inspect output: %#v", inspectOut)
+	}
+
+	callInspectCode, callInspectOut := runPackJSON(t, []string{"inspect", callBuildOut.Path, "--json"})
+	if callInspectCode != exitOK {
+		t.Fatalf("pack inspect call expected %d got %d output=%#v", exitOK, callInspectCode, callInspectOut)
+	}
+	if callInspectOut.Inspect == nil || callInspectOut.Inspect.PackType != "call" || callInspectOut.Inspect.CallPayload == nil {
+		t.Fatalf("unexpected call inspect output: %#v", callInspectOut)
 	}
 
 	diffPath := filepath.Join(workDir, "pack_diff.json")
@@ -336,6 +363,78 @@ func mutateRunPackPayloadSchema(srcPath string, dstPath string) error {
 		return err
 	}
 	return os.WriteFile(dstPath, buffer.Bytes(), 0o600)
+}
+
+func writeVoiceCallRecordForPackCLI(t *testing.T, dir string, runpackPath string, callID string) string {
+	t.Helper()
+	createdAt := time.Date(2026, time.February, 15, 0, 0, 0, 0, time.UTC)
+	record := map[string]any{
+		"schema_id":        "gait.voice.call_record",
+		"schema_version":   "1.0.0",
+		"created_at":       createdAt.Format(time.RFC3339Nano),
+		"producer_version": "test",
+		"call_id":          callID,
+		"runpack_path":     runpackPath,
+		"privacy_mode":     "hash_only",
+		"events": []map[string]any{
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Format(time.RFC3339Nano), "call_id": callID, "call_seq": 1, "turn_index": 1, "event_type": "asr.final", "payload_digest": strings.Repeat("a", 64)},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(1 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 2, "turn_index": 1, "event_type": "commitment.declared", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(2 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 3, "turn_index": 1, "event_type": "gate.decision", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(3 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 4, "turn_index": 1, "event_type": "tts.request", "commitment_class": "quote"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(4 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 5, "turn_index": 1, "event_type": "tts.emitted", "commitment_class": "quote", "say_token_id": "say_demo"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(5 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 6, "turn_index": 1, "event_type": "tool.intent"},
+			{"schema_id": "gait.voice.call_event", "schema_version": "1.0.0", "created_at": createdAt.Add(6 * time.Second).Format(time.RFC3339Nano), "call_id": callID, "call_seq": 7, "turn_index": 1, "event_type": "tool.result"},
+		},
+		"commitments": []map[string]any{
+			{
+				"schema_id":        "gait.voice.commitment_intent",
+				"schema_version":   "1.0.0",
+				"created_at":       createdAt.Add(1 * time.Second).Format(time.RFC3339Nano),
+				"producer_version": "test",
+				"call_id":          callID,
+				"turn_index":       1,
+				"call_seq":         2,
+				"commitment_class": "quote",
+				"context": map[string]any{
+					"identity":   "agent.voice",
+					"workspace":  "/srv/voice",
+					"risk_class": "high",
+				},
+				"quote_min_cents": 1000,
+				"quote_max_cents": 1200,
+			},
+		},
+		"gate_decisions": []map[string]any{
+			{
+				"call_id":          callID,
+				"call_seq":         3,
+				"turn_index":       1,
+				"commitment_class": "quote",
+				"verdict":          "allow",
+			},
+		},
+		"speak_receipts": []map[string]any{
+			{
+				"call_id":          callID,
+				"call_seq":         5,
+				"turn_index":       1,
+				"commitment_class": "quote",
+				"say_token_id":     "say_demo",
+				"spoken_digest":    strings.Repeat("a", 64),
+				"emitted_at":       createdAt.Add(4 * time.Second).Format(time.RFC3339Nano),
+			},
+		},
+	}
+	path := filepath.Join(dir, "call_record_"+callID+".json")
+	raw, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal call record: %v", err)
+	}
+	raw = append(raw, '\n')
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatalf("write call record: %v", err)
+	}
+	return path
 }
 
 func runPackJSON(t *testing.T, args []string) (int, packOutput) {

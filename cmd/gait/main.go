@@ -101,6 +101,8 @@ func runDispatch(arguments []string) int {
 		return runMigrate(arguments[2:])
 	case "mcp":
 		return runMCP(arguments[2:])
+	case "voice":
+		return runVoice(arguments[2:])
 	case "verify":
 		return runVerify(arguments[2:])
 	case "tour":
@@ -132,7 +134,7 @@ func normalizeAdoptionCommand(arguments []string) string {
 		return "version"
 	case "--explain":
 		return "explain"
-	case "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "doctor", "delegate", "ui":
+	case "gate", "policy", "keys", "trace", "regress", "run", "job", "pack", "report", "scout", "guard", "incident", "registry", "mcp", "voice", "doctor", "delegate", "ui":
 		if len(arguments) > 2 {
 			subcommand := strings.TrimSpace(arguments[2])
 			if subcommand != "" && !strings.HasPrefix(subcommand, "-") {

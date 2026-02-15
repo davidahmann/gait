@@ -19,7 +19,7 @@
     "created_at": { "type": "string", "format": "date-time" },
     "producer_version": { "type": "string", "minLength": 1 },
     "pack_id": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
-    "pack_type": { "type": "string", "enum": ["run", "job"] },
+    "pack_type": { "type": "string", "enum": ["run", "job", "call"] },
     "source_ref": { "type": "string", "minLength": 1 },
     "contents": {
       "type": "array",

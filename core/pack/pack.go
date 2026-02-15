@@ -43,8 +43,9 @@ var deterministicTimestamp = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.U
 type BuildType string
 
 const (
-	BuildTypeRun BuildType = "run"
-	BuildTypeJob BuildType = "job"
+	BuildTypeRun  BuildType = "run"
+	BuildTypeJob  BuildType = "job"
+	BuildTypeCall BuildType = "call"
 )
 
 type BuildRunOptions struct {
@@ -94,15 +95,16 @@ type VerifyResult struct {
 }
 
 type InspectResult struct {
-	PackID     string                 `json:"pack_id,omitempty"`
-	PackType   string                 `json:"pack_type,omitempty"`
-	SourceRef  string                 `json:"source_ref,omitempty"`
-	Manifest   *schemapack.Manifest   `json:"manifest,omitempty"`
-	RunPayload *schemapack.RunPayload `json:"run_payload,omitempty"`
-	JobPayload *schemapack.JobPayload `json:"job_payload,omitempty"`
-	RunLineage *RunLineage            `json:"run_lineage,omitempty"`
-	JobLineage *JobLineage            `json:"job_lineage,omitempty"`
-	LegacyType string                 `json:"legacy_type,omitempty"`
+	PackID      string                  `json:"pack_id,omitempty"`
+	PackType    string                  `json:"pack_type,omitempty"`
+	SourceRef   string                  `json:"source_ref,omitempty"`
+	Manifest    *schemapack.Manifest    `json:"manifest,omitempty"`
+	RunPayload  *schemapack.RunPayload  `json:"run_payload,omitempty"`
+	JobPayload  *schemapack.JobPayload  `json:"job_payload,omitempty"`
+	CallPayload *schemapack.CallPayload `json:"call_payload,omitempty"`
+	RunLineage  *RunLineage             `json:"run_lineage,omitempty"`
+	JobLineage  *JobLineage             `json:"job_lineage,omitempty"`
+	LegacyType  string                  `json:"legacy_type,omitempty"`
 }
 
 type DiffResult struct {
@@ -265,7 +267,7 @@ type buildPackOptions struct {
 }
 
 func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
-	if options.PackType != string(BuildTypeRun) && options.PackType != string(BuildTypeJob) {
+	if options.PackType != string(BuildTypeRun) && options.PackType != string(BuildTypeJob) && options.PackType != string(BuildTypeCall) {
 		return BuildResult{}, fmt.Errorf("unsupported pack type: %s", options.PackType)
 	}
 	createdAt := deterministicTimestamp
@@ -685,6 +687,16 @@ func Inspect(path string) (InspectResult, error) {
 				}
 			}
 		}
+	case string(BuildTypeCall):
+		if payloadFile, ok := bundle.Files["call_payload.json"]; ok {
+			payloadBytes, readErr := readZipFile(payloadFile)
+			if readErr == nil {
+				var payload schemapack.CallPayload
+				if err := decodeStrictJSON(payloadBytes, &payload); err == nil {
+					result.CallPayload = &payload
+				}
+			}
+		}
 	}
 	return result, nil
 }
@@ -791,7 +803,7 @@ func parsePackManifest(payload []byte) (schemapack.Manifest, error) {
 	if manifest.SchemaVersion != manifestSchemaVersion {
 		return schemapack.Manifest{}, fmt.Errorf("unsupported manifest schema_version: %s", manifest.SchemaVersion)
 	}
-	if manifest.PackType != string(BuildTypeRun) && manifest.PackType != string(BuildTypeJob) {
+	if manifest.PackType != string(BuildTypeRun) && manifest.PackType != string(BuildTypeJob) && manifest.PackType != string(BuildTypeCall) {
 		return schemapack.Manifest{}, fmt.Errorf("invalid pack_type: %s", manifest.PackType)
 	}
 	if strings.TrimSpace(manifest.SourceRef) == "" {
@@ -1042,6 +1054,10 @@ func verifyPayloadContracts(bundle *openedZip, manifest schemapack.Manifest) err
 			if strings.TrimSpace(event.JobID) != payload.JobID {
 				return fmt.Errorf("job event job_id does not match job payload")
 			}
+		}
+	case string(BuildTypeCall):
+		if err := verifyCallPayloadContracts(bundle, manifest); err != nil {
+			return err
 		}
 	default:
 		return fmt.Errorf("unsupported pack type: %s", manifest.PackType)
@@ -1330,7 +1346,7 @@ func ExtractRunpack(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", manifestFileName, err)
 	}
-	if manifest.PackType != string(BuildTypeRun) {
+	if manifest.PackType != string(BuildTypeRun) && manifest.PackType != string(BuildTypeCall) {
 		return nil, fmt.Errorf("pack type %s does not contain a runpack source", manifest.PackType)
 	}
 	sourceFile, ok := bundle.Files["source/runpack.zip"]

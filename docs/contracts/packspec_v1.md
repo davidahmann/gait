@@ -2,7 +2,7 @@
 
 Status: normative for v2.4+ producers/consumers.
 
-PackSpec v1 introduces one portable artifact envelope for both run and job evidence:
+PackSpec v1 introduces one portable artifact envelope for run, job, and call evidence:
 
 - file name: `pack_<pack_id>.zip`
 - manifest path: `pack_manifest.json`
@@ -10,6 +10,7 @@ PackSpec v1 introduces one portable artifact envelope for both run and job evide
 - payload schemas:
   - `schemas/v1/pack/run.schema.json`
   - `schemas/v1/pack/job.schema.json`
+  - `schemas/v1/pack/call.schema.json`
 
 ## Pack Types
 
@@ -19,6 +20,9 @@ PackSpec v1 introduces one portable artifact envelope for both run and job evide
 - `pack_type=job`
   - payload: `job_payload.json`
   - source attachments: `job_state.json`, `job_events.jsonl`
+- `pack_type=call`
+  - payload: `call_payload.json`
+  - source attachments: `callpack_manifest.json`, `call_events.jsonl`, `commitments.jsonl`, `gate_decisions.jsonl`, `speak_receipts.jsonl`, `reference_digests.json`, `source/runpack.zip`
 
 ## Determinism Contract
 

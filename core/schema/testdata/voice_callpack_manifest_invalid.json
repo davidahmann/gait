@@ -1,0 +1,13 @@
+{
+  "schema_id": "gait.voice.callpack_manifest",
+  "schema_version": "1.0.0",
+  "created_at": "2026-02-15T00:00:00Z",
+  "producer_version": "0.0.0-test",
+  "call_id": "call_demo",
+  "privacy_mode": "raw",
+  "event_count": -1,
+  "commitment_count": 1,
+  "decision_count": 1,
+  "speak_receipt_count": 1,
+  "reference_digest_count": 1
+}

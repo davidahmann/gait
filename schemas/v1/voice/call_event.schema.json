@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/voice/call_event.schema.json",
+  "title": "Voice Call Event",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "call_id",
+    "call_seq",
+    "turn_index",
+    "event_type"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.voice.call_event" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "call_id": { "type": "string", "minLength": 1 },
+    "call_seq": { "type": "integer", "minimum": 1 },
+    "turn_index": { "type": "integer", "minimum": 0 },
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "asr.final",
+        "commitment.declared",
+        "gate.decision",
+        "approval.granted",
+        "tts.request",
+        "tts.emitted",
+        "tool.intent",
+        "tool.result"
+      ]
+    },
+    "commitment_class": {
+      "type": "string",
+      "enum": ["refund", "quote", "eligibility", "schedule", "cancel", "account_change"]
+    },
+    "intent_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "policy_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "say_token_id": { "type": "string", "minLength": 1 },
+    "payload_digest": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

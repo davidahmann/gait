@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gait.dev/schemas/v1/voice/callpack_manifest.schema.json",
+  "title": "Voice Callpack Manifest",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "created_at",
+    "producer_version",
+    "call_id",
+    "privacy_mode",
+    "event_count",
+    "commitment_count",
+    "decision_count",
+    "speak_receipt_count",
+    "reference_digest_count"
+  ],
+  "properties": {
+    "schema_id": { "type": "string", "const": "gait.voice.callpack_manifest" },
+    "schema_version": { "type": "string", "pattern": "^1\\.0\\.0$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "producer_version": { "type": "string", "minLength": 1 },
+    "call_id": { "type": "string", "minLength": 1 },
+    "privacy_mode": { "type": "string", "enum": ["hash_only", "dispute_encrypted"] },
+    "event_count": { "type": "integer", "minimum": 0 },
+    "commitment_count": { "type": "integer", "minimum": 0 },
+    "decision_count": { "type": "integer", "minimum": 0 },
+    "speak_receipt_count": { "type": "integer", "minimum": 0 },
+    "reference_digest_count": { "type": "integer", "minimum": 0 },
+    "environment_fingerprint": { "type": "string", "minLength": 1 }
+  },
+  "additionalProperties": false
+}
