@@ -461,6 +461,39 @@ if [[ "$MISSING_RECEIPT_CODE" -eq 0 ]]; then
   exit 1
 fi
 
+python3 - <<'PY' "$WORK_DIR/call_record_allow.json" "$WORK_DIR/call_record_latest_block.json"
+import json
+import sys
+from pathlib import Path
+
+record = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+record["call_id"] = "call_voice_latest_block"
+for key in ("events", "commitments", "gate_decisions", "speak_receipts"):
+    for row in record[key]:
+        row["call_id"] = "call_voice_latest_block"
+record["gate_decisions"].append(
+    {
+        "call_id": "call_voice_latest_block",
+        "call_seq": 4,
+        "turn_index": 2,
+        "commitment_class": "quote",
+        "verdict": "block",
+        "reason_codes": ["blocked_after_allow"],
+        "intent_digest": record["gate_decisions"][0]["intent_digest"],
+        "policy_digest": record["gate_decisions"][0]["policy_digest"],
+    }
+)
+Path(sys.argv[2]).write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+PY
+set +e
+"$BIN_PATH" voice pack build --from "$WORK_DIR/call_record_latest_block.json" --json > "$WORK_DIR/callpack_latest_block.json"
+LATEST_BLOCK_CODE=$?
+set -e
+if [[ "$LATEST_BLOCK_CODE" -eq 0 ]]; then
+  echo "expected callpack build to fail when latest gate verdict before speech is non-allow" >&2
+  exit 1
+fi
+
 echo "==> voice: privacy mode dispute_encrypted"
 python3 - <<'PY' "$WORK_DIR/call_record_allow.json" "$WORK_DIR/call_record_dispute.json"
 import json

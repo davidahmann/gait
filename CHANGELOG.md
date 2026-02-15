@@ -10,6 +10,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+## [1.2.1] - 2026-02-15
+
+### Added
+
+- Added voice mode v1 command surface: `gait voice token mint|verify` and `gait voice pack build|verify|inspect|diff`.
+- Added voice schemas and fixtures for `CommitmentIntent`, `SayToken`, `CallEvent`, and `CallpackManifest`, plus `pack_type=call` payload support.
+- Added reference voice adapter (`examples/integrations/voice_reference/`) and a dedicated acceptance lane (`scripts/test_voice_acceptance.sh`, `make test-voice-acceptance`, CI `voice-acceptance` job).
+- Added voice mode documentation and integration/runbook coverage (`docs/voice_mode.md`, checklist/UAT/test cadence updates).
+
+### Changed
+
+- Expanded PackSpec contract docs to include callpack artifacts and `pack build --type call`.
+- Expanded adoption smoke coverage to include allow/block/require-approval voice adapter scenarios and callpack artifact checks.
+
+### Fixed
+
+- Fixed speak-gate verification to require a matching gated `tts.emitted` speak receipt/token path and to enforce that the latest prior gate verdict for the same turn/class is `allow`.
+- Fixed callpack verification to enforce metadata parity between `callpack_manifest.json` and `call_payload.json`, including `privacy_mode`, `environment_fingerprint`, and `created_at`.
+- Fixed regress initialization path to treat callpacks as valid `--from` sources via embedded runpack extraction.
+
+### Upgrade Notes
+
+- No breaking CLI or schema major-version changes; voice mode is additive.
+- Recommended post-upgrade validation:
+  - `make test-voice-acceptance`
+  - `make test-adoption`
+  - `make test-adapter-parity`
+  - `make codeql`
+
 ## [1.2.0] - 2026-02-14
 
 ### Added

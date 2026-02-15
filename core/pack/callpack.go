@@ -434,11 +434,9 @@ func normalizeSpeakReceipt(input schemavoice.SpeakReceipt, expectedCallID string
 
 func ensureSpeakReceiptsHaveAllowDecision(decisions []schemavoice.GateDecision, receipts []schemavoice.SpeakReceipt) error {
 	for _, receipt := range receipts {
-		matched := false
+		hasPriorDecision := false
+		latestDecision := schemavoice.GateDecision{}
 		for _, decision := range decisions {
-			if decision.Verdict != "allow" {
-				continue
-			}
 			if decision.CommitmentClass != receipt.CommitmentClass {
 				continue
 			}
@@ -448,12 +446,23 @@ func ensureSpeakReceiptsHaveAllowDecision(decisions []schemavoice.GateDecision, 
 			if decision.CallSeq > receipt.CallSeq {
 				continue
 			}
-			matched = true
-			break
+			if !hasPriorDecision || decision.CallSeq > latestDecision.CallSeq {
+				latestDecision = decision
+				hasPriorDecision = true
+			}
 		}
-		if !matched {
+		if !hasPriorDecision {
 			return fmt.Errorf(
-				"speak receipt missing prior allow gate decision for turn_index=%d call_seq=%d class=%s",
+				"speak receipt missing prior gate decision for turn_index=%d call_seq=%d class=%s",
+				receipt.TurnIndex,
+				receipt.CallSeq,
+				receipt.CommitmentClass,
+			)
+		}
+		if latestDecision.Verdict != "allow" {
+			return fmt.Errorf(
+				"speak receipt latest prior gate verdict is %s (expected allow) for turn_index=%d call_seq=%d class=%s",
+				latestDecision.Verdict,
 				receipt.TurnIndex,
 				receipt.CallSeq,
 				receipt.CommitmentClass,
@@ -727,6 +736,15 @@ func verifyCallPayloadContracts(bundle *openedZip, manifest schemapack.Manifest)
 		callManifest.SpeakReceiptCount != payload.SpeakReceiptCount ||
 		callManifest.ReferenceDigestCount != payload.ReferenceDigestCount {
 		return fmt.Errorf("callpack manifest counts do not match call payload")
+	}
+	if callManifest.PrivacyMode != payload.PrivacyMode {
+		return fmt.Errorf("callpack manifest privacy_mode does not match call payload")
+	}
+	if strings.TrimSpace(callManifest.EnvironmentFingerprint) != strings.TrimSpace(payload.EnvironmentFingerprint) {
+		return fmt.Errorf("callpack manifest environment_fingerprint does not match call payload")
+	}
+	if !callManifest.CreatedAt.Equal(payload.CreatedAt) {
+		return fmt.Errorf("callpack manifest created_at does not match call payload")
 	}
 	return nil
 }

@@ -134,7 +134,57 @@ func TestBuildCallPackRejectsSpeakWithoutPriorAllowDecision(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected callpack build to fail without prior allow decision")
 	}
-	if !strings.Contains(err.Error(), "missing prior allow gate decision") {
+	if !strings.Contains(err.Error(), "missing prior gate decision") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildCallPackRejectsSpeakAfterLatestNonAllowDecision(t *testing.T) {
+	workDir := t.TempDir()
+	runpackPath := createRunpackFixture(t, workDir, "run_voice_latest_verdict")
+	callRecordPath := writeCallRecordFixture(t, workDir, runpackPath, "call_voice_latest_verdict")
+
+	recordBytes, err := os.ReadFile(callRecordPath)
+	if err != nil {
+		t.Fatalf("read call record: %v", err)
+	}
+	var record map[string]any
+	if err := json.Unmarshal(recordBytes, &record); err != nil {
+		t.Fatalf("decode call record: %v", err)
+	}
+	decisions, ok := record["gate_decisions"].([]any)
+	if !ok {
+		t.Fatalf("expected gate_decisions array")
+	}
+	decisions = append(decisions, map[string]any{
+		"call_id":          "call_voice_latest_verdict",
+		"call_seq":         4,
+		"turn_index":       2,
+		"commitment_class": "quote",
+		"verdict":          "block",
+		"reason_codes":     []string{"blocked_after_allow"},
+		"intent_digest":    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"policy_digest":    "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+		"approval_ref":     "",
+	})
+	record["gate_decisions"] = decisions
+	mutated, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		t.Fatalf("encode mutated call record: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	if err := os.WriteFile(callRecordPath, mutated, 0o600); err != nil {
+		t.Fatalf("write mutated call record: %v", err)
+	}
+
+	_, err = BuildCallPack(BuildCallOptions{
+		CallRecordPath: callRecordPath,
+		OutputPath:     filepath.Join(workDir, "callpack.zip"),
+	})
+	if err == nil {
+		t.Fatalf("expected callpack build to fail when latest gate verdict before speech is non-allow")
+	}
+	if !strings.Contains(err.Error(), "latest prior gate verdict is block") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -170,6 +220,36 @@ func TestBuildCallPackRejectsGatedEmitWithoutSpeakReceipt(t *testing.T) {
 		t.Fatalf("expected callpack build to fail without speak receipt for gated tts.emitted")
 	}
 	if !strings.Contains(err.Error(), "missing speak receipt") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestVerifyRejectsCallPackManifestPrivacyMismatch(t *testing.T) {
+	workDir := t.TempDir()
+	runpackPath := createRunpackFixture(t, workDir, "run_voice_privacy_mismatch")
+	callRecordPath := writeCallRecordFixture(t, workDir, runpackPath, "call_voice_privacy_mismatch")
+
+	result, err := BuildCallPack(BuildCallOptions{
+		CallRecordPath: callRecordPath,
+		OutputPath:     filepath.Join(workDir, "callpack.zip"),
+	})
+	if err != nil {
+		t.Fatalf("build call pack: %v", err)
+	}
+
+	mutatedPath := filepath.Join(workDir, "callpack_manifest_privacy_mismatch.zip")
+	mutatedManifest := []byte(`{"schema_id":"gait.voice.callpack_manifest","schema_version":"1.0.0","created_at":"2026-02-15T00:00:00Z","producer_version":"test","call_id":"call_voice_privacy_mismatch","privacy_mode":"dispute_encrypted","event_count":8,"commitment_count":1,"decision_count":1,"speak_receipt_count":1,"reference_digest_count":1}` + "\n")
+	if err := rewritePackWithMutatedPayloadAndManifest(result.Path, mutatedPath, map[string][]byte{
+		"callpack_manifest.json": mutatedManifest,
+	}); err != nil {
+		t.Fatalf("rewrite callpack with privacy mismatch: %v", err)
+	}
+
+	if _, err := Verify(mutatedPath, VerifyOptions{}); err == nil {
+		t.Fatalf("expected verify to fail on callpack manifest privacy mismatch")
+	} else if coreerrors.CategoryOf(err) != coreerrors.CategoryVerification {
+		t.Fatalf("expected verification-category error, got %q (%v)", coreerrors.CategoryOf(err), err)
+	} else if !strings.Contains(err.Error(), "privacy_mode does not match") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
