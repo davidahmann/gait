@@ -21,7 +21,10 @@ type Runpack struct {
 }
 
 func ReadRunpack(path string) (Runpack, error) {
-	verifyResult, err := VerifyZip(path, VerifyOptions{RequireSignature: false})
+	verifyResult, err := VerifyZip(path, VerifyOptions{
+		RequireSignature:        false,
+		SkipManifestDigestCheck: true,
+	})
 	if err != nil {
 		return Runpack{}, err
 	}

@@ -17,8 +17,9 @@ import (
 )
 
 type VerifyOptions struct {
-	PublicKey        ed25519.PublicKey
-	RequireSignature bool
+	PublicKey                  ed25519.PublicKey
+	RequireSignature           bool
+	SkipManifestDigestCheck    bool
 }
 
 type VerifyResult struct {
@@ -40,13 +41,6 @@ type HashMismatch struct {
 }
 
 const maxZipFileBytes = 100 * 1024 * 1024
-
-var requiredRunpackFiles = []string{
-	"run.json",
-	"intents.jsonl",
-	"results.jsonl",
-	"refs.json",
-}
 
 func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	zipReader, err := zip.OpenReader(path)
@@ -93,10 +87,22 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		SignaturesTotal: len(manifest.Signatures),
 	}
 
-	declared := make(map[string]struct{}, len(manifest.Files))
+	hasRun := false
+	hasIntents := false
+	hasResults := false
+	hasRefs := false
 	for _, entry := range manifest.Files {
 		name := filepath.ToSlash(entry.Path)
-		declared[name] = struct{}{}
+		switch name {
+		case "run.json":
+			hasRun = true
+		case "intents.jsonl":
+			hasIntents = true
+		case "results.jsonl":
+			hasResults = true
+		case "refs.json":
+			hasRefs = true
+		}
 		zipFile, exists := files[name]
 		if !exists {
 			result.MissingFiles = append(result.MissingFiles, name)
@@ -114,22 +120,31 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 			})
 		}
 	}
-	for _, requiredPath := range requiredRunpackFiles {
-		if _, ok := declared[requiredPath]; !ok {
-			result.MissingFiles = append(result.MissingFiles, requiredPath)
-		}
+	if !hasRun {
+		result.MissingFiles = append(result.MissingFiles, "run.json")
+	}
+	if !hasIntents {
+		result.MissingFiles = append(result.MissingFiles, "intents.jsonl")
+	}
+	if !hasResults {
+		result.MissingFiles = append(result.MissingFiles, "results.jsonl")
+	}
+	if !hasRefs {
+		result.MissingFiles = append(result.MissingFiles, "refs.json")
 	}
 
-	computedManifestDigest, err := computeManifestDigest(manifest)
-	if err != nil {
-		return VerifyResult{}, fmt.Errorf("compute manifest digest: %w", err)
-	}
-	if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
-		result.HashMismatches = append(result.HashMismatches, HashMismatch{
-			Path:     "manifest.json",
-			Expected: manifest.ManifestDigest,
-			Actual:   computedManifestDigest,
-		})
+	if !opts.SkipManifestDigestCheck {
+		computedManifestDigest, err := computeManifestDigest(manifest)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("compute manifest digest: %w", err)
+		}
+		if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
+			result.HashMismatches = append(result.HashMismatches, HashMismatch{
+				Path:     "manifest.json",
+				Expected: manifest.ManifestDigest,
+				Actual:   computedManifestDigest,
+			})
+		}
 	}
 
 	signable, err := signableManifestBytes(manifestBytes)
@@ -183,7 +198,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 }
 
 func signableManifestBytes(manifest []byte) ([]byte, error) {
-	var obj map[string]any
+	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(manifest, &obj); err != nil {
 		return nil, err
 	}
