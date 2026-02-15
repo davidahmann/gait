@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   gait_regress:
     docker:
-      - image: cimg/go:1.24
+      - image: cimg/go:1.25
     steps:
       - checkout
       - run:
