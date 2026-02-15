@@ -1,0 +1,12 @@
+stages:
+  - regress
+
+gait_regress:
+  stage: regress
+  image: golang:1.24
+  script:
+    - bash scripts/ci_regress_contract.sh
+  artifacts:
+    when: always
+    paths:
+      - gait-out/adoption_regress/

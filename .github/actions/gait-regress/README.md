@@ -2,6 +2,9 @@
 
 Run deterministic Gait checks in CI with a verified release binary.
 
+This is the step-level reusable surface for the GitHub-first "one PR to adopt" lane.
+For workflow-level reuse and non-GitHub portability mappings, see `docs/ci_regress_kit.md`.
+
 ## Inputs
 
 - `version` (default: `latest`): release tag (for example `v1.0.7`) or `latest`

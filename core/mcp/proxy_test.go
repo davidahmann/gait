@@ -162,6 +162,7 @@ func TestExportersWriteJSONL(t *testing.T) {
 		Verdict:         "allow",
 		PolicyDigest:    strings.Repeat("a", 64),
 		IntentDigest:    strings.Repeat("b", 64),
+		DecisionLatency: 42,
 		ProducerVersion: "0.0.0-test",
 	}
 	if err := ExportLogEvent(logPath, event); err != nil {
@@ -182,6 +183,9 @@ func TestExportersWriteJSONL(t *testing.T) {
 	if logEntry["run_id"] != "run_mcp_test" {
 		t.Fatalf("unexpected log run id: %#v", logEntry)
 	}
+	if logEntry["decision_latency_ms"] != float64(42) {
+		t.Fatalf("unexpected log decision latency: %#v", logEntry)
+	}
 
 	otelRaw, err := os.ReadFile(otelPath)
 	if err != nil {
@@ -197,6 +201,9 @@ func TestExportersWriteJSONL(t *testing.T) {
 	}
 	if attrs["gait.run_id"] != "run_mcp_test" {
 		t.Fatalf("unexpected otel run id: %#v", attrs)
+	}
+	if attrs["gait.decision_latency_ms"] != float64(42) {
+		t.Fatalf("unexpected otel decision latency: %#v", attrs)
 	}
 }
 
