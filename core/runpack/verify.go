@@ -17,8 +17,9 @@ import (
 )
 
 type VerifyOptions struct {
-	PublicKey        ed25519.PublicKey
-	RequireSignature bool
+	PublicKey               ed25519.PublicKey
+	RequireSignature        bool
+	SkipManifestDigestCheck bool
 }
 
 type VerifyResult struct {
@@ -41,13 +42,6 @@ type HashMismatch struct {
 
 const maxZipFileBytes = 100 * 1024 * 1024
 
-var requiredRunpackFiles = []string{
-	"run.json",
-	"intents.jsonl",
-	"results.jsonl",
-	"refs.json",
-}
-
 func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	zipReader, err := zip.OpenReader(path)
 	if err != nil {
@@ -57,12 +51,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		_ = zipReader.Close()
 	}()
 
-	files := make(map[string]*zip.File, len(zipReader.File))
-	for _, zipFile := range zipReader.File {
-		files[zipFile.Name] = zipFile
-	}
-
-	manifestFile, manifestFound := files["manifest.json"]
+	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
 	if !manifestFound {
 		return VerifyResult{}, fmt.Errorf("missing manifest.json")
 	}
@@ -93,11 +82,23 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		SignaturesTotal: len(manifest.Signatures),
 	}
 
-	declared := make(map[string]struct{}, len(manifest.Files))
+	hasRun := false
+	hasIntents := false
+	hasResults := false
+	hasRefs := false
 	for _, entry := range manifest.Files {
 		name := filepath.ToSlash(entry.Path)
-		declared[name] = struct{}{}
-		zipFile, exists := files[name]
+		switch name {
+		case "run.json":
+			hasRun = true
+		case "intents.jsonl":
+			hasIntents = true
+		case "results.jsonl":
+			hasResults = true
+		case "refs.json":
+			hasRefs = true
+		}
+		zipFile, exists := findZipFile(zipReader.File, name)
 		if !exists {
 			result.MissingFiles = append(result.MissingFiles, name)
 			continue
@@ -114,27 +115,31 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 			})
 		}
 	}
-	for _, requiredPath := range requiredRunpackFiles {
-		if _, ok := declared[requiredPath]; !ok {
-			result.MissingFiles = append(result.MissingFiles, requiredPath)
+	if !hasRun {
+		result.MissingFiles = append(result.MissingFiles, "run.json")
+	}
+	if !hasIntents {
+		result.MissingFiles = append(result.MissingFiles, "intents.jsonl")
+	}
+	if !hasResults {
+		result.MissingFiles = append(result.MissingFiles, "results.jsonl")
+	}
+	if !hasRefs {
+		result.MissingFiles = append(result.MissingFiles, "refs.json")
+	}
+
+	if !opts.SkipManifestDigestCheck {
+		computedManifestDigest, err := computeManifestDigest(manifest)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("compute manifest digest: %w", err)
 		}
-	}
-
-	computedManifestDigest, err := computeManifestDigest(manifest)
-	if err != nil {
-		return VerifyResult{}, fmt.Errorf("compute manifest digest: %w", err)
-	}
-	if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
-		result.HashMismatches = append(result.HashMismatches, HashMismatch{
-			Path:     "manifest.json",
-			Expected: manifest.ManifestDigest,
-			Actual:   computedManifestDigest,
-		})
-	}
-
-	signable, err := signableManifestBytes(manifestBytes)
-	if err != nil {
-		return VerifyResult{}, fmt.Errorf("prepare manifest for signing: %w", err)
+		if !equalHex(manifest.ManifestDigest, computedManifestDigest) {
+			result.HashMismatches = append(result.HashMismatches, HashMismatch{
+				Path:     "manifest.json",
+				Expected: manifest.ManifestDigest,
+				Actual:   computedManifestDigest,
+			})
+		}
 	}
 
 	if len(manifest.Signatures) == 0 {
@@ -146,6 +151,10 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		result.SignatureStatus = "skipped"
 		result.SignatureErrors = append(result.SignatureErrors, "public key not configured")
 	} else {
+		signable, err := signableManifestBytes(manifestBytes)
+		if err != nil {
+			return VerifyResult{}, fmt.Errorf("prepare manifest for signing: %w", err)
+		}
 		valid := 0
 		for _, sig := range manifest.Signatures {
 			converted := sign.Signature{
@@ -183,12 +192,21 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 }
 
 func signableManifestBytes(manifest []byte) ([]byte, error) {
-	var obj map[string]any
+	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(manifest, &obj); err != nil {
 		return nil, err
 	}
 	delete(obj, "signatures")
 	return json.Marshal(obj)
+}
+
+func findZipFile(files []*zip.File, name string) (*zip.File, bool) {
+	for _, zipFile := range files {
+		if filepath.ToSlash(zipFile.Name) == name {
+			return zipFile, true
+		}
+	}
+	return nil, false
 }
 
 func readZipFile(zipFile *zip.File) ([]byte, error) {
