@@ -81,6 +81,37 @@ Deprecation posture for v2.4:
 - No legacy command or artifact removal in v2.4.
 - Migration is additive (`run|guard` surfaces continue to work).
 
+## v1 Stability Contract
+
+PackSpec `1.x` preserves consumer compatibility by default.
+
+Non-breaking changes in `1.x`:
+- additive optional fields
+- additive enum members when readers are required to ignore unknown values
+- additive artifact metadata that does not alter hash/signature semantics for existing files
+
+Breaking changes (not allowed in `1.x`):
+- removing or renaming required fields
+- changing digest/signature canonicalization rules
+- changing required file paths for an existing `pack_type`
+- changing stable exit-code semantics for verify/diff
+
+Breaking changes require:
+- new major schema version
+- explicit migration guidance
+- compatibility window called out in release notes and matrix docs
+
+## Deprecation Policy
+
+When a surface is replaced:
+- old and new surfaces run in parallel for at least one minor release line
+- deprecation notices appear in docs and release notes before removal
+- `gait pack verify` retains legacy read compatibility for the published window
+
+Reference:
+- producer interop path: `docs/contracts/pack_producer_kit.md`
+- public compatibility matrix: `docs/contracts/compatibility_matrix.md`
+
 ## Frequently Asked Questions
 
 ### What is PackSpec v1?

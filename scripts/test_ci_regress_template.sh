@@ -25,12 +25,16 @@ required_fragments = [
     "workflow_call:",
     "inputs:",
     "outputs:",
+    "id: restore_fixture",
+    "fixture_runpack_effective",
+    "steps.restore_fixture.outputs.fixture_runpack_effective",
     "regress_status:",
     "regress_exit_code:",
     "top_failure_reason:",
     "next_command:",
     "artifact_root:",
     "Publish regress summary",
+    "Verify fixture pack integrity",
     "Enforce stable regress exit code contract",
 ]
 missing = [fragment for fragment in required_fragments if fragment not in text]
@@ -70,6 +74,7 @@ mkdir -p "$ARTIFACT_ROOT"
   "$BIN_PATH" demo --json > demo.json
   "$BIN_PATH" regress init --from run_demo --json > "$ARTIFACT_ROOT/regress_init_result.json"
   "$BIN_PATH" regress run --json --junit "$ARTIFACT_ROOT/junit.xml" > "$ARTIFACT_ROOT/regress_result.json"
+  "$BIN_PATH" pack verify "$WORK_DIR/fixtures/run_demo/runpack.zip" --json > "$ARTIFACT_ROOT/pack_verify_fixture.json"
 )
 
 python3 - "$ARTIFACT_ROOT/regress_result.json" <<'PY'
@@ -107,6 +112,7 @@ required_artifacts=(
   "$ARTIFACT_ROOT/regress_result.json"
   "$ARTIFACT_ROOT/junit.xml"
   "$ARTIFACT_ROOT/regress_init_result.json"
+  "$ARTIFACT_ROOT/pack_verify_fixture.json"
 )
 for artifact in "${required_artifacts[@]}"; do
   if [[ ! -f "$artifact" ]]; then
@@ -114,5 +120,15 @@ for artifact in "${required_artifacts[@]}"; do
     exit 1
   fi
 done
+
+python3 - "$ARTIFACT_ROOT/pack_verify_fixture.json" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+if payload.get("ok") is not True:
+    raise SystemExit(f"expected pack verify ok=true, got {payload}")
+PY
 
 echo "ci regress template reuse: pass"

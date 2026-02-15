@@ -37,6 +37,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - ContextSpec v1 contract: `docs/contracts/contextspec_v1.md`
 - PackSpec v1 contract: `docs/contracts/packspec_v1.md`
 - PackSpec TCK: `docs/contracts/packspec_tck.md`
+- Pack producer kit: `docs/contracts/pack_producer_kit.md`
+- PackSpec compatibility matrix: `docs/contracts/compatibility_matrix.md`
 - Artifact graph: `docs/contracts/artifact_graph.md`
 - Intent+receipt conformance: `docs/contracts/intent_receipt_conformance.md`
 - Endpoint action taxonomy: `docs/contracts/endpoint_action_model.md`
@@ -66,6 +68,8 @@ This file defines where each topic lives so docs stay accurate and non-duplicati
 - Launch/distribution assets: `docs/launch/README.md`
 - Activation KPI definition (v2.6): `docs/launch/activation_kpi_v2_6.md`
 - Distribution plan (v2.7 gravity wells): `docs/PLAN_v2.7_distribution.md`
+- Marketplace action publishing path: `docs/marketplace_action_publishing.md`
+- Canonical MCP boundary demo: `docs/scenarios/mcp_canonical_boundary.md`
 - Content cadence plan (v2.6): `docs/launch/content_cadence_v2_6.md`
 - Hero demo asset review (v2.6): `docs/launch/hero_demo_asset_review_v2_6.md`
 

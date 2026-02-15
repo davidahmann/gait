@@ -88,6 +88,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Restore deterministic fixture
+        id: restore_fixture
         shell: bash
         run: |
           : "${FIXTURE_RUNPACK_PATH:?FIXTURE_RUNPACK_PATH must be set}"
@@ -102,7 +103,19 @@ jobs:
             echo "fixture/config missing; generating deterministic fallback from ${SOURCE_RUN}"
             ./gait demo
             ./gait regress init --from "${SOURCE_RUN}" --json > "${ARTIFACT_ROOT}/regress_init_result.json"
+
+            # Re-point fixture verification to generated fallback artifacts.
+            if [[ -f "fixtures/${SOURCE_RUN}/runpack.zip" ]]; then
+              fixture_runpack="fixtures/${SOURCE_RUN}/runpack.zip"
+            elif [[ -f "fixtures/run_demo/runpack.zip" ]]; then
+              fixture_runpack="fixtures/run_demo/runpack.zip"
+            else
+              echo "fallback did not produce a fixture runpack for source_run=${SOURCE_RUN}" >&2
+              exit 1
+            fi
           fi
+
+          echo "fixture_runpack_effective=${fixture_runpack}" >> "$GITHUB_OUTPUT"
 
       - name: Run regress (capture stable exit code)
         id: regress_run
@@ -119,6 +132,22 @@ jobs:
             echo "unexpected regress exit code: ${status}" >&2
             exit "${status}"
           fi
+
+      - name: Verify fixture pack integrity
+        shell: bash
+        run: |
+          fixture_runpack="${{ steps.restore_fixture.outputs.fixture_runpack_effective }}"
+          : "${fixture_runpack:?effective fixture runpack path must be set}"
+          ./gait pack verify "${fixture_runpack}" --json > "${ARTIFACT_ROOT}/pack_verify_fixture.json"
+          python3 - "${ARTIFACT_ROOT}/pack_verify_fixture.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if payload.get("ok") is not True:
+              raise SystemExit(f"pack verify expected ok=true, got: {payload}")
+          PY
 
       - name: Parse regress result fields
         id: regress_parse
@@ -201,6 +230,8 @@ jobs:
             echo "- artifact_root: `${ARTIFACT_ROOT}`"
             # shellcheck disable=SC2006
             echo "- artifact_paths: `${{ steps.regress_parse.outputs.artifact_paths }}`"
+            # shellcheck disable=SC2006
+            echo "- pack_verify: `${ARTIFACT_ROOT}/pack_verify_fixture.json`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload regress artifacts
@@ -212,6 +243,7 @@ jobs:
             gait-out/adoption_regress/regress_result.json
             gait-out/adoption_regress/junit.xml
             gait-out/adoption_regress/regress_init_result.json
+            gait-out/adoption_regress/pack_verify_fixture.json
             gait.yaml
             fixtures/
 
