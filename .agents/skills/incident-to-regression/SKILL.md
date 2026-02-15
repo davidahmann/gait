@@ -7,6 +7,19 @@ disable-model-invocation: true
 
 Use this skill to transform an observed incident into deterministic regression checks.
 
+## Gait Context
+
+Gait is an offline-first runtime for AI agents that enforces tool-boundary policy, emits signed and verifiable evidence artifacts, and supports deterministic regressions.
+
+Use this skill when:
+- incident triage needs repeatable regression fixtures
+- CI gate failures need deterministic reproduction
+- evidence outputs must be generated from Gait artifacts
+
+Do not use this skill when:
+- Gait CLI is unavailable in the environment
+- no Gait run/pack artifact or run identifier is available as input
+
 ## Required Inputs
 
 - `run_source`: run id, runpack path, or equivalent source accepted by `gait regress init`.
@@ -14,15 +27,21 @@ Use this skill to transform an observed incident into deterministic regression c
 
 ## Workflow
 
-1. Initialize deterministic fixture from the incident source:
-   - `gait regress init --from <run_source> --json`
-2. Parse fields from init output and record them:
+1. Resolve `run_source` before changing directories:
+   - keep identifiers unchanged (for example run ids)
+   - if `run_source` is a relative file path, normalize to absolute path
+   - `run_source_ref="$(python3 -c 'import os,sys; v=sys.argv[1]; print(os.path.abspath(v) if os.path.exists(v) else v)' <run_source>)"`
+2. Enter the declared working directory before generating artifacts:
+   - `mkdir -p <workdir> && cd <workdir>`
+3. Initialize deterministic fixture from the incident source:
+   - `gait regress init --from <run_source_ref> --json`
+4. Parse fields from init output and record them:
    - `ok`, `run_id`, `fixture_name`, `fixture_dir`, `config_path`, `next_commands`
-3. Execute regression graders:
+5. Execute regression graders:
    - `gait regress run --json`
-4. If CI evidence is needed, rerun with JUnit output:
+6. If CI evidence is needed, rerun with JUnit output:
    - `gait regress run --json --junit <junit_path>`
-5. Return a concise summary with:
+7. Return a concise summary with:
    - source identifier
    - fixture directory and config path
    - status and failed grader count
@@ -38,7 +57,11 @@ Use this skill to transform an observed incident into deterministic regression c
 ## Usage Example
 
 ```bash
-gait regress init --from run_demo --json
+run_source_ref="$(python3 -c 'import os,sys; v=sys.argv[1]; print(os.path.abspath(v) if os.path.exists(v) else v)' run_demo)"
+mkdir -p ./regress-workdir && cd ./regress-workdir
+gait demo --json
+gait regress init --from "${run_source_ref}" --json
+mkdir -p ./artifacts
 gait regress run --json --junit ./artifacts/junit.xml
 ```
 
@@ -50,6 +73,10 @@ Expected result:
 ## Validation Example
 
 ```bash
+mkdir -p ./regress-workdir && cd ./regress-workdir
+gait demo --json
+gait regress init --from run_demo --json
+mkdir -p ./artifacts
 gait regress run --json > ./artifacts/regress_result.json
 python3 - <<'PY'
 import json
