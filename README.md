@@ -1,6 +1,6 @@
 # Gait — Signed Proof and Fail-Closed Control for AI Agent Tool Calls
 
-## In Plain Language
+## Overview
 
 Use Gait when an AI agent can cause real side effects and you need deterministic control plus portable proof.
 
