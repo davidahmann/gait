@@ -13,12 +13,12 @@ import (
 
 	"github.com/Clyra-AI/gait/core/doctor"
 	gatecore "github.com/Clyra-AI/gait/core/gate"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
-	"github.com/Clyra-AI/gait/core/sign"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestRunDispatch(t *testing.T) {
@@ -481,6 +481,37 @@ func TestGatePolicyTraceApproveAndDoctor(t *testing.T) {
 		"--json",
 	}); code != exitVerifyFailed {
 		t.Fatalf("doctor production readiness failure: expected %d got %d", exitVerifyFailed, code)
+	}
+}
+
+func TestGateEvalBlockVerdictReturnsPolicyBlockedExit(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	intentPath := filepath.Join(workDir, "intent.json")
+	writeIntentFixture(t, intentPath, "tool.write")
+
+	policyPath := filepath.Join(workDir, "policy_block.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: block\n")
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--json",
+		})
+	})
+	if code != exitPolicyBlocked {
+		t.Fatalf("runGateEval block verdict expected %d got %d", exitPolicyBlocked, code)
+	}
+
+	var output gateEvalOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode gate eval output: %v (%s)", err, raw)
+	}
+	if output.Verdict != "block" {
+		t.Fatalf("expected verdict block, got %#v", output)
 	}
 }
 
@@ -2144,8 +2175,8 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 		"--credential-command", brokerPath,
 		"--rate-limit-state", rateStatePath,
 		"--json",
-	}); code != exitOK {
-		t.Fatalf("runGateEval second call: expected %d got %d", exitOK, code)
+	}); code != exitPolicyBlocked {
+		t.Fatalf("runGateEval second call: expected %d got %d", exitPolicyBlocked, code)
 	}
 	credentialEvidence, err = filepath.Glob(filepath.Join(workDir, "credential_evidence_*.json"))
 	if err != nil {
@@ -2216,8 +2247,8 @@ func TestGateEvalCredentialCommandBrokerFailureDoesNotLeakSecrets(t *testing.T) 
 			"--json",
 		})
 	})
-	if exitCode != exitOK {
-		t.Fatalf("runGateEval broker failure expected %d got %d", exitOK, exitCode)
+	if exitCode != exitPolicyBlocked {
+		t.Fatalf("runGateEval broker failure expected %d got %d", exitPolicyBlocked, exitCode)
 	}
 	if strings.Contains(output, "secret-broker-token") {
 		t.Fatalf("gate output leaked broker token: %s", output)

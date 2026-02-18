@@ -9,7 +9,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/doctor"
 	"github.com/Clyra-AI/gait/core/scout"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type doctorOutput struct {

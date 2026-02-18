@@ -21,8 +21,8 @@ import (
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
 	"github.com/Clyra-AI/gait/core/zipx"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestBuildRunPackVerifyInspectAndDiff(t *testing.T) {
@@ -64,6 +64,19 @@ func TestBuildRunPackVerifyInspectAndDiff(t *testing.T) {
 	}
 	if len(verifyResult.HashMismatches) != 0 || len(verifyResult.MissingFiles) != 0 || len(verifyResult.UndeclaredFiles) != 0 {
 		t.Fatalf("expected clean verify result: %#v", verifyResult)
+	}
+	if verifyResult.ProofRecords == 0 {
+		t.Fatalf("expected proof records to be verified")
+	}
+	foundProofRecords := false
+	for _, entry := range result.Manifest.Contents {
+		if entry.Path == proofRecordsFileName {
+			foundProofRecords = true
+			break
+		}
+	}
+	if !foundProofRecords {
+		t.Fatalf("expected %s in manifest contents", proofRecordsFileName)
 	}
 
 	inspectResult, err := Inspect(result.Path)
@@ -126,6 +139,9 @@ func TestBuildJobPackFromPathAndVerify(t *testing.T) {
 	}
 	if verifyResult.SignatureStatus != "missing" {
 		t.Fatalf("expected missing signature status, got %s", verifyResult.SignatureStatus)
+	}
+	if verifyResult.ProofRecords == 0 {
+		t.Fatalf("expected proof records to be verified")
 	}
 
 	inspectResult, err := Inspect(packPath)
@@ -478,6 +494,62 @@ func TestVerifySignatureModesAndMissingDeclaredFiles(t *testing.T) {
 	}
 	if len(missingDeclaredVerify.MissingFiles) == 0 {
 		t.Fatalf("expected missing files for removed declared entry")
+	}
+}
+
+func TestVerifyRejectsInvalidEmbeddedProofRecords(t *testing.T) {
+	workDir := t.TempDir()
+	runpackPath := createRunpackFixture(t, workDir, "run_invalid_proof_records")
+
+	packResult, err := BuildRunPack(BuildRunOptions{
+		RunpackPath: runpackPath,
+		OutputPath:  filepath.Join(workDir, "pack_with_proof_records.zip"),
+	})
+	if err != nil {
+		t.Fatalf("build run pack: %v", err)
+	}
+
+	bundle, err := openZip(packResult.Path)
+	if err != nil {
+		t.Fatalf("open pack: %v", err)
+	}
+	proofFile, ok := bundle.Files[proofRecordsFileName]
+	if !ok {
+		_ = bundle.Close()
+		t.Fatalf("missing %s in built pack", proofRecordsFileName)
+	}
+	proofPayload, err := readZipFile(proofFile)
+	_ = bundle.Close()
+	if err != nil {
+		t.Fatalf("read proof records: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(proofPayload)), "\n")
+	if len(lines) == 0 {
+		t.Fatalf("expected proof records line")
+	}
+	var record map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &record); err != nil {
+		t.Fatalf("parse proof record: %v", err)
+	}
+	record["record_type"] = "not_a_valid_type"
+	updated, err := canonicalJSON(record)
+	if err != nil {
+		t.Fatalf("encode invalid proof record: %v", err)
+	}
+	lines[0] = string(updated)
+
+	invalidProofRecordsPath := filepath.Join(workDir, "pack_with_invalid_proof_records.zip")
+	if err := rewritePackWithMutatedPayloadAndManifest(packResult.Path, invalidProofRecordsPath, map[string][]byte{
+		proofRecordsFileName: []byte(strings.Join(lines, "\n")),
+	}); err != nil {
+		t.Fatalf("rewrite pack with invalid proof records: %v", err)
+	}
+
+	if _, err := Verify(invalidProofRecordsPath, VerifyOptions{}); err == nil {
+		t.Fatalf("expected verify to fail for invalid proof records")
+	} else if !strings.Contains(err.Error(), proofRecordsFileName) {
+		t.Fatalf("expected proof record verification error, got %v", err)
 	}
 }
 

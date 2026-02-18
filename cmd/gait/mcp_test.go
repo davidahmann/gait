@@ -279,6 +279,76 @@ func TestRunMCPProxyOSSProdRequiresExplicitContext(t *testing.T) {
 	}
 }
 
+func TestRunMCPProxyOSSProdOAuthEvidenceValidation(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	missingEvidencePath := filepath.Join(workDir, "oauth_missing_evidence.json")
+	mustWriteFile(t, missingEvidencePath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{
+    "identity":"alice",
+    "workspace":"/repo/gait",
+    "risk_class":"high",
+    "session_id":"sess-1",
+    "auth_mode":"oauth_dcr"
+  }
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", missingEvidencePath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runMCPProxy oauth missing evidence expected %d got %d", exitInvalidInput, code)
+	}
+
+	validEvidencePath := filepath.Join(workDir, "oauth_valid_evidence.json")
+	mustWriteFile(t, validEvidencePath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{
+    "identity":"alice",
+    "workspace":"/repo/gait",
+    "risk_class":"high",
+    "session_id":"sess-1",
+    "auth_mode":"oauth_dcr",
+    "oauth_evidence":{
+      "issuer":"https://auth.example.com",
+      "audience":["gait-boundary"],
+      "subject":"user:alice",
+      "client_id":"cli-123",
+      "token_type":"bearer",
+      "scopes":["tools.read"],
+      "dcr_client_id":"dcr-123",
+      "redirect_uri":"https://app.example.com/callback",
+      "token_binding":"tb-123",
+      "auth_time":"2026-02-18T00:00:00Z",
+      "evidence_ref":"oauth:receipt:1"
+    }
+  }
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", validEvidencePath,
+		"--profile", "oss-prod",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runMCPProxy oauth valid evidence expected %d got %d", exitOK, code)
+	}
+}
+
 func TestRunMCPProxyAdaptersSupportRunpackAndRegressInit(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/projectconfig"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 const (

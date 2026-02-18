@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/gate"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/policytest"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
 	"github.com/Clyra-AI/gait/internal/testutil"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestRecordVerifyReplayDiffFlow(t *testing.T) {

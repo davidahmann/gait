@@ -20,14 +20,14 @@ import (
 	coreerrors "github.com/Clyra-AI/gait/core/errors"
 	"github.com/Clyra-AI/gait/core/fsx"
 	"github.com/Clyra-AI/gait/core/guard"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemaguard "github.com/Clyra-AI/gait/core/schema/v1/guard"
 	schemapack "github.com/Clyra-AI/gait/core/schema/v1/pack"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
 	"github.com/Clyra-AI/gait/core/zipx"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 const (
@@ -85,6 +85,7 @@ type VerifyResult struct {
 	PackType        string         `json:"pack_type,omitempty"`
 	SourceRef       string         `json:"source_ref,omitempty"`
 	FilesChecked    int            `json:"files_checked"`
+	ProofRecords    int            `json:"proof_records_verified,omitempty"`
 	MissingFiles    []string       `json:"missing_files,omitempty"`
 	HashMismatches  []HashMismatch `json:"hash_mismatches,omitempty"`
 	UndeclaredFiles []string       `json:"undeclared_files,omitempty"`
@@ -276,8 +277,22 @@ func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
 		producerVersion = "0.0.0-dev"
 	}
 
-	contents := make([]schemapack.PackEntry, 0, len(options.Files))
-	for _, file := range options.Files {
+	files := append([]zipx.File{}, options.Files...)
+	proofRecords, err := buildProofRecordsJSONL(
+		options.PackType,
+		strings.TrimSpace(options.SourceRef),
+		producerVersion,
+		createdAt,
+		files,
+		options.SigningPrivateKey,
+	)
+	if err != nil {
+		return BuildResult{}, fmt.Errorf("build proof records: %w", err)
+	}
+	files = append(files, zipx.File{Path: proofRecordsFileName, Data: proofRecords, Mode: 0o644})
+
+	contents := make([]schemapack.PackEntry, 0, len(files))
+	for _, file := range files {
 		contents = append(contents, schemapack.PackEntry{
 			Path:   file.Path,
 			SHA256: sha256Hex(file.Data),
@@ -327,7 +342,6 @@ func buildPackWithFiles(options buildPackOptions) (BuildResult, error) {
 		return BuildResult{}, fmt.Errorf("encode manifest: %w", err)
 	}
 
-	files := append([]zipx.File{}, options.Files...)
 	files = append(files, zipx.File{Path: manifestFileName, Data: manifestBytes, Mode: 0o644})
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 
@@ -436,6 +450,7 @@ func Verify(path string, options VerifyOptions) (VerifyResult, error) {
 		SignatureStatus: "missing",
 		SignaturesTotal: len(manifest.Signatures),
 	}
+	proofSignatureErrors := make([]string, 0)
 
 	declared := make(map[string]schemapack.PackEntry, len(manifest.Contents))
 	for _, entry := range manifest.Contents {
@@ -461,6 +476,19 @@ func Verify(path string, options VerifyOptions) (VerifyResult, error) {
 		if _, ok := declared[path]; !ok {
 			result.UndeclaredFiles = append(result.UndeclaredFiles, path)
 		}
+	}
+
+	if proofFile, ok := bundle.Files[proofRecordsFileName]; ok && !hasHashMismatch(result.HashMismatches, proofRecordsFileName) {
+		recordData, readErr := readZipFile(proofFile)
+		if readErr != nil {
+			return VerifyResult{}, fmt.Errorf("read %s: %w", proofRecordsFileName, readErr)
+		}
+		verified, signatureErrors, verifyErr := verifyProofRecordsJSONL(recordData, options)
+		if verifyErr != nil {
+			return VerifyResult{}, verificationError(fmt.Errorf("%s: %w", proofRecordsFileName, verifyErr))
+		}
+		result.ProofRecords = verified
+		proofSignatureErrors = append(proofSignatureErrors, signatureErrors...)
 	}
 
 	if len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0 && len(result.UndeclaredFiles) == 0 {
@@ -502,6 +530,10 @@ func Verify(path string, options VerifyOptions) (VerifyResult, error) {
 			result.SignatureStatus = "failed"
 			result.SignatureErrors = append(result.SignatureErrors, "signature verification failed")
 		}
+	}
+	if options.RequireSignature && len(proofSignatureErrors) > 0 {
+		result.SignatureStatus = "failed"
+		result.SignatureErrors = append(result.SignatureErrors, proofSignatureErrors...)
 	}
 
 	sort.Strings(result.MissingFiles)

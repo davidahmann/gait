@@ -63,7 +63,7 @@ flowchart LR
         doctor["Doctor (core/doctor)"]
         scout["Scout signal + snapshots (core/scout)"]
         guard["Guard/evidence (core/guard)"]
-        sign["JCS + signing (core/jcs, core/sign)"]
+        sign["JCS + signing (proof/canon, proof/signing)"]
         schema["Schema validation (core/schema)"]
         fsx["Deterministic FS utilities (core/fsx, core/zipx)"]
     end

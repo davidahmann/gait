@@ -14,7 +14,7 @@ echo "==> cli verification report writer"
 go test ./cmd/gait -run 'TestGuardRegistryAndReduceWriters' -count=1
 
 echo "==> schema validation for skill supply-chain artifacts"
-go test ./core/schema/validate -run 'TestValidateSchemaFixtures' -count=1
+go test github.com/Clyra-AI/proof/schema -count=1
 
 echo "==> deterministic skill install path (codex + claude)"
 tmp_root="$(mktemp -d)"

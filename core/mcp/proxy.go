@@ -133,6 +133,16 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 			Chain:             chain,
 		}
 	}
+	authContext := map[string]any{}
+	for key, value := range call.Context.AuthContext {
+		authContext[key] = value
+	}
+	if strings.TrimSpace(call.Context.AuthMode) != "" {
+		authContext["auth_mode"] = strings.TrimSpace(call.Context.AuthMode)
+	}
+	if call.Context.OAuthEvidence != nil {
+		authContext["oauth_evidence"] = call.Context.OAuthEvidence
+	}
 
 	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",
@@ -150,7 +160,7 @@ func ToIntentRequestWithOptions(call ToolCall, opts IntentOptions) (schemagate.I
 			RiskClass:              riskClass,
 			SessionID:              strings.TrimSpace(call.Context.SessionID),
 			RequestID:              strings.TrimSpace(call.Context.RequestID),
-			AuthContext:            call.Context.AuthContext,
+			AuthContext:            authContext,
 			CredentialScopes:       append([]string{}, call.Context.CredentialScopes...),
 			EnvironmentFingerprint: strings.TrimSpace(call.Context.EnvironmentFingerprint),
 		},

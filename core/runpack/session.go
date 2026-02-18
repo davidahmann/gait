@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/fsx"
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 const (

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/contextproof"
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 type DiffPrivacy string

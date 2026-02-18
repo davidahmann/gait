@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 const (

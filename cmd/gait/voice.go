@@ -12,7 +12,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/gate"
 	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type voiceTokenOutput struct {

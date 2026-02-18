@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 const (

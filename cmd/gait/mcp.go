@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -16,7 +17,7 @@ import (
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type mcpProxyOutput struct {
@@ -203,6 +204,9 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
+	if err := validateMCPBoundaryOAuthEvidence(call, resolvedProfile); err != nil {
+		return mcpProxyOutput{}, exitInvalidInput, err
+	}
 	if resolvedProfile == gateProfileOSSProd && sign.KeyMode(strings.ToLower(strings.TrimSpace(options.KeyMode))) != sign.ModeProd {
 		return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("oss-prod profile requires --key-mode prod")
 	}
@@ -364,6 +368,115 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		OTelExport:        resolvedOTelExport,
 		Warnings:          warnings,
 	}, exitCode, nil
+}
+
+func validateMCPBoundaryOAuthEvidence(call mcp.ToolCall, profile gateEvalProfile) error {
+	mode := strings.ToLower(strings.TrimSpace(call.Context.AuthMode))
+	if mode == "" {
+		if raw, ok := call.Context.AuthContext["oauth_mode"]; ok {
+			if value, ok := raw.(string); ok {
+				mode = strings.ToLower(strings.TrimSpace(value))
+			}
+		}
+	}
+	if mode == "" {
+		if call.Context.OAuthEvidence != nil {
+			mode = "oauth"
+		} else {
+			return nil
+		}
+	}
+	switch mode {
+	case "off", "none", "token":
+		return nil
+	case "oauth", "oauth_dcr":
+	default:
+		return fmt.Errorf("context.auth_mode must be one of off|none|token|oauth|oauth_dcr")
+	}
+	if profile != gateProfileOSSProd {
+		return nil
+	}
+
+	evidence := call.Context.OAuthEvidence
+	if evidence == nil {
+		evidence = oauthEvidenceFromAuthContext(call.Context.AuthContext)
+	}
+	if evidence == nil {
+		return fmt.Errorf("oss-prod with OAuth auth mode requires context.oauth_evidence")
+	}
+
+	missing := make([]string, 0)
+	if strings.TrimSpace(evidence.Issuer) == "" {
+		missing = append(missing, "issuer")
+	}
+	if len(trimmedNonEmpty(evidence.Audience)) == 0 {
+		missing = append(missing, "audience")
+	}
+	if strings.TrimSpace(evidence.Subject) == "" {
+		missing = append(missing, "subject")
+	}
+	if strings.TrimSpace(evidence.ClientID) == "" {
+		missing = append(missing, "client_id")
+	}
+	if strings.TrimSpace(evidence.TokenType) == "" {
+		missing = append(missing, "token_type")
+	}
+	if len(trimmedNonEmpty(evidence.Scopes)) == 0 {
+		missing = append(missing, "scopes")
+	}
+	if strings.TrimSpace(evidence.RedirectURI) == "" {
+		missing = append(missing, "redirect_uri")
+	}
+	if strings.TrimSpace(evidence.EvidenceRef) == "" {
+		missing = append(missing, "evidence_ref")
+	}
+	if mode == "oauth_dcr" {
+		if strings.TrimSpace(evidence.DCRClientID) == "" {
+			missing = append(missing, "dcr_client_id")
+		}
+		if strings.TrimSpace(evidence.TokenBind) == "" {
+			missing = append(missing, "token_binding")
+		}
+	}
+	if strings.TrimSpace(evidence.AuthTime) == "" {
+		missing = append(missing, "auth_time")
+	} else if _, err := time.Parse(time.RFC3339, strings.TrimSpace(evidence.AuthTime)); err != nil {
+		return fmt.Errorf("context.oauth_evidence.auth_time must be RFC3339")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing OAuth evidence fields: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func oauthEvidenceFromAuthContext(authContext map[string]any) *mcp.OAuthEvidence {
+	if len(authContext) == 0 {
+		return nil
+	}
+	raw, ok := authContext["oauth_evidence"]
+	if !ok {
+		return nil
+	}
+	payload, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var evidence mcp.OAuthEvidence
+	if err := json.Unmarshal(payload, &evidence); err != nil {
+		return nil
+	}
+	return &evidence
+}
+
+func trimmedNonEmpty(values []string) []string {
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return filtered
 }
 
 func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, traceID string) error {

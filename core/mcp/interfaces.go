@@ -37,9 +37,25 @@ type CallContext struct {
 	SessionID              string         `json:"session_id,omitempty"`
 	RequestID              string         `json:"request_id,omitempty"`
 	RunID                  string         `json:"run_id,omitempty"`
+	AuthMode               string         `json:"auth_mode,omitempty"`
+	OAuthEvidence          *OAuthEvidence `json:"oauth_evidence,omitempty"`
 	AuthContext            map[string]any `json:"auth_context,omitempty"`
 	CredentialScopes       []string       `json:"credential_scopes,omitempty"`
 	EnvironmentFingerprint string         `json:"environment_fingerprint,omitempty"`
+}
+
+type OAuthEvidence struct {
+	Issuer      string   `json:"issuer,omitempty"`
+	Audience    []string `json:"audience,omitempty"`
+	Subject     string   `json:"subject,omitempty"`
+	ClientID    string   `json:"client_id,omitempty"`
+	TokenType   string   `json:"token_type,omitempty"`
+	Scopes      []string `json:"scopes,omitempty"`
+	DCRClientID string   `json:"dcr_client_id,omitempty"`
+	RedirectURI string   `json:"redirect_uri,omitempty"`
+	TokenBind   string   `json:"token_binding,omitempty"`
+	AuthTime    string   `json:"auth_time,omitempty"`
+	EvidenceRef string   `json:"evidence_ref,omitempty"`
 }
 
 type Delegation struct {

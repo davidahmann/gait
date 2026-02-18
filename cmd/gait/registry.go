@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/registry"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type registryInstallOutput struct {

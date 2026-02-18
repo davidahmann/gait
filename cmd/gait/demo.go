@@ -14,12 +14,12 @@ import (
 	"time"
 
 	gatecore "github.com/Clyra-AI/gait/core/gate"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/pack"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 const demoRunID = "run_demo"

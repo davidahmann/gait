@@ -16,10 +16,10 @@ import (
 
 	"github.com/Clyra-AI/gait/core/contextproof"
 	"github.com/Clyra-AI/gait/core/fsx"
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
 	"github.com/Clyra-AI/gait/core/zipx"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type RecordOptions struct {

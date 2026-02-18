@@ -11,7 +11,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/pack"
 	"github.com/Clyra-AI/gait/core/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 const (
