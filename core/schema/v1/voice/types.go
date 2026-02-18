@@ -3,23 +3,23 @@ package voice
 import "time"
 
 type CommitmentIntent struct {
-	SchemaID                string            `json:"schema_id"`
-	SchemaVersion           string            `json:"schema_version"`
-	CreatedAt               time.Time         `json:"created_at"`
-	ProducerVersion         string            `json:"producer_version"`
-	CallID                  string            `json:"call_id"`
-	TurnIndex               int               `json:"turn_index"`
-	CallSeq                 int               `json:"call_seq"`
-	CommitmentClass         string            `json:"commitment_class"`
-	UtteranceDigest         string            `json:"utterance_digest,omitempty"`
-	Context                 CommitmentContext `json:"context"`
-	Currency                string            `json:"currency,omitempty"`
-	QuoteMinCents           int64             `json:"quote_min_cents,omitempty"`
-	QuoteMaxCents           int64             `json:"quote_max_cents,omitempty"`
-	RefundCeilingCents      int64             `json:"refund_ceiling_cents,omitempty"`
-	ApprovalRequired        bool              `json:"approval_required,omitempty"`
-	ApprovalArtifactRefs    []string          `json:"approval_artifact_refs,omitempty"`
-	EvidenceReferenceDigests []string         `json:"evidence_reference_digests,omitempty"`
+	SchemaID                 string            `json:"schema_id"`
+	SchemaVersion            string            `json:"schema_version"`
+	CreatedAt                time.Time         `json:"created_at"`
+	ProducerVersion          string            `json:"producer_version"`
+	CallID                   string            `json:"call_id"`
+	TurnIndex                int               `json:"turn_index"`
+	CallSeq                  int               `json:"call_seq"`
+	CommitmentClass          string            `json:"commitment_class"`
+	UtteranceDigest          string            `json:"utterance_digest,omitempty"`
+	Context                  CommitmentContext `json:"context"`
+	Currency                 string            `json:"currency,omitempty"`
+	QuoteMinCents            int64             `json:"quote_min_cents,omitempty"`
+	QuoteMaxCents            int64             `json:"quote_max_cents,omitempty"`
+	RefundCeilingCents       int64             `json:"refund_ceiling_cents,omitempty"`
+	ApprovalRequired         bool              `json:"approval_required,omitempty"`
+	ApprovalArtifactRefs     []string          `json:"approval_artifact_refs,omitempty"`
+	EvidenceReferenceDigests []string          `json:"evidence_reference_digests,omitempty"`
 }
 
 type CommitmentContext struct {
@@ -115,4 +115,3 @@ type ReferenceDigest struct {
 	RefID  string `json:"ref_id"`
 	SHA256 string `json:"sha256"`
 }
-

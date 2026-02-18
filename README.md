@@ -10,6 +10,8 @@ Capture every agent tool call as a signed, offline-verifiable pack. Enforce fail
 
 Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Homebrew: [`docs/homebrew.md`](docs/homebrew.md)
 
+Managed/preloaded agent note: managed agents can use Gait at the tool boundary, but Gait does not host the model or replace your agent runtime.
+
 ## When To Use Gait
 
 - Tool-calling AI agents need enforceable allow/block/approval decisions.
@@ -24,6 +26,8 @@ Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`d
 - You only need hosted observability dashboards and do not need offline verification or deterministic replay.
 
 ## Try It (Offline, <60s)
+
+### Fast 20-Second Proof
 
 ```bash
 # Install (checksums at docs/install.md)
@@ -86,6 +90,8 @@ Local UI playground: [`docs/ui_localhost.md`](docs/ui_localhost.md) | Launch wit
 
 ## See It
 
+### Simple End-To-End Scenario
+
 ![Gait simple end-to-end tool-boundary scenario](docs/assets/gait_demo_simple_e2e_60s.gif)
 
 Video: [`gait_demo_simple_e2e_60s.mp4`](docs/assets/gait_demo_simple_e2e_60s.mp4) | Scenario walkthrough: [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md) | Output legend: [`docs/demo_output_legend.md`](docs/demo_output_legend.md)
@@ -121,6 +127,8 @@ def dispatch_tool(tool_call):
 Gait enforces at the tool boundary, not the prompt boundary. Your dispatcher calls Gait; non-`allow` means non-execute.
 
 Blessed lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
+
+Quickstart script: `examples/integrations/openai_agents/quickstart.py`
 
 Additional adapters: [LangChain](examples/integrations/langchain/) · [AutoGen](examples/integrations/autogen/) · [AutoGPT](examples/integrations/autogpt/) · [OpenClaw](examples/integrations/openclaw/) · [Gastown](examples/integrations/gastown/) · [Voice](examples/integrations/voice_reference/)
 

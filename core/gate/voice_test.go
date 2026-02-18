@@ -9,7 +9,7 @@ import (
 	"time"
 
 	schemavoice "github.com/Clyra-AI/gait/core/schema/v1/voice"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestCommitmentIntentToIntent(t *testing.T) {

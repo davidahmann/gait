@@ -16,7 +16,7 @@ import (
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/projectconfig"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type gateEvalOutput struct {
@@ -551,6 +551,7 @@ func runGateEval(arguments []string) int {
 		}
 		exitCode = exitOK
 	}
+	exitCode = gateEvalExitCodeForVerdict(result.Verdict, exitCode)
 
 	traceResult, err := gate.EmitSignedTrace(policy, intent, result, gate.EmitTraceOptions{
 		ProducerVersion:       version,
@@ -687,6 +688,18 @@ func gatherDelegationTokenPaths(primaryPath, chainCSV string) []string {
 	}
 	paths = append(paths, parseCSV(chainCSV)...)
 	return mergeUniqueSorted(nil, paths)
+}
+
+func gateEvalExitCodeForVerdict(verdict string, current int) int {
+	switch strings.ToLower(strings.TrimSpace(verdict)) {
+	case "block":
+		return exitPolicyBlocked
+	case "require_approval":
+		if current == exitOK {
+			return exitApprovalRequired
+		}
+	}
+	return current
 }
 
 func isDefaultProjectConfigPath(path string) bool {

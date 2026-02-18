@@ -10,19 +10,20 @@ import (
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/guard"
 	"github.com/Clyra-AI/gait/core/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
+	exitcode "github.com/Clyra-AI/proof/exitcode"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 const (
-	exitOK                = 0
-	exitInternalFailure   = 1
-	exitPolicyBlocked     = 3
-	exitApprovalRequired  = 4
-	exitRegressFailed     = 5
-	exitVerifyFailed      = 2
-	exitInvalidInput      = 6
-	exitMissingDependency = 7
-	exitUnsafeReplay      = 8
+	exitOK                = exitcode.OK
+	exitInternalFailure   = exitcode.InternalFailure
+	exitPolicyBlocked     = exitcode.PolicyBlocked
+	exitApprovalRequired  = exitcode.ApprovalRequired
+	exitRegressFailed     = exitcode.RegressionFailed
+	exitVerifyFailed      = exitcode.VerificationFailure
+	exitInvalidInput      = exitcode.InvalidInput
+	exitMissingDependency = exitcode.MissingDependency
+	exitUnsafeReplay      = exitcode.UnsafeReplay
 )
 
 type verifyOutput struct {

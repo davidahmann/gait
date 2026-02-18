@@ -18,8 +18,8 @@ import (
 	schemaregress "github.com/Clyra-AI/gait/core/schema/v1/regress"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
-	"github.com/Clyra-AI/gait/core/sign"
 	"github.com/Clyra-AI/gait/core/zipx"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestBuildAndVerifyPack(t *testing.T) {

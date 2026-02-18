@@ -13,14 +13,14 @@ import (
 
 	"github.com/Clyra-AI/gait/core/gate"
 	"github.com/Clyra-AI/gait/core/guard"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/mcp"
 	"github.com/Clyra-AI/gait/core/registry"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemaregistry "github.com/Clyra-AI/gait/core/schema/v1/registry"
-	"github.com/Clyra-AI/gait/core/schema/validate"
 	"github.com/Clyra-AI/gait/core/scout"
-	"github.com/Clyra-AI/gait/core/sign"
+	jcs "github.com/Clyra-AI/proof/canon"
+	validate "github.com/Clyra-AI/proof/schema"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestV11ToV15CrossModuleSchemaFlow(t *testing.T) {

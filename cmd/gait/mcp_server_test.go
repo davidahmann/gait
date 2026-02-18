@@ -217,6 +217,49 @@ func TestMCPServeHandlerEvaluateValidation(t *testing.T) {
 	}
 }
 
+func TestMCPServeHandlerRejectsMissingOAuthEvidenceInOSSProd(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+
+	privateKeyPath := filepath.Join(workDir, "trace_private.key")
+	writePrivateKey(t, privateKeyPath)
+
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:     policyPath,
+		DefaultAdapter: "mcp",
+		Profile:        "oss-prod",
+		TraceDir:       filepath.Join(workDir, "traces"),
+		KeyMode:        "prod",
+		PrivateKey:     privateKeyPath,
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+
+	requestBody := []byte(`{
+	  "call":{
+	    "name":"tool.search",
+	    "args":{"query":"gait"},
+	    "context":{
+	      "identity":"alice",
+	      "workspace":"/repo/gait",
+	      "risk_class":"high",
+	      "session_id":"sess-1",
+	      "auth_mode":"oauth_dcr"
+	    }
+	  }
+	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d got %d body=%s", http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestMCPServeHandlerEvaluateBlockVerdict(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Clyra-AI/gait/core/jcs"
-	"github.com/Clyra-AI/gait/core/sign"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestCLIV17FailClosedMatrix(t *testing.T) {
@@ -269,8 +269,11 @@ func TestCLIV17FailClosedMatrix(t *testing.T) {
 	)
 	brokerEval.Dir = workDir
 	brokerOutput, err := brokerEval.CombinedOutput()
-	if err != nil {
-		t.Fatalf("expected broker failure to fail-closed with block verdict and exit 0, got error: %v\n%s", err, string(brokerOutput))
+	if err == nil {
+		t.Fatalf("expected broker failure to fail-closed with block verdict and exit 3")
+	}
+	if code := commandExitCode(t, err); code != 3 {
+		t.Fatalf("broker failure exit code mismatch: got=%d want=3\n%s", code, string(brokerOutput))
 	}
 	if strings.Contains(string(brokerOutput), "secret-broker-token") {
 		t.Fatalf("broker failure output leaked secret token: %s", string(brokerOutput))

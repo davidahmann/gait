@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Clyra-AI/gait/core/jcs"
-	"github.com/Clyra-AI/gait/core/sign"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestCLIV11ToV15Scenarios(t *testing.T) {

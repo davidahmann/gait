@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/fsx"
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
-	"github.com/Clyra-AI/gait/core/sign"
+	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type EmitTraceOptions struct {

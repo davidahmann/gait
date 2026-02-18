@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	gaitjcs "github.com/Clyra-AI/gait/core/jcs"
+	gaitjcs "github.com/Clyra-AI/proof/canon"
 	"github.com/goccy/go-yaml"
 
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"

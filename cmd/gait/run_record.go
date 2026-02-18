@@ -13,7 +13,7 @@ import (
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 type runRecordInput struct {

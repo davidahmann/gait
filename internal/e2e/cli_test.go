@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Clyra-AI/gait/core/sign"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestCLIDemoVerify(t *testing.T) {
@@ -234,8 +234,11 @@ rules:
 	)
 	eval.Dir = workDir
 	evalOut, err := eval.CombinedOutput()
-	if err != nil {
-		t.Fatalf("gait gate eval failed: %v\n%s", err, string(evalOut))
+	if err == nil {
+		t.Fatalf("gait gate eval expected exit code 3 for block verdict")
+	}
+	if code := commandExitCode(t, err); code != 3 {
+		t.Fatalf("gait gate eval exit code mismatch: got=%d want=3\n%s", code, string(evalOut))
 	}
 	var evalResult struct {
 		OK          bool     `json:"ok"`

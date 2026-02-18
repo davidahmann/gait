@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/Clyra-AI/gait/core/fsx"
-	"github.com/Clyra-AI/gait/core/jcs"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 type ExportMetrics struct {

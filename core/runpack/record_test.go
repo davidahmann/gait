@@ -13,8 +13,8 @@ import (
 	"time"
 
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
-	"github.com/Clyra-AI/gait/core/schema/validate"
-	"github.com/Clyra-AI/gait/core/sign"
+	validate "github.com/Clyra-AI/proof/schema"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestRecordRunSignedValid(test *testing.T) {

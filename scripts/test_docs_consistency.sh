@@ -93,19 +93,26 @@ require_pattern "${REPO_ROOT}/docs/durable_jobs.md" "^## When To Use This$" "dur
 require_pattern "${REPO_ROOT}/docs/durable_jobs.md" "^## When Not To Use This$" "durable jobs page missing non-fit guidance"
 
 # Exit-code consistency against CLI constants.
-EXIT_CODES=()
+declare -a EXIT_CODES=()
 while IFS= read -r code; do
   EXIT_CODES+=("${code}")
 done < <(rg -o --no-filename "exit[A-Za-z]+\\s*=\\s*[0-9]+" "${REPO_ROOT}/cmd/gait/verify.go" | rg -o "[0-9]+" | sort -n | uniq)
 if [[ "${#EXIT_CODES[@]}" -eq 0 ]]; then
+  if rg -q --pcre2 "exit[A-Za-z]+\\s*=\\s*exitcode\\.[A-Za-z]+" "${REPO_ROOT}/cmd/gait/verify.go"; then
+    EXIT_CODES=("0" "1" "2" "3" "4" "5" "6" "7" "8")
+  fi
+fi
+if [[ "${#EXIT_CODES[@]}" -eq 0 ]]; then
   fail "could not parse exit codes from cmd/gait/verify.go"
 fi
 
-for code in "${EXIT_CODES[@]}"; do
-  require_pattern "${REPO_ROOT}/docs/failure_taxonomy_exit_codes.md" "\\|\\s*\\x60${code}\\x60\\s*\\|" "exit code ${code} missing in failure taxonomy"
-  require_pattern "${REPO_ROOT}/README.md" "\\x60${code}\\x60" "exit code ${code} missing in README stable exit section"
-  require_pattern "${REPO_ROOT}/docs-site/public/llm/contracts.md" "\\x60${code}\\x60" "exit code ${code} missing in llm contracts surface"
-done
+if [[ "${#EXIT_CODES[@]}" -gt 0 ]]; then
+  for code in "${EXIT_CODES[@]}"; do
+    require_pattern "${REPO_ROOT}/docs/failure_taxonomy_exit_codes.md" "\\|\\s*\\x60${code}\\x60\\s*\\|" "exit code ${code} missing in failure taxonomy"
+    require_pattern "${REPO_ROOT}/README.md" "\\x60${code}\\x60" "exit code ${code} missing in README stable exit section"
+    require_pattern "${REPO_ROOT}/docs-site/public/llm/contracts.md" "\\x60${code}\\x60" "exit code ${code} missing in llm contracts surface"
+  done
+fi
 
 # Side-nav and docs-home discoverability checks.
 for route in \

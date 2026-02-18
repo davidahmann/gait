@@ -151,7 +151,7 @@ rules:
   "targets": [{"kind":"path","value":"/tmp/demo","operation":"write"}],
   "context": {"identity":"alice","workspace":"/repo/gait","risk_class":"high"}
 }`)
-	missingGateOut := runJSONCommand(t, workDir, binPath, "gate", "eval", "--policy", policyPath, "--intent", intentMissingPath, "--json")
+	missingGateOut := runJSONCommandExpectCode(t, workDir, binPath, 3, "gate", "eval", "--policy", policyPath, "--intent", intentMissingPath, "--json")
 	var missingGate struct {
 		OK          bool     `json:"ok"`
 		Verdict     string   `json:"verdict"`

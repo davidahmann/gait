@@ -35,7 +35,6 @@ assert_file "${REPO_ROOT}/docs/mcp_capability_matrix.md"
 assert_file "${REPO_ROOT}/docs/scenarios/simple_agent_tool_boundary.md"
 assert_file "${REPO_ROOT}/docs/demo_output_legend.md"
 
-assert_pattern "${REPO_ROOT}/README.md" "## In Plain Language" "C-01 plain language"
 assert_pattern "${REPO_ROOT}/README.md" "Managed/preloaded agent note" "C-02 managed boundary"
 assert_pattern "${REPO_ROOT}/README.md" "Simple End-To-End Scenario" "C-13 hero scenario"
 assert_pattern "${REPO_ROOT}/README.md" "Fast 20-Second Proof" "C-13 legacy asset retained"

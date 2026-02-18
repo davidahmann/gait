@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Clyra-AI/gait/core/jcs"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
+	jcs "github.com/Clyra-AI/proof/canon"
 )
 
 func ClassifyRefsDrift(left schemarunpack.Refs, right schemarunpack.Refs) (string, bool, bool, error) {

@@ -127,6 +127,8 @@ func TestToIntentRequestWithStrictContext(t *testing.T) {
 			Workspace:              "/repo/gait",
 			RiskClass:              "high",
 			SessionID:              "sess-1",
+			AuthMode:               "oauth_dcr",
+			OAuthEvidence:          &OAuthEvidence{Issuer: "https://auth.example.com", ClientID: "cli-123"},
 			AuthContext:            map[string]any{"provider": "oidc"},
 			CredentialScopes:       []string{"tool:tool.write"},
 			EnvironmentFingerprint: "env:test",
@@ -148,6 +150,12 @@ func TestToIntentRequestWithStrictContext(t *testing.T) {
 	}
 	if intent.Delegation == nil || intent.Delegation.RequesterIdentity != "agent.specialist" {
 		t.Fatalf("expected delegation passthrough in converted intent: %#v", intent.Delegation)
+	}
+	if mode, ok := intent.Context.AuthContext["auth_mode"].(string); !ok || mode != "oauth_dcr" {
+		t.Fatalf("expected auth_mode to be propagated into auth_context: %#v", intent.Context.AuthContext)
+	}
+	if oauth, ok := intent.Context.AuthContext["oauth_evidence"]; !ok || oauth == nil {
+		t.Fatalf("expected oauth_evidence to be propagated into auth_context: %#v", intent.Context.AuthContext)
 	}
 }
 
