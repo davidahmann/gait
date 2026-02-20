@@ -102,6 +102,20 @@ func TestLoadWrkrInventoryAcceptsEmptyEnvelope(t *testing.T) {
 	}
 }
 
+func TestLoadWrkrInventoryRejectsNullItemsEnvelope(t *testing.T) {
+	workDir := t.TempDir()
+	path := filepath.Join(workDir, "wrkr_inventory.json")
+	mustWriteWrkrInventoryFile(t, path, `{"items":null}`)
+
+	_, err := LoadWrkrInventory(path)
+	if err == nil {
+		t.Fatalf("expected null items envelope to fail")
+	}
+	if !strings.Contains(err.Error(), "items must be an array") {
+		t.Fatalf("expected items array validation error, got: %v", err)
+	}
+}
+
 func TestApplyWrkrContextAddsMetadata(t *testing.T) {
 	intent := schemagate.IntentRequest{
 		Context: schemagate.IntentContext{},
