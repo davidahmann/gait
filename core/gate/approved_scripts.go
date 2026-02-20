@@ -180,6 +180,9 @@ func ReadApprovedScriptRegistry(path string) ([]schemagate.ApprovedScriptEntry, 
 	var envelopeRaw map[string]json.RawMessage
 	if err := json.Unmarshal(content, &envelopeRaw); err == nil {
 		if rawEntries, ok := envelopeRaw["entries"]; ok {
+			if err := requireJSONArray(rawEntries, "entries"); err != nil {
+				return nil, fmt.Errorf("parse approved script registry: %w", err)
+			}
 			var envelope registryEnvelope
 			if err := json.Unmarshal(rawEntries, &envelope.Entries); err != nil {
 				return nil, fmt.Errorf("parse approved script registry: %w", err)

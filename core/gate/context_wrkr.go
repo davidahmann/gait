@@ -97,6 +97,9 @@ func parseWrkrInventory(content []byte) (map[string]WrkrToolMetadata, error) {
 	var wrappedRaw map[string]json.RawMessage
 	if err := json.Unmarshal(content, &wrappedRaw); err == nil {
 		if rawItems, ok := wrappedRaw["items"]; ok {
+			if err := requireJSONArray(rawItems, "items"); err != nil {
+				return nil, fmt.Errorf("parse wrkr inventory: %w", err)
+			}
 			var wrapped envelope
 			if err := json.Unmarshal(rawItems, &wrapped.Items); err != nil {
 				return nil, fmt.Errorf("parse wrkr inventory: %w", err)
@@ -127,6 +130,17 @@ func parseWrkrInventory(content []byte) (map[string]WrkrToolMetadata, error) {
 		}
 	}
 	return tools, nil
+}
+
+func requireJSONArray(raw json.RawMessage, field string) error {
+	var parsed any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return err
+	}
+	if _, ok := parsed.([]any); !ok {
+		return fmt.Errorf("%s must be an array", field)
+	}
+	return nil
 }
 
 func ApplyWrkrContext(intent *schemagate.IntentRequest, toolName string, inventory map[string]WrkrToolMetadata) bool {
