@@ -27,6 +27,12 @@ Runtime performance and reliability expectations for this path are defined in:
 - Signing keys are provisioned in a secure keystore or HSM-backed secret manager.
 - Public verification keys are distributed to runtime and audit systems.
 
+Upgrade note (digest compatibility):
+
+- Current Gate normalization treats omitted target `discovery_method` as `unknown`.
+- If your historical intents omitted `discovery_method`, `intent_digest` values will differ from pre-upgrade values.
+- Remint approval tokens against the current `intent_digest` and `policy_digest` before resuming production traffic.
+
 ## Step 1: Evaluate Intent
 
 ```bash
@@ -86,6 +92,8 @@ gait approve \
 ```
 
 For multi-party requirements, mint additional tokens (`token_b.json`, ...).
+
+If this is part of an upgrade rollout, always rerun Step 1 and remint from the newly emitted digest pair before Step 3.
 
 ## Step 3: Re-evaluate With Approval Token Chain
 

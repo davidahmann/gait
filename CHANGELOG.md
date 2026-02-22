@@ -10,6 +10,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - _No unreleased entries yet._
 
+### Changed
+
+- Gate intent normalization now treats omitted target `discovery_method` as `unknown` instead of empty so policies can deterministically match unknown/dynamic discovery paths.
+- Durable job resume now preserves the originally bound identity and rejects attempts to resume with a different identity.
+
+### Upgrade Notes
+
+- Intent digest derivation changed for intents with targets that omit `discovery_method`.
+- Existing approval tokens minted before this change will fail verification against newly normalized digests and must be reminted after upgrade.
+- Recommended post-upgrade validation:
+  - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json`
+  - `gait approve --intent-digest <new_digest> --policy-digest <policy_digest> ...`
+
 ## [1.2.3] - 2026-02-16
 
 ### Added

@@ -245,6 +245,20 @@ rules:
 	if pauseAgainCode != exitOK || pauseAgainOut.Job == nil || pauseAgainOut.Job.Status != "paused" {
 		t.Fatalf("pause before revoked identity check expected paused: code=%d output=%#v", pauseAgainCode, pauseAgainOut)
 	}
+	mismatchCode, mismatchOut := runJobJSON(t, []string{
+		"resume",
+		"--id", jobID,
+		"--root", root,
+		"--policy", policyB,
+		"--identity", "agent.bob",
+		"--json",
+	})
+	if mismatchCode != exitInvalidInput {
+		t.Fatalf("resume with identity mismatch expected %d got %d output=%#v", exitInvalidInput, mismatchCode, mismatchOut)
+	}
+	if !strings.Contains(mismatchOut.Error, "identity binding mismatch") {
+		t.Fatalf("expected identity binding mismatch error, got %#v", mismatchOut)
+	}
 
 	revocationsPath := filepath.Join(workDir, "revoked_identities.txt")
 	if err := os.WriteFile(revocationsPath, []byte("agent.alice\n"), 0o600); err != nil {

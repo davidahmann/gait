@@ -245,6 +245,30 @@ func TestResumeIdentityValidationErrors(t *testing.T) {
 	}); !errors.Is(err, ErrIdentityRevoked) {
 		t.Fatalf("expected identity revoked error, got %v", err)
 	}
+
+	if _, err := Submit(root, SubmitOptions{
+		JobID:                  "job-identity-mismatch",
+		EnvironmentFingerprint: "env:a",
+		Identity:               "agent.alice",
+	}); err != nil {
+		t.Fatalf("submit identity-mismatch job: %v", err)
+	}
+	if _, err := Pause(root, "job-identity-mismatch", TransitionOptions{}); err != nil {
+		t.Fatalf("pause identity-mismatch job: %v", err)
+	}
+	if _, err := Resume(root, "job-identity-mismatch", ResumeOptions{
+		CurrentEnvironmentFingerprint: "env:a",
+		Identity:                      "agent.bob",
+	}); !errors.Is(err, ErrIdentityBindingMismatch) {
+		t.Fatalf("expected identity binding mismatch error, got %v", err)
+	}
+	state, err := Status(root, "job-identity-mismatch")
+	if err != nil {
+		t.Fatalf("status identity-mismatch job: %v", err)
+	}
+	if state.Identity != "agent.alice" {
+		t.Fatalf("expected bound identity to remain unchanged, got %#v", state)
+	}
 }
 
 func TestInvalidPauseTransition(t *testing.T) {

@@ -565,6 +565,41 @@ func TestRuleMatchesCoverage(t *testing.T) {
 	}
 }
 
+func TestEvaluatePolicyMatchesUnknownDiscoveryMethod(t *testing.T) {
+	policy, err := ParsePolicyYAML([]byte(`
+default_verdict: block
+rules:
+  - name: allow_unknown_discovery
+    effect: allow
+    match:
+      endpoint_class: [fs.read]
+      discovery_method: [unknown]
+`))
+	if err != nil {
+		t.Fatalf("parse policy: %v", err)
+	}
+	intent := baseIntent()
+	intent.ToolName = "tool.read"
+	intent.Targets = []schemagate.IntentTarget{
+		{
+			Kind:          "path",
+			Value:         "/tmp/input.txt",
+			Operation:     "read",
+			EndpointClass: "fs.read",
+		},
+	}
+	outcome, err := EvaluatePolicyDetailed(policy, intent, EvalOptions{})
+	if err != nil {
+		t.Fatalf("evaluate policy detailed: %v", err)
+	}
+	if outcome.Result.Verdict != "allow" {
+		t.Fatalf("expected allow verdict, got %#v", outcome.Result)
+	}
+	if outcome.MatchedRule != "allow_unknown_discovery" {
+		t.Fatalf("expected unknown-discovery rule to match, got %q", outcome.MatchedRule)
+	}
+}
+
 func TestShouldFailClosedAndBuildGateResultDefaults(t *testing.T) {
 	if shouldFailClosed(FailClosedPolicy{Enabled: true, RiskClasses: nil}, "high") {
 		t.Fatalf("expected fail-closed to be disabled with empty risk classes")

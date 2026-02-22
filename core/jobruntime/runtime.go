@@ -59,6 +59,7 @@ var (
 	ErrPolicyEvaluationRequired  = errors.New("policy evaluation required")
 	ErrIdentityValidationMissing = errors.New("identity validation required")
 	ErrIdentityRevoked           = errors.New("identity revoked")
+	ErrIdentityBindingMismatch   = errors.New("identity binding mismatch")
 )
 
 type JobState struct {
@@ -401,18 +402,23 @@ func Resume(root string, jobID string, opts ResumeOptions) (JobState, error) {
 		if policyRef != "" {
 			state.PolicyRef = policyRef
 		}
-		identity := strings.TrimSpace(opts.Identity)
-		if identity == "" {
-			identity = strings.TrimSpace(state.Identity)
+		boundIdentity := strings.TrimSpace(state.Identity)
+		providedIdentity := strings.TrimSpace(opts.Identity)
+		if boundIdentity != "" && providedIdentity != "" && providedIdentity != boundIdentity {
+			return JobState{}, Event{}, fmt.Errorf("%w: expected=%s provided=%s", ErrIdentityBindingMismatch, boundIdentity, providedIdentity)
 		}
-		identityValidationRequired := opts.RequireIdentityValidation || strings.TrimSpace(state.Identity) != ""
+		identity := boundIdentity
+		if identity == "" {
+			identity = providedIdentity
+		}
+		identityValidationRequired := opts.RequireIdentityValidation || boundIdentity != ""
 		if identityValidationRequired && identity == "" {
 			return JobState{}, Event{}, fmt.Errorf("%w: identity is required for resume validation", ErrIdentityValidationMissing)
 		}
 		if identity != "" && opts.IdentityRevoked {
 			return JobState{}, Event{}, fmt.Errorf("%w: %s", ErrIdentityRevoked, identity)
 		}
-		if identity != "" {
+		if boundIdentity == "" && identity != "" {
 			state.Identity = identity
 		}
 		reasonCode := "resumed"
