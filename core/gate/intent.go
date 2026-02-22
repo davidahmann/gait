@@ -424,7 +424,7 @@ func normalizeTargets(toolName string, targets []schemagate.IntentTarget) ([]sch
 func normalizeDiscoveryMethod(value string) string {
 	method := strings.ToLower(strings.TrimSpace(value))
 	if method == "" {
-		return ""
+		return "unknown"
 	}
 	return strings.NewReplacer("-", "_", " ", "_").Replace(method)
 }

@@ -611,6 +611,17 @@ func TestNormalizeTargetsAndProvenanceErrors(t *testing.T) {
 		t.Fatalf("expected unsupported endpoint class to fail")
 	}
 	targets, err := normalizeTargets("tool.demo", []schemagate.IntentTarget{{
+		Kind:      "path",
+		Value:     "/tmp/in",
+		Operation: "read",
+	}})
+	if err != nil {
+		t.Fatalf("normalize targets with omitted discovery method: %v", err)
+	}
+	if len(targets) != 1 || targets[0].DiscoveryMethod != "unknown" {
+		t.Fatalf("expected omitted discovery method to normalize to unknown, got %#v", targets)
+	}
+	targets, err = normalizeTargets("tool.demo", []schemagate.IntentTarget{{
 		Kind:            "path",
 		Value:           "/tmp/out",
 		Operation:       "write",
