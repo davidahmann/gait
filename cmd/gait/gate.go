@@ -411,7 +411,7 @@ func runGateEval(arguments []string) int {
 			result.Violations = mergeUniqueSorted(result.Violations, []string{"rate_limit_exceeded"})
 		}
 	}
-	if outcome.DestructiveBudget.Requests > 0 && gate.IntentContainsDestructiveTarget(intent.Targets) {
+	if outcome.DestructiveBudget.Requests > 0 && gateIntentContainsDestructiveTarget(intent) {
 		budgetIntent := intent
 		budgetIntent.ToolName = "destructive_budget|" + strings.TrimSpace(intent.ToolName)
 		destructiveBudgetDecision, err = gate.EnforceRateLimit(rateLimitState, outcome.DestructiveBudget, budgetIntent, time.Now().UTC())
@@ -883,6 +883,25 @@ func gateIntentOperationCount(intent schemagate.IntentRequest) int {
 		return 1
 	}
 	return len(intent.Targets)
+}
+
+func gateIntentContainsDestructiveTarget(intent schemagate.IntentRequest) bool {
+	if intent.Script != nil && len(intent.Script.Steps) > 0 {
+		sawScriptTargets := false
+		for _, step := range intent.Script.Steps {
+			if len(step.Targets) == 0 {
+				continue
+			}
+			sawScriptTargets = true
+			if gate.IntentContainsDestructiveTarget(step.Targets) {
+				return true
+			}
+		}
+		if sawScriptTargets {
+			return false
+		}
+	}
+	return gate.IntentContainsDestructiveTarget(intent.Targets)
 }
 
 func buildPreApprovedOutcome(intent schemagate.IntentRequest, producerVersion string, match gate.ApprovedScriptMatch) (gate.EvalOutcome, error) {

@@ -2249,6 +2249,93 @@ func TestGateEvalCredentialCommandBrokerAndRateLimit(t *testing.T) {
 	}
 }
 
+func TestGateEvalDestructiveBudgetAppliesToScriptTargets(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_destructive_budget.yaml")
+	mustWriteFile(t, policyPath, strings.Join([]string{
+		"default_verdict: allow",
+		"rules:",
+		"  - name: destructive-script-budget",
+		"    effect: allow",
+		"    destructive_budget:",
+		"      requests: 1",
+		"      scope: tool_identity",
+		"      window: minute",
+		"    match:",
+		"      endpoint_classes: [fs.delete]",
+	}, "\n")+"\n")
+
+	intent := schemagate.IntentRequest{
+		SchemaID:        "gait.gate.intent_request",
+		SchemaVersion:   "1.0.0",
+		CreatedAt:       time.Date(2026, time.February, 24, 12, 0, 0, 0, time.UTC),
+		ProducerVersion: "test",
+		ToolName:        "script",
+		Args:            map[string]any{},
+		Targets:         []schemagate.IntentTarget{},
+		Context: schemagate.IntentContext{
+			Identity:  "alice",
+			Workspace: "/repo/gait",
+			RiskClass: "high",
+			Phase:     "plan",
+		},
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{
+					ToolName: "tool.delete",
+					Args:     map[string]any{"path": "/tmp/a"},
+					Targets: []schemagate.IntentTarget{
+						{Kind: "path", Value: "/tmp/a", Operation: "delete", EndpointClass: "fs.delete", Destructive: true},
+					},
+				},
+			},
+		},
+	}
+	intentPath := filepath.Join(workDir, "intent_script_delete.json")
+	rawIntent, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal intent: %v", err)
+	}
+	mustWriteFile(t, intentPath, string(rawIntent)+"\n")
+
+	rateStatePath := filepath.Join(workDir, "rate_state.json")
+	if code := runGateEval([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--rate-limit-state", rateStatePath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runGateEval first script call: expected %d got %d", exitOK, code)
+	}
+
+	rawSecond := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--rate-limit-state", rateStatePath,
+			"--json",
+		}); code != exitPolicyBlocked {
+			t.Fatalf("runGateEval second script call: expected %d got %d", exitPolicyBlocked, code)
+		}
+	})
+	var out gateEvalOutput
+	if err := json.Unmarshal([]byte(rawSecond), &out); err != nil {
+		t.Fatalf("decode second script gate eval output: %v (%s)", err, rawSecond)
+	}
+	foundBudgetReason := false
+	for _, reason := range out.ReasonCodes {
+		if reason == "destructive_budget_exceeded" {
+			foundBudgetReason = true
+			break
+		}
+	}
+	if !foundBudgetReason {
+		t.Fatalf("expected destructive_budget_exceeded reason code, got %#v", out.ReasonCodes)
+	}
+}
+
 func TestGateEvalCredentialCommandBrokerFailureDoesNotLeakSecrets(t *testing.T) {
 	workDir := t.TempDir()
 	withWorkingDir(t, workDir)

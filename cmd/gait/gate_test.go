@@ -69,3 +69,39 @@ func TestGateIntentOperationCountDefaultsToOneWithoutTargets(t *testing.T) {
 		t.Fatalf("gateIntentOperationCount() = %d, want 1", got)
 	}
 }
+
+func TestGateIntentContainsDestructiveTargetUsesScriptTargets(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{
+					ToolName: "tool.delete",
+					Targets: []schemagate.IntentTarget{
+						{Kind: "path", Value: "/tmp/a", EndpointClass: "fs.delete", Destructive: true},
+					},
+				},
+			},
+		},
+	}
+
+	if !gateIntentContainsDestructiveTarget(intent) {
+		t.Fatalf("expected script targets to be considered for destructive budget enforcement")
+	}
+}
+
+func TestGateIntentContainsDestructiveTargetFallsBackToTopLevel(t *testing.T) {
+	intent := schemagate.IntentRequest{
+		Targets: []schemagate.IntentTarget{
+			{Kind: "path", Value: "/tmp/a", EndpointClass: "fs.delete", Destructive: true},
+		},
+		Script: &schemagate.IntentScript{
+			Steps: []schemagate.IntentScriptStep{
+				{ToolName: "tool.script"},
+			},
+		},
+	}
+
+	if !gateIntentContainsDestructiveTarget(intent) {
+		t.Fatalf("expected fallback to top-level targets when script targets are empty")
+	}
+}
