@@ -18,6 +18,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
+	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 )
 
 type mcpServeConfig struct {
@@ -502,16 +503,24 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 				safetyInvariantHash = strings.TrimSpace(state.SafetyInvariantHash)
 			}
 		}
+		var agentChain []schemacommon.AgentLink
+		if output.Relationship != nil {
+			agentChain = append(agentChain, output.Relationship.AgentChain...)
+		}
 		event, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
-			ProducerVersion: version,
-			ToolName:        output.ToolName,
-			IntentDigest:    output.IntentDigest,
-			PolicyDigest:    output.PolicyDigest,
-			TraceID:         output.TraceID,
-			TracePath:       output.TracePath,
-			Verdict:         output.Verdict,
-			ReasonCodes:     output.ReasonCodes,
-			Violations:      output.Violations,
+			ProducerVersion:        version,
+			ToolName:               output.ToolName,
+			IntentDigest:           output.IntentDigest,
+			PolicyDigest:           output.PolicyDigest,
+			PolicyID:               output.PolicyID,
+			PolicyVersion:          output.PolicyVersion,
+			MatchedRuleIDs:         output.MatchedRuleIDs,
+			TraceID:                output.TraceID,
+			TracePath:              output.TracePath,
+			AgentChain:             agentChain,
+			Verdict:                output.Verdict,
+			ReasonCodes:            output.ReasonCodes,
+			Violations:             output.Violations,
 			SafetyInvariantVersion: safetyInvariantVersion,
 			SafetyInvariantHash:    safetyInvariantHash,
 		})
