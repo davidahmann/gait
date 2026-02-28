@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -207,7 +208,7 @@ func TestBaseFixturesHaveStableByteDigests(t *testing.T) {
 			if err != nil {
 				t.Fatalf("read fixture: %v", err)
 			}
-			digest := sha256.Sum256(content)
+			digest := sha256.Sum256(normalizeFixtureLineEndings(content))
 			if got := hex.EncodeToString(digest[:]); got != testCase.expectedSHA256 {
 				t.Fatalf("fixture digest changed: got %s want %s", got, testCase.expectedSHA256)
 			}
@@ -291,4 +292,9 @@ func resolveRepoRoot(t *testing.T) string {
 		t.Fatalf("resolve caller path")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+}
+
+func normalizeFixtureLineEndings(content []byte) []byte {
+	// Keep digest checks stable across Git checkout EOL conversion on Windows.
+	return bytes.ReplaceAll(content, []byte("\r\n"), []byte("\n"))
 }
