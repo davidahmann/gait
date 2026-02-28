@@ -518,6 +518,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 			TraceID:                output.TraceID,
 			TracePath:              output.TracePath,
 			AgentChain:             agentChain,
+			ActorIdentity:          mcpServeRelationshipCallActor(output.Relationship, output.ToolName),
 			Verdict:                output.Verdict,
 			ReasonCodes:            output.ReasonCodes,
 			Violations:             output.Violations,
@@ -728,6 +729,28 @@ func sanitizeSessionFileBase(value string) string {
 	}
 	mapped := strings.NewReplacer("/", "_", "\\", "_", " ", "_", ":", "_").Replace(trimmed)
 	return strings.Trim(mapped, "._")
+}
+
+func mcpServeRelationshipCallActor(relationship *schemacommon.RelationshipEnvelope, toolName string) string {
+	if relationship == nil {
+		return ""
+	}
+	normalizedTool := strings.TrimSpace(toolName)
+	for _, edge := range relationship.Edges {
+		if strings.TrimSpace(edge.Kind) != "calls" {
+			continue
+		}
+		if strings.TrimSpace(edge.From.Kind) != "agent" || strings.TrimSpace(edge.To.Kind) != "tool" {
+			continue
+		}
+		if normalizedTool != "" && strings.TrimSpace(edge.To.ID) != normalizedTool {
+			continue
+		}
+		if actor := strings.TrimSpace(edge.From.ID); actor != "" {
+			return actor
+		}
+	}
+	return ""
 }
 
 func mcpServeErrorStatus(err error) int {

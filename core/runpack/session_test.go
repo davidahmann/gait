@@ -1039,6 +1039,7 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 		"1.0.0",
 		strings.Repeat("b", 64),
 		[]string{"rule_b", "rule_a", "rule_a"},
+		"agent.exec",
 		[]schemacommon.AgentLink{
 			{Identity: "agent.b", Role: "requester"},
 			{Identity: "agent.a", Role: "requester"},
@@ -1062,6 +1063,16 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	}
 	if len(eventRelationship.Edges) == 0 {
 		t.Fatalf("expected relationship edges for session event")
+	}
+	foundCallsEdge := false
+	for _, edge := range eventRelationship.Edges {
+		if edge.Kind == "calls" && edge.From.Kind == "agent" && edge.From.ID == "agent.exec" {
+			foundCallsEdge = true
+			break
+		}
+	}
+	if !foundCallsEdge {
+		t.Fatalf("expected calls edge to use explicit actor identity, got %#v", eventRelationship.Edges)
 	}
 
 	checkpointRelationship := buildSessionCheckpointRelationship(
@@ -1097,6 +1108,28 @@ func TestSessionRelationshipBuildersNormalizeAndSort(t *testing.T) {
 	}
 	if len(timelineRelationship.Edges) == 0 {
 		t.Fatalf("expected timeline relationship edges")
+	}
+
+	checkpointTimelineRelationship := buildRunTimelineRelationship(
+		"session_checkpoint_emitted",
+		"run_demo_cp_0001",
+		"checkpoint:1",
+		"",
+		"",
+		"",
+	)
+	if checkpointTimelineRelationship == nil {
+		t.Fatalf("expected checkpoint timeline relationship")
+	}
+	foundEvidenceEmission := false
+	for _, edge := range checkpointTimelineRelationship.Edges {
+		if edge.Kind == "emits_evidence" && edge.To.Kind == "evidence" && edge.To.ID == "checkpoint:1" {
+			foundEvidenceEmission = true
+			break
+		}
+	}
+	if !foundEvidenceEmission {
+		t.Fatalf("expected checkpoint emits_evidence edge to target checkpoint ref, got %#v", checkpointTimelineRelationship.Edges)
 	}
 }
 

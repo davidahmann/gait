@@ -61,6 +61,7 @@ type SessionAppendOptions struct {
 	TraceID                string
 	TracePath              string
 	AgentChain             []schemacommon.AgentLink
+	ActorIdentity          string
 	Verdict                string
 	ReasonCodes            []string
 	Violations             []string
@@ -344,7 +345,7 @@ func AppendSessionEvent(path string, opts SessionAppendOptions) (schemarunpack.S
 			Verdict:                strings.TrimSpace(opts.Verdict),
 			ReasonCodes:            uniqueSortedStrings(opts.ReasonCodes),
 			Violations:             uniqueSortedStrings(opts.Violations),
-			Relationship:           buildSessionEventRelationship(state.SessionID, state.RunID, toolName, traceID, policyID, policyVersion, policyDigest, matchedRuleIDs, opts.AgentChain),
+			Relationship:           buildSessionEventRelationship(state.SessionID, state.RunID, toolName, traceID, policyID, policyVersion, policyDigest, matchedRuleIDs, opts.ActorIdentity, opts.AgentChain),
 			SafetyInvariantVersion: strings.TrimSpace(opts.SafetyInvariantVersion),
 			SafetyInvariantHash:    strings.ToLower(strings.TrimSpace(opts.SafetyInvariantHash)),
 		}
@@ -512,14 +513,15 @@ func EmitSessionCheckpoint(journalPath string, outRunpackPath string, opts Sessi
 				),
 			})
 		}
+		checkpointRef := fmt.Sprintf("checkpoint:%d", nextCheckpointIdx)
 		timeline = append(timeline, schemarunpack.TimelineEvt{
 			Event: "session_checkpoint_emitted",
 			TS:    createdAt,
-			Ref:   fmt.Sprintf("checkpoint:%d", nextCheckpointIdx),
+			Ref:   checkpointRef,
 			Relationship: buildRunTimelineRelationship(
 				"session_checkpoint_emitted",
 				checkpointRunID,
-				journal.SessionID,
+				checkpointRef,
 				"",
 				"",
 				"",
@@ -1224,8 +1226,10 @@ func buildSessionEventRelationship(
 	policyVersion string,
 	policyDigest string,
 	matchedRuleIDs []string,
+	actorIdentity string,
 	agentChain []schemacommon.AgentLink,
 ) *schemacommon.RelationshipEnvelope {
+	actorID := selectRunpackEventActor(actorIdentity, agentChain)
 	envelope := schemacommon.RelationshipEnvelope{
 		ParentRef: &schemacommon.RelationshipNodeRef{
 			Kind: "session",
@@ -1253,10 +1257,10 @@ func buildSessionEventRelationship(
 			To:   schemacommon.RelationshipNodeRef{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
 		})
 	}
-	if len(envelope.AgentChain) > 0 && strings.TrimSpace(toolName) != "" {
+	if actorID != "" && strings.TrimSpace(toolName) != "" {
 		envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
 			Kind: "calls",
-			From: schemacommon.RelationshipNodeRef{Kind: "agent", ID: envelope.AgentChain[0].Identity},
+			From: schemacommon.RelationshipNodeRef{Kind: "agent", ID: actorID},
 			To:   schemacommon.RelationshipNodeRef{Kind: "tool", ID: strings.TrimSpace(toolName)},
 		})
 	}
@@ -1296,7 +1300,7 @@ func buildSessionCheckpointRelationship(
 	return normalizeRunpackRelationshipEnvelope(&envelope)
 }
 
-func buildRunTimelineRelationship(eventName, runID, sessionID, traceID, toolName, policyDigest string) *schemacommon.RelationshipEnvelope {
+func buildRunTimelineRelationship(eventName, runID, evidenceID, traceID, toolName, policyDigest string) *schemacommon.RelationshipEnvelope {
 	envelope := schemacommon.RelationshipEnvelope{
 		ParentRef: &schemacommon.RelationshipNodeRef{
 			Kind: "run",
@@ -1307,7 +1311,7 @@ func buildRunTimelineRelationship(eventName, runID, sessionID, traceID, toolName
 			{Kind: "trace", ID: strings.TrimSpace(traceID)},
 			{Kind: "tool", ID: strings.TrimSpace(toolName)},
 			{Kind: "policy", ID: strings.ToLower(strings.TrimSpace(policyDigest))},
-			{Kind: "evidence", ID: strings.TrimSpace(sessionID)},
+			{Kind: "evidence", ID: strings.TrimSpace(evidenceID)},
 		}),
 	}
 	switch strings.TrimSpace(eventName) {
@@ -1327,11 +1331,11 @@ func buildRunTimelineRelationship(eventName, runID, sessionID, traceID, toolName
 			})
 		}
 	case "session_checkpoint_emitted":
-		if strings.TrimSpace(sessionID) != "" {
+		if strings.TrimSpace(evidenceID) != "" {
 			envelope.Edges = append(envelope.Edges, schemacommon.RelationshipEdge{
 				Kind: "emits_evidence",
 				From: schemacommon.RelationshipNodeRef{Kind: "run", ID: strings.TrimSpace(runID)},
-				To:   schemacommon.RelationshipNodeRef{Kind: "evidence", ID: strings.TrimSpace(sessionID)},
+				To:   schemacommon.RelationshipNodeRef{Kind: "evidence", ID: strings.TrimSpace(evidenceID)},
 			})
 		}
 	}
@@ -1462,6 +1466,41 @@ func normalizeRunpackRelationshipAgentChain(chain []schemacommon.AgentLink) []sc
 		return nil
 	}
 	return normalized
+}
+
+func selectRunpackEventActor(explicitActor string, agentChain []schemacommon.AgentLink) string {
+	if actor := strings.TrimSpace(explicitActor); actor != "" {
+		return actor
+	}
+
+	bestIdentity := ""
+	bestPriority := 999
+	for _, link := range agentChain {
+		role := strings.ToLower(strings.TrimSpace(link.Role))
+		identity := strings.TrimSpace(link.Identity)
+		if identity == "" {
+			continue
+		}
+		priority := 100
+		switch role {
+		case "delegate":
+			priority = 0
+		case "requester":
+			priority = 1
+		case "delegator":
+			priority = 2
+		default:
+			continue
+		}
+		if priority < bestPriority {
+			bestPriority = priority
+			bestIdentity = identity
+			if priority == 0 {
+				return bestIdentity
+			}
+		}
+	}
+	return bestIdentity
 }
 
 func normalizeRunpackRelationshipEdges(edges []schemacommon.RelationshipEdge) []schemacommon.RelationshipEdge {
