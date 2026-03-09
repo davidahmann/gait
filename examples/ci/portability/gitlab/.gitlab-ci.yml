@@ -3,7 +3,7 @@ stages:
 
 gait_regress:
   stage: regress
-  image: golang:1.25
+  image: golang:1.26
   script:
     - bash scripts/ci_regress_contract.sh
   artifacts:
