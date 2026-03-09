@@ -10,9 +10,9 @@ Execute this workflow when the user asks to turn recommended items into a concre
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/gait`
+- Repository root: `/Users/tr/gait`
 - Recommendation source: user-provided recommended items for this run
-- No dependency on `/Users/davidahmann/Projects/gait/product/ideas.md`
+- No dependency on `/Users/tr/gait/product/ideas.md`
 - Planning-only skill. Do not implement code in this workflow.
 
 ## Input Contract (Mandatory)
@@ -34,7 +34,7 @@ Validation rules:
 - expected moat/benefit
 2. Remove duplicates and out-of-scope items.
 3. Cluster recommendations into coherent epics.
-4. Prioritize with `P0/P1/P2` using contract risk, moat gain, adoption leverage, and dependency order.
+4. Prioritize with `P0/P1/P2` using contract risk, moat gain, adoption leverage, and dependency order. Sequence work in waves: `Wave 1` contract/runtime correctness and architecture boundaries, `Wave 2` docs, OSS hygiene, and distribution UX.
 5. Create execution-ready stories with:
 - tasks
 - repo paths
@@ -42,6 +42,7 @@ Validation rules:
 - test requirements
 - matrix wiring
 - acceptance criteria
+- If a story affects public surfaces, include stable/internal boundary notes, migration expectations, and where users integrate Gait into their code or pipeline.
 6. Add plan-level `Test Matrix Wiring`.
 7. Add `Recommendation Traceability` mapping recommendations to epic/story IDs.
 8. Add `Minimum-Now Sequence`, `Exit Criteria`, and `Definition of Done`.
@@ -66,6 +67,12 @@ Use `gait` commands with `--json` whenever the plan needs machine-readable evide
 - Respect architecture boundaries:
 - Go core authoritative for enforcement/verification
 - Python remains thin adoption layer
+- Treat architecture as enforceable code boundaries, not doc-only intent.
+- Prefer thin orchestration and focused packages for parsing, persistence, reporting, and policy logic.
+- Make side effects explicit in names/signatures and avoid ambiguous `plan` vs `apply` or `read` vs `read+validate` semantics.
+- Public-surface stories must cover versioning/deprecation expectations, machine-readable error behavior, and install/version discoverability where relevant.
+- Long-running workflow stories must include cancellation/timeout propagation expectations.
+- Prefer extension points over enterprise forks when the recommendation implies customization pressure.
 - No dashboard-first scope in core backlog.
 - No minor polish as primary backlog.
 - Every story must include tests and matrix wiring.
@@ -109,6 +116,10 @@ Use `gait` commands with `--json` whenever the plan needs machine-readable evide
 8. Docs/examples changes:
 - docs consistency checks
 - storyline/smoke checks when user flow changes
+- README/quickstart/integration coverage checks when public docs change
+- install/version discoverability checks when onboarding changes
+- docs source-of-truth sync tasks for `README.md`, `docs/`, `docs-site/public/llms.txt`, and `docs-site/public/llm/*.md`
+- OSS trust-baseline updates when public launch/support expectations change
 
 ## Test Matrix Wiring Contract (Plan-Level)
 
@@ -162,6 +173,9 @@ Before finalizing:
 - Test requirements match story type.
 - Matrix wiring exists for every story.
 - Sequence is dependency-aware and implementation-ready.
+- Wave 1 contract/runtime work precedes Wave 2 docs/OSS/distribution work.
+- Public/internal boundaries, integration hooks, and side effects are explicit where stories affect user-facing surfaces.
+- Launch-facing plans include OSS trust-baseline and docs source-of-truth work when relevant.
 
 ## Failure Mode
 

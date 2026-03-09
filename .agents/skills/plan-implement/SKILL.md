@@ -10,9 +10,9 @@ Execute this workflow for: "implement the plan", "execute PLAN_NEXT", "ship plan
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/gait`
-- Default input plan: `/Users/davidahmann/Projects/gait/product/PLAN_NEXT.md`
-- Optional input plan: user-specified file under `/Users/davidahmann/Projects/gait/product/`
+- Repository: `/Users/tr/gait`
+- Default input plan: `/Users/tr/gait/product/PLAN_NEXT.md`
+- Optional input plan: user-specified file under `/Users/tr/gait/product/`
 - This skill executes code/docs/tests for planned stories.
 - Out of scope by default:
 - GitHub issue creation
@@ -49,6 +49,7 @@ Rules:
 1. Parse plan and build execution queue:
 - Follow `Minimum-Now Sequence` first.
 - Respect dependencies and `P0 -> P1 -> P2`.
+- Respect any explicit `Wave 1` before `Wave 2` sequencing in the plan.
 
 2. Run baseline before first code change:
 - `make lint-fast`
@@ -57,6 +58,8 @@ Rules:
 
 3. Execute one story at a time:
 - Implement only scoped story changes.
+- Keep orchestration thin when story scope touches architecture; move parsing, persistence, reporting, or policy logic into focused packages instead of coordinator layers.
+- Make side effects explicit in API names/signatures and preserve symmetric semantics unless the distinction is intentionally named.
 - Update tests required by story type.
 - Update docs surgically only if user-facing behavior changed.
 - Do not start next story until current story is validated.
@@ -86,6 +89,15 @@ Rules:
 - `gait doctor --json` to verify local environment and dependency readiness before implementation.
 - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` for policy-story contract checks.
 - `gait pack verify <artifact.zip> --json` for artifact-story integrity checks.
+
+## Contract Discipline Rules
+
+- If a story changes public CLI/SDK/schema surfaces, update the stable/internal/deprecated surface notes in the same change.
+- If versioning or schema compatibility behavior changes, document what is breaking vs additive and the migration expectation in the same story.
+- If errors cross CLI or SDK boundaries, preserve structured machine-readable errors and stable mappings.
+- If a story touches long-running workflows, verify cancellation and timeout propagation end-to-end.
+- If enterprise customization pressure appears in scope, prefer explicit extension points over fork-only designs when feasible.
+- For user-facing docs, explain integration hooks before internals and keep `README.md`, repo docs, and generated/public docs in sync.
 
 ## Test Requirements by Work Type (Mandatory)
 
@@ -145,10 +157,16 @@ No story is complete without passing its mapped lanes.
 
 If a story introduces user-visible behavior changes, update only impacted docs in the same story:
 
-- `/Users/davidahmann/Projects/gait/README.md`
-- `/Users/davidahmann/Projects/gait/docs/`
-- `/Users/davidahmann/Projects/gait/docs-site/public/llms.txt`
-- `/Users/davidahmann/Projects/gait/docs-site/public/llm/*.md`
+- `/Users/tr/gait/README.md`
+- `/Users/tr/gait/docs/`
+- `/Users/tr/gait/docs-site/public/llms.txt`
+- `/Users/tr/gait/docs-site/public/llm/*.md`
+- `/Users/tr/gait/CONTRIBUTING.md`
+- `/Users/tr/gait/CHANGELOG.md`
+- `/Users/tr/gait/CODE_OF_CONDUCT.md`
+- `/Users/tr/gait/SECURITY.md`
+- `/Users/tr/gait/.github/ISSUE_TEMPLATE/`
+- `/Users/tr/gait/.github/pull_request_template.md`
 
 If story is internal-only and behavior is unchanged, do not force doc churn.
 
@@ -167,6 +185,8 @@ If story is internal-only and behavior is unchanged, do not force doc churn.
 - No silent skips of required checks.
 - Tests must use temp output paths (no artifact leakage into source tree).
 - If code/docs drift is introduced by user-facing change, patch docs in same story.
+- Keep README first-screen coverage crisp: what it is, who it is for, how it integrates, and how to get value quickly.
+- Keep one docs source of truth and update generated/public derivatives in the same story.
 
 ## Blocker Handling
 

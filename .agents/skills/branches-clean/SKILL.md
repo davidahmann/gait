@@ -10,7 +10,7 @@ Execute this workflow when asked to clean up branches by deleting all non-`main`
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/gait`
+- Repository: `/Users/tr/gait`
 - Target: all non-`main` branches
 - Deletion style: one-by-one only (no grouped delete commands)
 - Applies to:

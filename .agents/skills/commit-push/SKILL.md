@@ -10,7 +10,7 @@ Execute this workflow for: "commit/push/open PR", "ship this branch", "merge aft
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/gait`
+- Repository: `/Users/tr/gait`
 - Works on current local branch, then merges into `main`.
 - No GitHub issue creation.
 - PR text must use heredoc EOF bodies (no inline `--body` strings).
@@ -63,18 +63,60 @@ If preconditions fail, stop and report.
 - flaky/infra/transient
 - permission/workflow policy failure
 
-8. Merge PR after green:
+8. Codex review settle gate (mandatory, passive, latest-head preferred):
+- After PR creation/update and green CI, inspect Codex review output before merge.
+- Poll PR reviews/comments/reactions every `15s` for up to `5 minutes`, preferring signals tied to the latest PR head SHA.
+- Never post `@codex review` or any other PR/issue comment solely to solicit review.
+- Default reviewer identity for this gate: `chatgpt-codex-connector` (GitHub UI may render as `chatgpt-codex-connector bot`).
+- Accepted settle signals on the latest PR head:
+- actionable Codex review comments/suggestions -> proceed to pre-merge fix loop
+- explicit approval/all-good signal -> review gate satisfied
+- Codex-authored `+1` / thumbs-up on PR body, issue comment, or review comment -> review gate satisfied when required PR CI is green and no unresolved `P0/P1` Codex items remain
+- If no latest-head signal appears within timeout, fall back to PR-wide Codex review inventory:
+- collect prior Codex reviews, inline comments, issue comments, and Codex-authored `+1` / thumbs-up reactions on the PR
+- require at least one prior Codex review artifact before permitting `carry_forward`
+- if required PR CI is green and no unresolved `P0/P1` Codex items remain, treat gate as satisfied as `carry_forward`
+- if unresolved `P0/P1` Codex items remain, stop and report blocker
+- if no prior Codex review artifact exists, stop and report blocker
+- if Codex explicitly reports service/quota failure for automatic review, stop and report blocker
+- Do not create a new GitHub comment to force or retry review.
+
+9. Pre-merge unresolved comment triage and fix loop (max 2 loops):
+- Fetch unresolved PR review threads/comments, preferring latest-head Codex items first and then any still-open carry-forward `P0/P1` items from earlier heads.
+- Triage each unresolved item as `implement`, `blocked`, `defer`, `reject`, or `already_satisfied`.
+- Resolve the corresponding GitHub review thread for `implement` or `already_satisfied` items once they are satisfied on the current head.
+- Do not resolve threads for `blocked`, `defer`, or `reject`.
+- Auto-fix only `implement` items that are:
+- `P0/P1`, or
+- high-confidence `P2` with concrete repro or break path
+- For each fix loop:
+- apply the minimal scoped fix on the same PR branch
+- run `make prepush-full`
+- `git add -A`
+- `git commit -m "fix: address actionable PR comments (loop <n>)"` (skip only if no changes)
+- push branch
+- re-watch PR CI to green
+- resolve satisfied GitHub review threads/comments
+- re-run the passive Codex review settle gate on the new latest PR head SHA
+- re-fetch unresolved threads/comments
+- If unresolved `P0/P1` items remain after loop cap, stop and report blocker.
+
+10. Merge PR after green and review gate satisfied:
+- Merge only when all are true on the latest PR head SHA:
+- required PR CI is green
+- Codex review settle gate is satisfied (`approved`, `thumbs_up`, `actionable` resolved, or `carry_forward`)
+- no unresolved `P0/P1` review items remain
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
 - Record merged PR URL and merge commit SHA.
 
-9. Switch to main and sync:
+11. Switch to main and sync:
 - `git checkout main`
 - `git pull --ff-only origin main`
 
-10. Monitor post-merge CI on `main`:
+12. Monitor post-merge CI on `main`:
 - Watch the latest `main` CI run with timeout `25 minutes`.
 
-11. Hotfix loop on post-merge red (max 2 loops):
+13. Hotfix loop on post-merge red (max 2 loops):
 - Run only for actionable failures.
 - Loop cap: `2`.
 - For each loop:
@@ -90,8 +132,10 @@ If preconditions fail, stop and report.
 - `git checkout main && git pull --ff-only origin main`
 - Monitor post-merge CI again (25 min timeout).
 
-12. Stop conditions:
+14. Stop conditions:
 - CI green on main: success.
+- Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage: stop and report blocker.
+- Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
 
@@ -100,6 +144,8 @@ If preconditions fail, stop and report.
 - `gait doctor --json` before ship to capture machine-readable local readiness evidence.
 - `gait pack verify <artifact.zip> --json` when validating artifact integrity in a failing CI path.
 - `gait gate eval --policy <policy.yaml> --intent <intent.json> --json` when policy-path checks are implicated.
+- Use `gh pr view --json number,headRefOid` and `gh repo view --json nameWithOwner` to seed Codex review inspection.
+- Use `gh api` against PR reviews, review comments, issue comments, and their reactions to inspect latest-head Codex signals and carry-forward artifacts.
 
 ## EOF Rule (Mandatory)
 
@@ -116,13 +162,19 @@ Never use inline `--body "..."` for multi-line PR text.
 - Never use destructive git commands unless explicitly requested.
 - Never amend commits unless explicitly requested.
 - Never create duplicate PRs for the same head branch.
-- Keep fixes scoped to CI failure root cause.
+- Never post `@codex review` or equivalent review-trigger comments.
+- Never merge with unresolved `P0/P1` Codex review items.
+- Never leave an implemented Codex review thread unresolved before merge.
+- Keep fixes scoped to the CI or review root cause.
 - If unexpected repo state appears, stop and ask.
 
 ## CI Policy
 
 - Required local gate before push: `make prepush-full` (includes CodeQL in this repo).
 - PR CI watch timeout: `25 minutes`.
+- Codex review settle polling interval: `15 seconds`.
+- Codex review settle timeout: `5 minutes` (mandatory pre-merge gate; passive only, no trigger comments).
+- Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.
 
@@ -132,6 +184,8 @@ Never use inline `--body "..."` for multi-line PR text.
 - Commit SHA(s)
 - PR URL(s)
 - CI status per cycle
+- Codex review settle status per cycle
+- Resolved review thread/comment refs
 - Merge commit SHA(s)
 - Post-merge CI status on `main`
 - If stopped: blocker reason and last failing check
