@@ -10,7 +10,7 @@ Execute this workflow for: "cut release", "ship vX.Y.Z", "push tag and monitor r
 
 ## Scope
 
-- Repository: `/Users/davidahmann/Projects/gait`
+- Repository: `/Users/tr/gait`
 - Tag source branch: `main` only
 - No pre-release branch creation
 - No pre-release PR creation

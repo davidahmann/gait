@@ -10,7 +10,7 @@ Execute this workflow when asked to review PR comments from agents/Codex and rec
 
 ## Scope
 
-- Repository context: `/Users/davidahmann/Projects/gait`
+- Repository context: `/Users/tr/gait`
 - Input PRs: user-provided PR number(s)
 - Mode: analysis and recommendation only (read-only by default)
 - No code changes, commits, or pushes in this skill unless explicitly requested in a follow-up

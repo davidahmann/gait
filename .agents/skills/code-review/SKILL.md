@@ -11,15 +11,17 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 ## Reviewer Personality
 
 - Contract-first: behavior and guarantees over style.
+- Boundary-first: controls belong at the execution boundary, not prompt/UI layers.
 - Regression-first: look for latent breakage paths.
 - Fail-closed safety bias: block safety/control weakening.
+- Determinism required: same input/state should produce the same decisions and artifacts.
 - Scenario-driven: each finding includes concrete break path and impact.
 - Portability-aware: Linux/macOS/CI/toolchain/path behavior.
 - Signal over noise: findings-first, severity-ranked output.
 
 ## Scope
 
-- Repository root: `/Users/davidahmann/Projects/gait`
+- Repository root: `/Users/tr/gait`
 - Review entire repo, not only current diffs.
 - Prioritize high-risk surfaces first, then remaining components.
 
@@ -30,20 +32,25 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 3. `core/mcp` and adapter boundaries
 4. `sdk/python` wrapper behavior and error mapping
 5. `schemas/v1` and compatibility-sensitive artifacts
-6. `docs`, `README.md`, and `docs-site` command/contract accuracy
+6. `docs`, `README.md`, `docs-site`, OSS baseline files, and `.github` workflow/template surfaces
 
 ## Workflow
 
-1. Build repository map and contract map from code/tests/help text.
+1. Build repository map and contract map from code/tests/help text, including stable/internal/deprecated surfaces, schema/version/CLI/exit-code compatibility rules, authoritative-core boundaries, and docs source-of-truth flow.
 2. Run baseline validation where feasible (lint/build/tests) and record gaps if not run.
 3. Review each subsystem for:
-   - Safety/control bypasses
-   - Determinism or reproducibility breaks
-   - Integrity verification weakening
-   - False-green test/CI paths
-   - Portability/toolchain/path assumptions
-   - Schema/CLI contract drift
-   - Docs/examples that do not match real behavior
+   - Enforceable boundary violations, including controls living in prompt/UI paths instead of execution/runtime boundaries
+   - Contract drift before logic drift: schema/version/CLI/exit-code breaks, non-additive evolution, or missing dual-reader compatibility
+   - Public APIs that hide side effects, blur `plan` vs `apply`, or weaken scoped approvals, out-of-band stop, and destructive-budget safety patterns
+   - Missing timeout/cancellation propagation, crash-safe state handling, lock/permission discipline, or contention coverage in long-running flows
+   - Fail-closed gaps where ambiguity in high-risk paths can silently allow instead of block
+   - Determinism or reproducibility breaks across decisions, hashes, traces, diagnostics, and artifacts for the same input/state
+   - Authoritative-core leaks where wrappers/SDKs duplicate policy, signing, verification, or other decision logic
+   - Missing machine-readable failures: stable JSON envelopes, error taxonomy, retryability hints, or consistent error mapping on public boundaries
+   - Missing operator observability: deterministic `doctor` output, correlation IDs, or local structured logs
+   - False-green CI/release paths, including risk-tiered lane gaps (fast/core/acceptance/cross-platform/chaos/perf), weak merge policy wiring, supply-chain verification gaps, or missing post-merge regression monitoring
+   - Weak adoption architecture: unclear quickstart, missing expected outputs/integration diagrams, or troubleshooting-only-afterthought docs
+   - Governance and launch drift: missing ADRs, risk register, explicit non-goals, definition-of-done, or OSS trust-baseline artifacts
 4. Verify findings with concrete evidence (file refs, commands, test output).
 5. Rank findings by severity and confidence.
 6. Report minimum blocker set for safe release posture.
@@ -71,6 +78,7 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
 - Do not report style nits unless they cause runtime/contract risk.
 - Do not claim tests/commands were run if they were not.
 - Separate facts from inference.
+- Prefer the smallest finding that exposes the broken contract or unsafe boundary.
 - If no findings, explicitly state `No material findings` and list residual risks/testing gaps.
 
 ## Command Anchors
@@ -89,3 +97,4 @@ Execute this workflow for: "review the codebase", "audit repo health", "run a fu
    - technical health today
    - minimum blockers (if any)
    - top 3 risk concentrations
+   - merge/release confidence given current CI, observability, and release-integrity posture
