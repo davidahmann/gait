@@ -14,6 +14,7 @@ import (
 
 	"github.com/Clyra-AI/gait/core/doctor"
 	gatecore "github.com/Clyra-AI/gait/core/gate"
+	"github.com/Clyra-AI/gait/core/projectconfig"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
@@ -1005,7 +1006,7 @@ func TestCaptureAndRegressAddFlow(t *testing.T) {
 	if captureResult.ArtifactType != "runpack" {
 		t.Fatalf("unexpected capture artifact type: %#v", captureResult)
 	}
-	if captureResult.OutputPath != filepath.Join("gait-out", "capture.json") {
+	if captureResult.OutputPath != projectconfig.DefaultCapturePath {
 		t.Fatalf("unexpected capture output path: %s", captureResult.OutputPath)
 	}
 	if _, err := os.Stat(filepath.Join(workDir, "gait-out", "capture.json")); err != nil {

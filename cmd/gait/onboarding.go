@@ -306,8 +306,9 @@ func runCapture(arguments []string) int {
 	if exitCode != exitOK {
 		return writeCaptureOutput(jsonOutput, output, exitCode)
 	}
-	output.OutputPath = strings.TrimSpace(outPath)
-	if err := writeCaptureReceipt(output.OutputPath, output); err != nil {
+	receiptPath := strings.TrimSpace(outPath)
+	output.OutputPath = filepath.ToSlash(receiptPath)
+	if err := writeCaptureReceipt(receiptPath, output); err != nil {
 		return writeCaptureOutput(jsonOutput, captureOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	return writeCaptureOutput(jsonOutput, output, exitOK)
