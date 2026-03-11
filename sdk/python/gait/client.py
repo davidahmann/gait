@@ -152,7 +152,7 @@ def evaluate_gate(
                 stderr=result.stderr,
             )
 
-        if result.exit_code in (0, 4):
+        if result.exit_code in (0, 3, 4):
             return GateEvalResult.from_dict(payload, exit_code=result.exit_code)
 
         message = str(payload.get("error") or "gait gate eval failed")

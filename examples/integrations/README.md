@@ -5,7 +5,7 @@ This directory contains framework adapters that demonstrate the same Gait execut
 Current adapters:
 
 - `openai_agents`
-- `langchain`
+- `langchain` (official middleware with optional callback correlation)
 - `autogen`
 - `openclaw`
 - `autogpt`

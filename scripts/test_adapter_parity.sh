@@ -11,9 +11,21 @@ frameworks=(openai_agents langchain autogen openclaw autogpt gastown claude_code
 
 echo "==> adapter parity smoke"
 for framework in "${frameworks[@]}"; do
-  for scenario in allow block; do
+  scenarios=(allow block)
+  if [[ "$framework" == "langchain" ]]; then
+    scenarios=(allow block require_approval)
+  fi
+  for scenario in "${scenarios[@]}"; do
     echo "--> $framework $scenario"
-    adapter_output="$(python3 "examples/integrations/${framework}/quickstart.py" --scenario "$scenario")"
+    if [[ "$framework" == "langchain" ]]; then
+      adapter_output="$(
+        cd "$repo_root/sdk/python" && \
+          uv run --python 3.13 --extra langchain python \
+            "../../examples/integrations/${framework}/quickstart.py" --scenario "$scenario"
+      )"
+    else
+      adapter_output="$(python3 "examples/integrations/${framework}/quickstart.py" --scenario "$scenario")"
+    fi
     printf '%s\n' "$adapter_output"
     ADAPTER_FRAMEWORK="$framework" ADAPTER_SCENARIO="$scenario" ADAPTER_OUTPUT="$adapter_output" python3 - <<'PY'
 import json
@@ -55,49 +67,72 @@ if expected_trace_suffix not in str(trace_path).replace("\\", "/"):
 trace_payload = json.loads(trace_path.read_text(encoding="utf-8"))
 if trace_payload.get("tool_name") != "tool.write":
     raise SystemExit(f"unexpected tool_name in trace: {trace_payload.get('tool_name')}")
-skill = trace_payload.get("skill_provenance")
-if not isinstance(skill, dict):
-    raise SystemExit("trace skill_provenance missing")
-if skill.get("publisher") != "acme" or skill.get("source") != "registry":
-    raise SystemExit(f"unexpected skill provenance in trace: {skill}")
-
 intent_path = trace_path.parent / f"intent_{scenario}.json"
+if framework == "langchain":
+    for field in ("run_id", "request_id", "policy_digest", "intent_digest", "runpack_path", "intent_path"):
+        if field not in parsed:
+            raise SystemExit(f"missing field {field} in langchain output: {output}")
+    if not Path(parsed["runpack_path"]).exists():
+        raise SystemExit(f"langchain runpack missing: {parsed['runpack_path']}")
+    if Path(parsed["intent_path"]) != intent_path:
+        raise SystemExit(
+            f"langchain intent_path mismatch: expected={intent_path} got={parsed['intent_path']}"
+        )
+else:
+    skill = trace_payload.get("skill_provenance")
+    if not isinstance(skill, dict):
+        raise SystemExit("trace skill_provenance missing")
+    if skill.get("publisher") != "acme" or skill.get("source") != "registry":
+        raise SystemExit(f"unexpected skill provenance in trace: {skill}")
+
 if not intent_path.exists():
     raise SystemExit(f"intent fixture missing: {intent_path}")
 intent_payload = json.loads(intent_path.read_text(encoding="utf-8"))
 targets = intent_payload.get("targets")
 if not isinstance(targets, list) or not targets:
     raise SystemExit(f"intent targets missing: {intent_path}")
-endpoint_class = targets[0].get("endpoint_class")
-if endpoint_class != "fs.write":
-    raise SystemExit(f"endpoint_class mismatch: expected fs.write got {endpoint_class}")
 context = intent_payload.get("context")
 if not isinstance(context, dict):
     raise SystemExit(f"intent context missing: {intent_path}")
-session_id = context.get("session_id")
-if not isinstance(session_id, str) or not session_id:
-    raise SystemExit(f"session_id missing in context: {intent_path}")
 auth_context = context.get("auth_context")
 if not isinstance(auth_context, dict) or not auth_context:
     raise SystemExit(f"auth_context missing in context: {intent_path}")
-credential_scopes = context.get("credential_scopes")
-if not isinstance(credential_scopes, list) or not credential_scopes:
-    raise SystemExit(f"credential_scopes missing in context: {intent_path}")
-env_fp = context.get("environment_fingerprint")
-if not isinstance(env_fp, str) or not env_fp:
-    raise SystemExit(f"environment_fingerprint missing in context: {intent_path}")
+if framework == "langchain":
+    if targets[0].get("operation") != "write":
+        raise SystemExit(f"langchain target operation mismatch: {targets[0]}")
+    if context.get("request_id") != parsed["request_id"]:
+        raise SystemExit(
+            f"langchain request_id mismatch: expected={parsed['request_id']} got={context.get('request_id')}"
+        )
+    if context.get("session_id") != parsed["run_id"]:
+        raise SystemExit(
+            f"langchain session_id mismatch: expected={parsed['run_id']} got={context.get('session_id')}"
+        )
+else:
+    endpoint_class = targets[0].get("endpoint_class")
+    if endpoint_class != "fs.write":
+        raise SystemExit(f"endpoint_class mismatch: expected fs.write got {endpoint_class}")
+    session_id = context.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        raise SystemExit(f"session_id missing in context: {intent_path}")
+    credential_scopes = context.get("credential_scopes")
+    if not isinstance(credential_scopes, list) or not credential_scopes:
+        raise SystemExit(f"credential_scopes missing in context: {intent_path}")
+    env_fp = context.get("environment_fingerprint")
+    if not isinstance(env_fp, str) or not env_fp:
+        raise SystemExit(f"environment_fingerprint missing in context: {intent_path}")
 
-delegation = intent_payload.get("delegation")
-if not isinstance(delegation, dict):
-    raise SystemExit(f"delegation missing from intent: {intent_path}")
-if not delegation.get("requester_identity"):
-    raise SystemExit(f"delegation requester_identity missing: {intent_path}")
-chain = delegation.get("chain")
-if not isinstance(chain, list) or not chain:
-    raise SystemExit(f"delegation chain missing: {intent_path}")
-first_link = chain[0]
-if not isinstance(first_link, dict) or not first_link.get("delegator_identity") or not first_link.get("delegate_identity"):
-    raise SystemExit(f"delegation chain link invalid: {intent_path}")
+    delegation = intent_payload.get("delegation")
+    if not isinstance(delegation, dict):
+        raise SystemExit(f"delegation missing from intent: {intent_path}")
+    if not delegation.get("requester_identity"):
+        raise SystemExit(f"delegation requester_identity missing: {intent_path}")
+    chain = delegation.get("chain")
+    if not isinstance(chain, list) or not chain:
+        raise SystemExit(f"delegation chain missing: {intent_path}")
+    first_link = chain[0]
+    if not isinstance(first_link, dict) or not first_link.get("delegator_identity") or not first_link.get("delegate_identity"):
+        raise SystemExit(f"delegation chain link invalid: {intent_path}")
 
 if scenario == "allow":
     if parsed["verdict"] != "allow":
@@ -111,14 +146,17 @@ if scenario == "allow":
     if not executor_path.exists():
         raise SystemExit(f"allow scenario executor output missing: {executor_path}")
 else:
-    if parsed["verdict"] == "allow":
-        raise SystemExit("block scenario unexpectedly returned allow verdict")
+    expected_verdict = "block" if scenario == "block" else "require_approval"
+    if parsed["verdict"] != expected_verdict:
+        raise SystemExit(
+            f"{scenario} scenario verdict mismatch: expected={expected_verdict} got={parsed['verdict']}"
+        )
     if parsed["executed"].lower() != "false":
-        raise SystemExit(f"block scenario executed mismatch: {parsed['executed']}")
+        raise SystemExit(f"{scenario} scenario executed mismatch: {parsed['executed']}")
     executor_output = parsed.get("executor_output", "")
     if executor_output and Path(executor_output).exists():
         raise SystemExit(
-            f"block scenario must not materialize executor output: {executor_output}"
+            f"{scenario} scenario must not materialize executor output: {executor_output}"
         )
 PY
   done

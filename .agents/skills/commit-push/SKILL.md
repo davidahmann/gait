@@ -74,11 +74,12 @@ If preconditions fail, stop and report.
 - Codex-authored `+1` / thumbs-up on PR body, issue comment, or review comment -> review gate satisfied when required PR CI is green and no unresolved `P0/P1` Codex items remain
 - Codex-authored `eyes` reaction on the PR body, issue comment, or review comment means review is in progress:
 - treat `eyes` as a live in-progress signal, not a terminal settle signal
-- while `eyes` is present and no later terminal Codex signal exists for the current review cycle, keep polling and do not fail the gate because 5 minutes elapsed
+- once `eyes` is observed, assume a terminal Codex signal should follow soon and continue polling every `30s` for up to `15 minutes` before declaring the gate blocked
 - once `eyes` is observed, wait for a terminal Codex signal (`actionable`, `approved`, `thumbs_up`, explicit service/quota failure, or a new actionable comment/review on the latest head) before deciding the gate result
 - Use a two-stage gate:
 - Stage A: for the first `5 minutes`, look for latest-head Codex terminal signals or an `eyes` in-progress signal
-- Stage B: if `eyes` was observed during Stage A or later, continue polling without the 5-minute stop until Codex finishes or reports an explicit failure condition
+- Stage B: if `eyes` was observed during Stage A or later, continue polling every `30s` for up to `15 minutes` from the first observed `eyes` on the current review cycle
+- If no terminal Codex signal appears within that `15 minute` Stage B window, stop and report a blocked Codex review gate
 - If no latest-head terminal signal appears and no `eyes` in-progress signal is seen during Stage A, fall back to PR-wide Codex review inventory:
 - collect prior Codex reviews, inline comments, issue comments, and Codex-authored `+1` / thumbs-up reactions on the PR
 - require at least one prior Codex review artifact before permitting `carry_forward`
@@ -89,10 +90,11 @@ If preconditions fail, stop and report.
 - Do not create a new GitHub comment to force or retry review.
 
 9. Pre-merge unresolved comment triage and fix loop (max 2 loops):
-- Fetch unresolved PR review threads/comments, preferring latest-head Codex items first and then any still-open carry-forward `P0/P1` items from earlier heads.
+- Fetch unresolved PR review threads/comments, preferring latest-head Codex items first, then any GitHub Advanced Security inline comments on the latest head, and then any still-open carry-forward `P0/P1` items from earlier heads.
 - Triage each unresolved item as `implement`, `blocked`, `defer`, `reject`, or `already_satisfied`.
 - Resolve the corresponding GitHub review thread for `implement` or `already_satisfied` items once they are satisfied on the current head.
 - Do not resolve threads for `blocked`, `defer`, or `reject`.
+- Treat deterministic GitHub Advanced Security inline comments as `implement` by default when they describe a concrete code pattern on the current head.
 - Auto-fix only `implement` items that are:
 - `P0/P1`, or
 - high-confidence `P2` with concrete repro or break path
@@ -142,7 +144,7 @@ If preconditions fail, stop and report.
 14. Stop conditions:
 - CI green on main: success.
 - Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage, without any Codex `eyes` in-progress signal: stop and report blocker.
-- Codex gate remains pending with Codex `eyes` in-progress signal: continue waiting; do not stop solely because the initial 5-minute window elapsed.
+- Codex gate remains pending with Codex `eyes` in-progress signal: continue waiting up to the `15 minute` Stage B window; only then stop and report blocker if no terminal signal appears.
 - Unresolved pre-merge `P0/P1` comments after 2 fix loops: stop and report blocker.
 - Non-actionable failure class: stop and report.
 - Loop count exceeded (`>2`): stop and report blocker.
@@ -182,7 +184,7 @@ Never use inline `--body "..."` for multi-line PR text.
 - PR CI watch timeout: `25 minutes`.
 - Codex review settle polling interval: `15 seconds`.
 - Codex review settle initial window: `5 minutes` to find latest-head terminal signals or an `eyes` in-progress signal.
-- Codex review settle after `eyes`: no fixed timeout; keep polling until Codex emits a terminal review signal or explicit failure.
+- Codex review settle after `eyes`: poll every `30 seconds` for up to `15 minutes` before blocking if no terminal signal appears.
 - Pre-merge comment-fix loop cap: `2`.
 - Post-merge main CI watch timeout: `25 minutes`.
 - Retry/hotfix loop cap: `2`.
