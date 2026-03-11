@@ -14,9 +14,9 @@ _ToolCallRequest: Any
 _CallbackHandlerBase: type[Any]
 
 try:
-    from langchain.agents.middleware import AgentMiddleware as _ImportedAgentMiddleware  # type: ignore[import-not-found]
-    from langchain.tools.tool_node import ToolCallRequest as _ImportedToolCallRequest  # type: ignore[import-not-found]
-    from langchain_core.callbacks.base import BaseCallbackHandler as _ImportedCallbackHandler  # type: ignore[import-not-found]
+    from langchain.agents.middleware import AgentMiddleware as _ImportedAgentMiddleware
+    from langchain.tools.tool_node import ToolCallRequest as _ImportedToolCallRequest
+    from langchain_core.callbacks.base import BaseCallbackHandler as _ImportedCallbackHandler
 except ImportError as error:
     _LANGCHAIN_IMPORT_ERROR: ImportError | None = error
     _AgentMiddlewareBase = object
@@ -178,7 +178,11 @@ class GaitLangChainMiddleware(_AgentMiddlewareBase):  # type: ignore[misc]
             verdict=verdict,
             executed=executed,
         )
-        self._callback_handler.on_gait_decision(metadata)
+        try:
+            # Correlation sinks are additive only and must not affect tool execution.
+            self._callback_handler.on_gait_decision(metadata)
+        except Exception:
+            return
 
 
 def _require_langchain() -> None:

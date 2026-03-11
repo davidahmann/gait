@@ -200,8 +200,11 @@ def test_tool_adapter_propagates_gate_command_failure_without_execution(
     assert calls["count"] == 0
 
 
-def test_langchain_middleware_requires_optional_dependency(tmp_path: Path) -> None:
+def test_langchain_middleware_requires_optional_dependency(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     gait_langchain = load_gait_langchain_module()
+    monkeypatch.setattr(gait_langchain, "_LANGCHAIN_IMPORT_ERROR", ImportError("missing langchain"))
     adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin="gait")
 
     with pytest.raises(ImportError, match="LangChain integration requires optional dependencies"):

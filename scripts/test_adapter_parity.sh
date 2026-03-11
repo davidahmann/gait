@@ -17,7 +17,15 @@ for framework in "${frameworks[@]}"; do
   fi
   for scenario in "${scenarios[@]}"; do
     echo "--> $framework $scenario"
-    adapter_output="$(python3 "examples/integrations/${framework}/quickstart.py" --scenario "$scenario")"
+    if [[ "$framework" == "langchain" ]]; then
+      adapter_output="$(
+        cd "$repo_root/sdk/python" && \
+          uv run --python 3.13 --extra langchain python \
+            "../../examples/integrations/${framework}/quickstart.py" --scenario "$scenario"
+      )"
+    else
+      adapter_output="$(python3 "examples/integrations/${framework}/quickstart.py" --scenario "$scenario")"
+    fi
     printf '%s\n' "$adapter_output"
     ADAPTER_FRAMEWORK="$framework" ADAPTER_SCENARIO="$scenario" ADAPTER_OUTPUT="$adapter_output" python3 - <<'PY'
 import json

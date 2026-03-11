@@ -13,9 +13,10 @@ From repo root:
 
 ```bash
 go build -o ./gait ./cmd/gait
-python3 examples/integrations/langchain/quickstart.py --scenario allow
-python3 examples/integrations/langchain/quickstart.py --scenario block
-python3 examples/integrations/langchain/quickstart.py --scenario require_approval
+(cd sdk/python && uv sync --extra langchain --extra dev)
+(cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario allow)
+(cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario block)
+(cd sdk/python && uv run --python 3.13 --extra langchain python ../../examples/integrations/langchain/quickstart.py --scenario require_approval)
 ```
 
 Expected allow output:

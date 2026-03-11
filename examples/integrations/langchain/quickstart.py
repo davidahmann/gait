@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
-import subprocess  # nosec B404
 import sys
 from pathlib import Path
 
@@ -19,34 +17,6 @@ def ensure_sdk_path(repo_root: Path) -> None:
     sdk_root = repo_root / "sdk" / "python"
     if str(sdk_root) not in sys.path:
         sys.path.insert(0, str(sdk_root))
-
-
-def ensure_langchain_available(repo_root: Path) -> None:
-    if os.environ.get("GAIT_LANGCHAIN_READY") == "1":
-        return
-    try:
-        __import__("langchain")
-    except ImportError:
-        uv_bin = shutil.which("uv")
-        if uv_bin is None:
-            raise RuntimeError(
-                "langchain is not installed and `uv` is unavailable; install langchain or "
-                "run with `uv run --with langchain`."
-            ) from None
-        command = [
-            uv_bin,
-            "run",
-            "--with",
-            "langchain>=1.0,<2.0",
-            "python",
-            __file__,
-            *sys.argv[1:],
-        ]
-        env = dict(os.environ)
-        env["GAIT_LANGCHAIN_READY"] = "1"
-        raise SystemExit(
-            subprocess.run(command, cwd=repo_root, env=env, check=False).returncode  # nosec B603
-        )
 
 
 def resolve_gait_bin(repo_root: Path) -> str:
@@ -73,9 +43,15 @@ def main() -> int:
 
     repo_root = resolve_repo_root()
     ensure_sdk_path(repo_root)
-    ensure_langchain_available(repo_root)
-
-    from agent_middleware import run_langchain_scenario
+    try:
+        from agent_middleware import run_langchain_scenario
+    except ImportError as error:
+        if error.name and error.name.startswith("langchain"):
+            raise RuntimeError(
+                "langchain quickstart requires optional LangChain dependencies; "
+                "run `cd sdk/python && uv sync --extra langchain --extra dev` first."
+            ) from error
+        raise
 
     gait_bin = resolve_gait_bin(repo_root)
     result = run_langchain_scenario(

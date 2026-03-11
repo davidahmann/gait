@@ -165,3 +165,42 @@ def test_langchain_run_session_keeps_run_id_and_trace_metadata(tmp_path: Path) -
     assert session.attempts[0].verdict == "allow"
     receipts = session.record_input["refs"]["receipts"]
     assert receipts[0]["source_locator"].endswith("tool.allow_call_langchain_session.json")
+
+
+def test_langchain_callback_failure_does_not_block_allowed_execution(tmp_path: Path) -> None:
+    tool_call_request, gait_langchain = load_langchain_test_module()
+
+    class FailingCallback:
+        def on_gait_decision(self, metadata: object) -> None:
+            raise RuntimeError(f"callback failed for {metadata}")
+
+    middleware = gait_langchain.GaitLangChainMiddleware(
+        make_adapter(tmp_path),
+        trace_dir=tmp_path,
+        callback_handler=FailingCallback(),
+    )
+    request = make_request(tool_call_request, tool_name="tool.allow", scenario="callback_allow")
+
+    result = middleware.wrap_tool_call(request, lambda _: {"ok": True})
+
+    assert result == {"ok": True}
+
+
+def test_langchain_callback_failure_does_not_mask_gate_error(tmp_path: Path) -> None:
+    tool_call_request, gait_langchain = load_langchain_test_module()
+
+    class FailingCallback:
+        def on_gait_decision(self, metadata: object) -> None:
+            raise RuntimeError(f"callback failed for {metadata}")
+
+    middleware = gait_langchain.GaitLangChainMiddleware(
+        make_adapter(tmp_path),
+        trace_dir=tmp_path,
+        callback_handler=FailingCallback(),
+    )
+    request = make_request(tool_call_request, tool_name="tool.approval", scenario="callback_block")
+
+    with pytest.raises(GateEnforcementError) as error:
+        middleware.wrap_tool_call(request, lambda _: {"ok": True})
+
+    assert error.value.decision.verdict == "require_approval"
