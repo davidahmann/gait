@@ -19,6 +19,11 @@ from gait import (
 from helpers import create_fake_gait_script, install_fake_langchain_modules
 
 
+def load_gait_langchain_module() -> object:
+    gait_langchain = importlib.import_module("gait.langchain")
+    return importlib.reload(gait_langchain)
+
+
 def test_tool_adapter_executes_allowed_intent(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
@@ -196,22 +201,18 @@ def test_tool_adapter_propagates_gate_command_failure_without_execution(
 
 
 def test_langchain_middleware_requires_optional_dependency(tmp_path: Path) -> None:
-    from gait.langchain import GaitLangChainMiddleware
-
+    gait_langchain = load_gait_langchain_module()
     adapter = ToolAdapter(policy_path=tmp_path / "policy.yaml", gait_bin="gait")
 
     with pytest.raises(ImportError, match="LangChain integration requires optional dependencies"):
-        GaitLangChainMiddleware(adapter)
+        gait_langchain.GaitLangChainMiddleware(adapter)
 
 
 def test_langchain_middleware_wraps_tool_execution_and_emits_metadata(tmp_path: Path) -> None:
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
     tool_call_request = install_fake_langchain_modules()
-
-    import gait.langchain as gait_langchain
-
-    gait_langchain = importlib.reload(gait_langchain)
+    gait_langchain = load_gait_langchain_module()
 
     @dataclass(slots=True)
     class RuntimeContext:
@@ -285,10 +286,7 @@ def test_langchain_middleware_blocks_without_running_handler(tmp_path: Path) -> 
     fake_gait = tmp_path / "fake_gait.py"
     create_fake_gait_script(fake_gait)
     tool_call_request = install_fake_langchain_modules()
-
-    import gait.langchain as gait_langchain
-
-    gait_langchain = importlib.reload(gait_langchain)
+    gait_langchain = load_gait_langchain_module()
 
     @dataclass(slots=True)
     class Runtime:
