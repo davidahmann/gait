@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import sys
+from dataclasses import dataclass, replace
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 
 def create_fake_gait_script(path: Path) -> None:
@@ -34,6 +38,7 @@ def run_gate_eval(args):
 
     if tool_name == "tool.block":
         verdict = "block"
+        exit_code = 3
         reason_codes = ["blocked_tool"]
     elif tool_name == "tool.approval":
         verdict = "require_approval"
@@ -153,3 +158,59 @@ if __name__ == "__main__":
     raise SystemExit(main())
 """
     path.write_text(script, encoding="utf-8")
+
+
+def install_fake_langchain_modules() -> type[Any]:
+    langchain = ModuleType("langchain")
+    langchain.__path__ = []  # type: ignore[attr-defined]
+    langchain_agents = ModuleType("langchain.agents")
+    langchain_agents.__path__ = []  # type: ignore[attr-defined]
+    langchain_agents_middleware = ModuleType("langchain.agents.middleware")
+    langchain_tools = ModuleType("langchain.tools")
+    langchain_tools.__path__ = []  # type: ignore[attr-defined]
+    langchain_tools_tool_node = ModuleType("langchain.tools.tool_node")
+    langchain_core = ModuleType("langchain_core")
+    langchain_core.__path__ = []  # type: ignore[attr-defined]
+    langchain_core_callbacks = ModuleType("langchain_core.callbacks")
+    langchain_core_callbacks.__path__ = []  # type: ignore[attr-defined]
+    langchain_core_callbacks_base = ModuleType("langchain_core.callbacks.base")
+
+    class AgentMiddleware:
+        pass
+
+    @dataclass(slots=True)
+    class ToolCallRequest:
+        tool_call: dict[str, Any]
+        tool: Any | None
+        state: Any
+        runtime: Any
+
+        def override(self, **overrides: Any) -> "ToolCallRequest":
+            return replace(self, **overrides)
+
+    class BaseCallbackHandler:
+        pass
+
+    langchain_agents_middleware.AgentMiddleware = AgentMiddleware
+    langchain_tools_tool_node.ToolCallRequest = ToolCallRequest
+    langchain_core_callbacks_base.BaseCallbackHandler = BaseCallbackHandler
+
+    langchain.agents = langchain_agents  # type: ignore[attr-defined]
+    langchain_agents.middleware = langchain_agents_middleware  # type: ignore[attr-defined]
+    langchain.tools = langchain_tools  # type: ignore[attr-defined]
+    langchain_tools.tool_node = langchain_tools_tool_node  # type: ignore[attr-defined]
+    langchain_core.callbacks = langchain_core_callbacks  # type: ignore[attr-defined]
+    langchain_core_callbacks.base = langchain_core_callbacks_base  # type: ignore[attr-defined]
+
+    modules = {
+        "langchain": langchain,
+        "langchain.agents": langchain_agents,
+        "langchain.agents.middleware": langchain_agents_middleware,
+        "langchain.tools": langchain_tools,
+        "langchain.tools.tool_node": langchain_tools_tool_node,
+        "langchain_core": langchain_core,
+        "langchain_core.callbacks": langchain_core_callbacks,
+        "langchain_core.callbacks.base": langchain_core_callbacks_base,
+    }
+    sys.modules.update(modules)
+    return ToolCallRequest

@@ -10,6 +10,7 @@ from .client import (
     write_trace,
 )
 from .decorators import gate_tool
+from .langchain import GaitLangChainCallbackHandler, GaitLangChainMiddleware
 from .models import (
     DelegationLink,
     DemoCapture,
@@ -21,6 +22,7 @@ from .models import (
     IntentScript,
     IntentScriptStep,
     IntentTarget,
+    LangChainDecisionMetadata,
     RegressInitResult,
     RunRecordCapture,
     TraceRecord,
@@ -36,6 +38,8 @@ __all__ = [
     "GaitError",
     "GateEnforcementError",
     "GateEvalResult",
+    "GaitLangChainCallbackHandler",
+    "GaitLangChainMiddleware",
     "IntentArgProvenance",
     "IntentContext",
     "IntentDelegation",
@@ -43,6 +47,7 @@ __all__ = [
     "IntentScript",
     "IntentScriptStep",
     "IntentTarget",
+    "LangChainDecisionMetadata",
     "RegressInitResult",
     "RunAttempt",
     "RunRecordCapture",

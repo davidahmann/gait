@@ -2,19 +2,51 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import shutil
 import subprocess  # nosec B404
+import sys
 from pathlib import Path
-from typing import Any
 
 FRAMEWORK = "langchain"
-CREATED_AT = "2026-02-06T00:00:00Z"
 
 
 def resolve_repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def ensure_sdk_path(repo_root: Path) -> None:
+    sdk_root = repo_root / "sdk" / "python"
+    if str(sdk_root) not in sys.path:
+        sys.path.insert(0, str(sdk_root))
+
+
+def ensure_langchain_available(repo_root: Path) -> None:
+    if os.environ.get("GAIT_LANGCHAIN_READY") == "1":
+        return
+    try:
+        __import__("langchain")
+    except ImportError:
+        uv_bin = shutil.which("uv")
+        if uv_bin is None:
+            raise RuntimeError(
+                "langchain is not installed and `uv` is unavailable; install langchain or "
+                "run with `uv run --with langchain`."
+            ) from None
+        command = [
+            uv_bin,
+            "run",
+            "--with",
+            "langchain>=1.0,<2.0",
+            "python",
+            __file__,
+            *sys.argv[1:],
+        ]
+        env = dict(os.environ)
+        env["GAIT_LANGCHAIN_READY"] = "1"
+        raise SystemExit(
+            subprocess.run(command, cwd=repo_root, env=env, check=False).returncode  # nosec B603
+        )
 
 
 def resolve_gait_bin(repo_root: Path) -> str:
@@ -30,172 +62,30 @@ def resolve_gait_bin(repo_root: Path) -> str:
     raise RuntimeError("unable to find gait binary; set GAIT_BIN or build ./gait")
 
 
-def build_langchain_tool_call(scenario: str) -> dict[str, Any]:
-    return {
-        "tool": "write_file",
-        "tool_input": {
-            "path": f"/tmp/gait-{FRAMEWORK}-{scenario}.json",
-            "content": {"framework": FRAMEWORK, "scenario": scenario},
-            "skill": {
-                "name": "safe_writer",
-                "version": "1.0.0",
-                "source": "registry",
-                "publisher": "acme",
-                "digest": "a" * 64,
-                "signature_key_id": "acme-dev-key",
-            },
-        },
-    }
-
-
-def to_intent_payload(tool_call: dict[str, Any], scenario: str) -> dict[str, Any]:
-    arguments = dict(tool_call["tool_input"])
-    skill = dict(arguments.pop("skill"))
-    path = str(arguments["path"])
-    return {
-        "schema_id": "gait.gate.intent_request",
-        "schema_version": "1.0.0",
-        "created_at": CREATED_AT,
-        "producer_version": "0.0.0-example",
-        "tool_name": "tool.write",
-        "args": arguments,
-        "targets": [
-            {
-                "kind": "path",
-                "value": path,
-                "operation": "write",
-                "endpoint_class": "fs.write",
-            }
-        ],
-        "arg_provenance": [{"arg_path": "$.path", "source": "user"}],
-        "skill_provenance": {
-            "skill_name": str(skill["name"]),
-            "skill_version": str(skill.get("version", "")),
-            "source": str(skill["source"]),
-            "publisher": str(skill["publisher"]),
-            "digest": str(skill.get("digest", "")),
-            "signature_key_id": str(skill.get("signature_key_id", "")),
-        },
-        "delegation": {
-            "requester_identity": "langchain-user",
-            "scope_class": "write",
-            "token_refs": [f"delegation-{FRAMEWORK}-{scenario}"],
-            "chain": [
-                {
-                    "delegator_identity": "agent.lead",
-                    "delegate_identity": "langchain-user",
-                    "scope_class": "write",
-                    "token_ref": f"delegation-{FRAMEWORK}-{scenario}",
-                }
-            ],
-        },
-        "context": {
-            "identity": "langchain-user",
-            "workspace": "/tmp/gait-langchain",
-            "risk_class": "high",
-            "session_id": f"sess-{FRAMEWORK}-{scenario}",
-            "auth_context": {
-                "framework": FRAMEWORK,
-                "operator": "example-user",
-            },
-            "credential_scopes": ["files.write", "network.egress"],
-            "environment_fingerprint": f"{FRAMEWORK}:local:{scenario}",
-        },
-    }
-
-
-def run_gate_eval(
-    gait_bin: str, policy_path: Path, intent_path: Path, trace_path: Path
-) -> tuple[int, dict[str, Any]]:
-    command = [
-        gait_bin,
-        "gate",
-        "eval",
-        "--policy",
-        str(policy_path),
-        "--intent",
-        str(intent_path),
-        "--trace-out",
-        str(trace_path),
-        "--key-mode",
-        "dev",
-        "--json",
-    ]
-    completed = subprocess.run(  # nosec B603
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if not completed.stdout.strip():
-        raise RuntimeError(
-            f"gait gate eval produced no JSON output (stderr={completed.stderr.strip()})"
-        )
-    payload = json.loads(completed.stdout)
-    if not isinstance(payload, dict):
-        raise RuntimeError("gait gate eval returned non-object JSON")
-    return completed.returncode, payload
-
-
-def execute_wrapped_tool(intent_payload: dict[str, Any], output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(intent_payload["args"], indent=2) + "\n", encoding="utf-8"
-    )
-
-
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="LangChain wrapped tool-call quickstart"
+    parser = argparse.ArgumentParser(description="LangChain middleware quickstart")
+    parser.add_argument(
+        "--scenario",
+        choices=["allow", "block", "require_approval"],
+        required=True,
     )
-    parser.add_argument("--scenario", choices=["allow", "block"], required=True)
     args = parser.parse_args()
 
     repo_root = resolve_repo_root()
+    ensure_sdk_path(repo_root)
+    ensure_langchain_available(repo_root)
+
+    from agent_middleware import run_langchain_scenario
+
     gait_bin = resolve_gait_bin(repo_root)
-    scenario = args.scenario
-    policy_path = Path(__file__).with_name(f"policy_{scenario}.yaml")
-    run_dir = repo_root / "gait-out" / "integrations" / FRAMEWORK
-    run_dir.mkdir(parents=True, exist_ok=True)
-    intent_path = run_dir / f"intent_{scenario}.json"
-    trace_path = run_dir / f"trace_{scenario}.json"
-    executor_path = run_dir / f"executor_{scenario}.json"
-
-    langchain_call = build_langchain_tool_call(scenario)
-    intent_payload = to_intent_payload(langchain_call, scenario)
-    intent_path.write_text(
-        json.dumps(intent_payload, indent=2) + "\n", encoding="utf-8"
+    result = run_langchain_scenario(
+        repo_root=repo_root,
+        gait_bin=gait_bin,
+        scenario=args.scenario,
     )
 
-    exit_code, gate_payload = run_gate_eval(
-        gait_bin, policy_path, intent_path, trace_path
-    )
-    verdict = str(gate_payload.get("verdict", "unknown"))
-    traced = str(gate_payload.get("trace_path", trace_path))
-
-    if scenario == "allow":
-        if exit_code != 0 or verdict != "allow":
-            raise RuntimeError(
-                f"expected allow flow, got exit_code={exit_code} verdict={verdict}"
-            )
-        execute_wrapped_tool(intent_payload, executor_path)
-        print(f"framework={FRAMEWORK}")
-        print("scenario=allow")
-        print(f"verdict={verdict}")
-        print("executed=true")
-        print(f"trace_path={traced}")
-        print(f"executor_output={executor_path}")
-        return 0
-
-    if verdict != "block" or exit_code not in (0, 3):
-        raise RuntimeError(
-            f"expected block flow, got exit_code={exit_code} verdict={verdict}"
-        )
-    print(f"framework={FRAMEWORK}")
-    print("scenario=block")
-    print(f"verdict={verdict}")
-    print("executed=false")
-    print(f"trace_path={traced}")
+    for key, value in result.items():
+        print(f"{key}={value}")
     return 0
 
 

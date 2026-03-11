@@ -22,6 +22,7 @@ Supported primitives:
 - regress fixture init (`create_regress_fixture`)
 - run capture (`record_runpack`)
 - trace copy/validation (`write_trace`)
+- optional LangChain middleware (`GaitLangChainMiddleware`)
 
 Non-goals:
 
@@ -97,6 +98,11 @@ The SDK is a thin subprocess wrapper that calls the local `gait` binary. The Go 
 
 No. The Python SDK has zero external runtime dependencies. Dev dependencies (pytest, ruff, mypy) are for development only.
 
+LangChain is opt-in:
+
+- install with `uv sync --extra langchain --extra dev` when you want the middleware surface
+- base SDK users do not need LangChain installed
+
 ### What Python version is required?
 
 Python 3.13 or higher.
@@ -104,6 +110,16 @@ Python 3.13 or higher.
 ### How do I wrap a tool function with Gait?
 
 Use the `@gate_tool` decorator from the SDK. It automatically evaluates gate policy before executing the tool and records the result.
+
+### How does the official LangChain integration work?
+
+The official surface is `GaitLangChainMiddleware`, and enforcement only happens in `wrap_tool_call`.
+
+- tool name and args are captured into a normal `IntentRequest`
+- execution still routes through `ToolAdapter.execute`
+- optional `GaitLangChainCallbackHandler` receives additive correlation metadata such as `run_id`, `request_id`, `trace_path`, `policy_digest`, and `intent_digest`
+- callback handlers never decide allow or block behavior
+- the official example lane is `examples/integrations/langchain/quickstart.py`
 
 ### What happens if the Gait binary is not found?
 

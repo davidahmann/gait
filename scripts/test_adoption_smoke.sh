@@ -146,6 +146,12 @@ python3 - <<'PY'
 from pathlib import Path
 
 required = [
+    Path("gait-out/integrations/langchain/trace_allow.json"),
+    Path("gait-out/integrations/langchain/trace_block.json"),
+    Path("gait-out/integrations/langchain/trace_require_approval.json"),
+    Path("gait-out/integrations/langchain/runpacks/runpack_run_langchain_allow.zip"),
+    Path("gait-out/integrations/langchain/runpacks/runpack_run_langchain_block.zip"),
+    Path("gait-out/integrations/langchain/runpacks/runpack_run_langchain_require_approval.zip"),
     Path("gait-out/integrations/template/trace_allow.json"),
     Path("gait-out/integrations/template/trace_block.json"),
     Path("gait-out/integrations/template/trace_require_approval.json"),

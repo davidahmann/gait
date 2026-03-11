@@ -175,7 +175,7 @@ Contract docs:
 
 Supported references:
 
-- `examples/integrations/langchain/`
+- `examples/integrations/langchain/` (official middleware with optional callback correlation)
 - `examples/integrations/autogen/`
 - `examples/integrations/openclaw/`
 - `examples/integrations/autogpt/`
@@ -207,6 +207,9 @@ go build -o ./gait ./cmd/gait
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
 python3 examples/integrations/openai_agents/quickstart.py --scenario block
 python3 examples/integrations/openai_agents/quickstart.py --scenario require_approval
+python3 examples/integrations/langchain/quickstart.py --scenario allow
+python3 examples/integrations/langchain/quickstart.py --scenario block
+python3 examples/integrations/langchain/quickstart.py --scenario require_approval
 python3 examples/integrations/voice_reference/quickstart.py --scenario allow
 python3 examples/integrations/voice_reference/quickstart.py --scenario block
 python3 examples/integrations/voice_reference/quickstart.py --scenario require_approval

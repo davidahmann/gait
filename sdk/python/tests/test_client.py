@@ -72,6 +72,27 @@ def test_evaluate_gate_require_approval_exit_code(tmp_path: Path) -> None:
     assert result.reason_codes == ["approval_required"]
 
 
+def test_evaluate_gate_block_exit_code(tmp_path: Path) -> None:
+    fake_gait = tmp_path / "fake_gait.py"
+    create_fake_gait_script(fake_gait)
+
+    intent = capture_intent(
+        tool_name="tool.block",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+    result = evaluate_gate(
+        policy_path=tmp_path / "policy.yaml",
+        intent=intent,
+        gait_bin=[sys.executable, str(fake_gait)],
+        cwd=tmp_path,
+    )
+
+    assert result.exit_code == 3
+    assert result.verdict == "block"
+    assert result.reason_codes == ["blocked_tool"]
+
+
 def test_capture_intent_script_payload() -> None:
     intent = capture_intent(
         tool_name="script",

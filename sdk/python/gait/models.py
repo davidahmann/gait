@@ -348,6 +348,43 @@ class GateEvalResult:
 
 
 @dataclass(slots=True, frozen=True)
+class LangChainDecisionMetadata:
+    tool_name: str
+    tool_call_id: str | None
+    run_id: str | None
+    request_id: str | None
+    auth_context: dict[str, Any] | None
+    trace_path: str | None
+    policy_digest: str | None
+    intent_digest: str | None
+    verdict: str | None
+    executed: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        output: dict[str, Any] = {
+            "tool_name": self.tool_name,
+            "executed": self.executed,
+        }
+        if self.tool_call_id:
+            output["tool_call_id"] = self.tool_call_id
+        if self.run_id:
+            output["run_id"] = self.run_id
+        if self.request_id:
+            output["request_id"] = self.request_id
+        if self.auth_context:
+            output["auth_context"] = dict(self.auth_context)
+        if self.trace_path:
+            output["trace_path"] = self.trace_path
+        if self.policy_digest:
+            output["policy_digest"] = self.policy_digest
+        if self.intent_digest:
+            output["intent_digest"] = self.intent_digest
+        if self.verdict:
+            output["verdict"] = self.verdict
+        return output
+
+
+@dataclass(slots=True, frozen=True)
 class TraceRecord:
     schema_id: str
     schema_version: str
