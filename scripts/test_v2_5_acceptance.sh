@@ -303,7 +303,11 @@ cat >"${TMP_DIR}/intent_present.json" <<JSON
 }
 JSON
 
-"${BIN_PATH}" gate eval --policy "${TMP_DIR}/policy.yaml" --intent "${TMP_DIR}/intent_present.json" --json >"${TMP_DIR}/gate_present.json"
+"${BIN_PATH}" gate eval \
+  --policy "${TMP_DIR}/policy.yaml" \
+  --intent "${TMP_DIR}/intent_present.json" \
+  --context-envelope "${TMP_DIR}/context_envelope.json" \
+  --json >"${TMP_DIR}/gate_present.json"
 python3 - <<'PY' "${TMP_DIR}/gate_present.json"
 import json, sys
 payload = json.load(open(sys.argv[1], encoding="utf-8"))

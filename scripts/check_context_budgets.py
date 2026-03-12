@@ -209,9 +209,6 @@ def operation_gate_eval_context_required(gait: Path, work_dir: Path, _: int) -> 
                     "identity": "alice",
                     "workspace": "/repo/gait",
                     "risk_class": "high",
-                    "context_set_digest": "a" * 64,
-                    "context_evidence_mode": "required",
-                    "context_refs": ["ctx_001"],
                 },
             },
             indent=2,
@@ -219,8 +216,28 @@ def operation_gate_eval_context_required(gait: Path, work_dir: Path, _: int) -> 
         + "\n",
         encoding="utf-8",
     )
+    envelope_path = work_dir / "context_envelope_gate_required.json"
+    envelope_path.write_text(
+        json.dumps(
+            build_envelope("a" * 64, "2026-02-14T00:00:00Z"),
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     decision = run_json(
-        [str(gait), "gate", "eval", "--policy", str(policy_path), "--intent", str(intent_path), "--json"],
+        [
+            str(gait),
+            "gate",
+            "eval",
+            "--policy",
+            str(policy_path),
+            "--intent",
+            str(intent_path),
+            "--context-envelope",
+            str(envelope_path),
+            "--json",
+        ],
         work_dir,
     )
     if decision.get("verdict") != "allow":
