@@ -124,11 +124,14 @@ The official surface is `GaitLangChainMiddleware`, and enforcement only happens 
 Minimal snippet:
 
 ```python
+from gait import ToolAdapter
 from gait.langchain import GaitLangChainMiddleware, GaitLangChainCallbackHandler
+
+adapter = ToolAdapter(policy_path="examples/integrations/langchain/policy_allow.yaml")
 
 middleware = [
     GaitLangChainMiddleware(
-        policy_path="examples/integrations/langchain/policy_allow.yaml",
+        adapter=adapter,
         callback_handler=GaitLangChainCallbackHandler(),
     )
 ]
