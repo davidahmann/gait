@@ -62,19 +62,19 @@ Trigger and response matrix:
 
 ## Step 1A: Context-Required Re-evaluation (When Policy Demands Context Evidence)
 
-Before token minting for context-required rules, validate intent context linkage:
+Before token minting for context-required rules, validate the exact boundary input that production will supply:
 
 ```bash
-gait gate eval --policy <policy.yaml> --intent <intent.json> --json
+gait gate eval --policy <policy.yaml> --intent <intent.json> --context-envelope <context_envelope.json> --json
 ```
 
-Intent context requirements:
+Authoritative context requirements:
 
-- `context.context_set_digest` present
-- `context.context_evidence_mode=required` when policy requires required mode
-- optional freshness bound satisfied (`context.auth_context.context_age_seconds <= max_context_age_seconds`)
+- `context_set_digest`, `context_evidence_mode`, and `context_age_seconds` are derived from the verified context envelope during evaluation.
+- freshness is computed from envelope timestamps (`records[].retrieved_at`, or `created_at` when no records are present).
+- raw `intent.context_set_digest`, `intent.context_evidence_mode`, or `context.auth_context.context_age_seconds` claims do not satisfy context-required policy on their own.
 
-If any requirement fails, do not mint approval token. Fix intent context and re-evaluate.
+If the envelope is missing, stale, mismatched, or rejected, do not mint approval token. Fix the boundary input and re-evaluate.
 
 ## Step 2: Mint Approval Token
 

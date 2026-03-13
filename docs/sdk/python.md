@@ -39,6 +39,10 @@ The SDK executes commands via `subprocess.run(...)` with a bounded timeout.
 - demo capture consumes machine-readable `gait demo --json` output only
 - non-zero exits raise `GaitCommandError` with command, exit code, stdout, and stderr
 
+## Migration Note
+
+If existing wrapper automation scraped the human `gait demo` text output, switch it to `capture_demo_runpack(...)` or `gait demo --json`. The human text form is not a stable SDK contract.
+
 ## Binary Resolution And Errors
 
 The SDK expects `gait` to be available on `PATH` by default.

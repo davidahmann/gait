@@ -81,8 +81,62 @@ jobs:
           make test-runtime-slo
           make bench-check
 
+  v2_6_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Run v2.6 release contract gate
+        run: |
+          make test-v2-6-acceptance
+
+  boundary_repro_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+      - name: Run boundary contract repro guards
+        env:
+          PYTHONPATH: .
+        shell: bash
+        run: |
+          go test ./cmd/gait -count=1 -run 'TestRunGateEvalRequiresVerifiedContextEnvelopeForContextPolicies|TestPolicyTestEqualPriorityRenamesDoNotChangeVerdict'
+          go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'
+          go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'
+          cd sdk/python
+          uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
+
+  hardening_gate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Run release hardening gate
+        run: |
+          make test-hardening-acceptance
+
   release:
-    needs: [v2_3_gate, v2_4_gate, v2_5_gate]
+    needs: [v2_3_gate, v2_4_gate, v2_5_gate, v2_6_gate, boundary_repro_gate, hardening_gate]
     runs-on: ubuntu-latest
     permissions:
       contents: write

@@ -6,7 +6,7 @@ Gait enforces fail-closed policy before agent tool side effects execute and keep
 
 ## What should teams run first?
 
-Run `gait init --json`, `gait check --json`, `gait demo`, `gait verify run_demo --json`, and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
+Run `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
 
 ## What problem does Gait solve for long-running agent work?
 
@@ -36,6 +36,8 @@ Yes. Voice mode gates high-stakes spoken commitments before they are uttered. A 
 
 Context evidence is deterministic proof of what context material the model was working from at decision time. Gait captures privacy-aware context envelopes and enforces fail-closed policy when evidence is missing for high-risk actions.
 
+For context-required policies, the gate only trusts a verified `--context-envelope` input; raw context digest, mode, or age claims inside the intent are not sufficient on their own.
+
 ## Can I replay an agent run without re-executing real API calls?
 
 Yes. `gait run replay` uses recorded results as deterministic stubs so you can debug safely. `gait pack diff` then shows exactly what changed between two runs, including context drift classification.
@@ -50,4 +52,4 @@ Yes. Use `gait approve-script` to mint signed registry entries bound to policy d
 
 ## How should teams start?
 
-Bootstrap `.gait.yaml` with `gait init` and `gait check`, then run `gait demo` and wire one integration seam from the integration checklist.
+Bootstrap `.gait.yaml` with `gait init` and `gait check`, run `gait demo --json` for automation, then wire one integration seam from the integration checklist at the real tool-dispatch boundary.

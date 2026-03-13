@@ -6,6 +6,7 @@ Stable OSS contracts include:
   - includes first-class export surfaces: `gait pack export --otel-out ...` and `--postgres-sql-out ...` for observability and metadata indexing.
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement. For `gait gate eval`, required context-proof checks are satisfied through a verified `--context-envelope` input rather than raw intent claims.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
+- **Python SDK Demo Contract**: machine-readable SDK/demo capture consumes `gait demo --json` output only; the human text form is non-contractual.
 - **Repo Policy Contract**: `gait init` writes `.gait.yaml`; `gait check` reports the live contract (`default_verdict`, `rule_count`, `gap_warnings`).
 - **Equal-Priority Policy Semantics**: when multiple rules at the same priority match one intent, Gait evaluates that priority tier and applies the most restrictive verdict rather than depending on rule names.
 - **MCP Trust + Trace Onboarding**: local MCP trust snapshots and observe-only `gait trace` are additive onboarding contracts over the same signed trace and policy surfaces.

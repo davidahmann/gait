@@ -44,6 +44,11 @@ When multiple rules at the same priority match one intent, Gait evaluates the en
 
 If you need one rule to win unconditionally, give it a strictly lower numeric `priority` instead of relying on rule names.
 
+## Migration Notes
+
+- For context-required policies, runtime enforcement now requires a verified `--context-envelope` on `gait gate eval`; raw intent context claims are not enough to satisfy `require_context_evidence`, `required_context_evidence_mode`, or `max_context_age_seconds`.
+- If a policy review depends on a same-priority rule "winning" by name, change the numeric `priority` instead. Equal-priority names are no longer part of the verdict contract.
+
 ## Repo-Root Policy Contract
 
 The default onboarding contract is the repo-root file `.gait.yaml`.
@@ -156,6 +161,7 @@ This gives fast feedback for enum values and unknown keys before runtime.
 - Keep policy files formatted by `policy fmt --write` before review.
 - Review policy changes with fixture deltas and matched-rule evidence, not raw YAML diff alone.
 - Include equal-priority overlap fixtures in CI when multiple rules intentionally target the same tool surface.
+- For context-required fixtures, include a `gait gate eval --context-envelope ... --json` lane so CI exercises the same boundary contract as production.
 - Keep the repo-default contract truthful: if docs say `.gait.yaml`, examples should use `.gait.yaml` unless a custom path is the point of the example.
 
 ## Signing Key Lifecycle (Local)

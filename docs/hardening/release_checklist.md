@@ -13,8 +13,14 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
   - `make test-v2-3-acceptance`
   - `make test-v2-4-acceptance`
   - `make test-v2-5-acceptance`
+  - `make test-v2-6-acceptance`
   - `make test-context-conformance`
   - `make test-context-chaos`
+- [ ] Boundary contract repro guards pass:
+  - `go test ./cmd/gait -count=1 -run 'TestRunGateEvalRequiresVerifiedContextEnvelopeForContextPolicies|TestPolicyTestEqualPriorityRenamesDoNotChangeVerdict'`
+  - `go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'`
+  - `go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'`
+  - `cd sdk/python && PYTHONPATH=. uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'`
 - [ ] Full local UAT passes: `bash scripts/test_uat_local.sh`
   - verify `.uat_local/summary.txt` contains `UAT COMPLETE: PASS`
 - [ ] CI `hardening` job is green on the release commit.
@@ -50,6 +56,9 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
   - `v2_3_gate`
   - `v2_4_gate`
   - `v2_5_gate`
+  - `v2_6_gate`
+  - `boundary_repro_gate`
+  - `hardening_gate`
 - [ ] Checksums generated and verified.
 - [ ] Signatures/provenance artifacts generated and verifiable.
 - [ ] Homebrew formula asset rendered from release checksums (`dist/gait.rb`).

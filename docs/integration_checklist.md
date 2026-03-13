@@ -64,13 +64,21 @@ Choose the highest tier you can support:
 
 Reference: `docs/agent_integration_boundary.md`.
 
+## Boundary Touchpoints To Wire
+
+- Wrapper or sidecar: call `gait gate eval` immediately before the real tool side effect.
+- Context-required policies: pass `--context-envelope <context_envelope.json>` from the local capture boundary; raw intent context fields are not authoritative by themselves.
+- SDK or CI automation: use `gait demo --json` for machine-readable smoke checks and handoff metadata.
+- CI regression loop: persist the trace or runpack from that same boundary, then wire `gait regress bootstrap --from ... --json --junit ...`.
+
 ## Core Track (First Integration, Required)
 
 Run these first. Stop if expected output is missing.
 
 1. First artifact:
-- `gait demo`
-- expect `run_id=...` and `ticket_footer=GAIT run_id=...`
+- operator path: `gait demo`
+- machine path: `gait demo --json`
+- expect either the human `run_id=...` / `ticket_footer=GAIT run_id=...` summary or JSON `ok=true` with `run_id`
 2. Verify artifact:
 - `gait verify run_demo --json`
 - expect `ok=true`
@@ -133,6 +141,8 @@ gait run record \
 - verify deterministic reason codes:
 - `context_evidence_missing`
 - `context_set_digest_missing`
+- `context_evidence_mode_mismatch`
+- `context_freshness_exceeded`
 
 Wrkr inventory enrichment (optional, local-file only):
 
