@@ -67,7 +67,7 @@ Reference: `docs/agent_integration_boundary.md`.
 ## Boundary Touchpoints To Wire
 
 - Wrapper or sidecar: call `gait gate eval` immediately before the real tool side effect.
-- Context-required policies: pass `--context-envelope <context_envelope.json>` from the local capture boundary; raw intent context fields are not authoritative by themselves.
+- Context-required policies: pass `--context-envelope <context_envelope.json>` from the local capture boundary; on `gait mcp serve`, either pin that envelope at server startup or explicitly enable same-host request paths before accepting `call.context.context_envelope_path`. Raw intent context fields are not authoritative by themselves.
 - SDK or CI automation: use `gait demo --json` for machine-readable smoke checks and handoff metadata.
 - CI regression loop: persist the trace or runpack from that same boundary, then wire `gait regress bootstrap --from ... --json --junit ...`.
 
@@ -136,7 +136,8 @@ gait run record \
 - include `require_context_evidence: true`
 - include `required_context_evidence_mode: required`
 - optional `max_context_age_seconds`
-- pass `--context-envelope <context_envelope.json>` on `gait gate eval` whenever those constraints are expected to hold at enforcement time
+- pass `--context-envelope <context_envelope.json>` on `gait gate eval` or `gait mcp proxy` whenever those constraints are expected to hold at enforcement time
+- for `gait mcp serve`, either start the server with `--context-envelope <context_envelope.json>` or, when `--allow-client-artifact-paths` is explicitly enabled, send `call.context.context_envelope_path`
 - do not rely on raw `intent.context_set_digest` or `context.auth_context.context_age_seconds` claims to satisfy fail-closed gate checks
 - verify deterministic reason codes:
 - `context_evidence_missing`

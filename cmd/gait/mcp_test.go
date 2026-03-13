@@ -663,6 +663,32 @@ rules:
 	}
 }
 
+func TestRunMCPProxyRejectsContextEnvelopePathInPayload(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	callPath := filepath.Join(workDir, "call.json")
+	mustWriteFile(t, callPath, `{
+  "name":"tool.search",
+  "args":{"query":"gait"},
+  "context":{
+    "identity":"alice",
+    "workspace":"/repo/gait",
+    "session_id":"sess-1",
+    "context_envelope_path":"./context_envelope.json"
+  }
+}`)
+	if code := runMCPProxy([]string{
+		"--policy", policyPath,
+		"--call", callPath,
+		"--json",
+	}); code != exitInvalidInput {
+		t.Fatalf("runMCPProxy with payload context envelope expected %d got %d", exitInvalidInput, code)
+	}
+}
+
 func TestValidateMCPBoundaryOAuthEvidence(t *testing.T) {
 	validEvidence := &mcp.OAuthEvidence{
 		Issuer:      "https://auth.example.com",
@@ -886,6 +912,16 @@ func TestRunMCPProxyValidation(t *testing.T) {
 	}
 	printMCPUsage()
 	printMCPProxyUsage()
+}
+
+func TestMCPUsageIncludesServeContextEnvelopeFlag(t *testing.T) {
+	raw := captureStdout(t, func() {
+		printMCPUsage()
+		printMCPServeUsage()
+	})
+	if !strings.Contains(raw, "gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>]") {
+		t.Fatalf("expected mcp serve usage to include context-envelope flag, got %q", raw)
+	}
 }
 
 func TestRunMCPProxyPackOutWithoutRunpackOut(t *testing.T) {

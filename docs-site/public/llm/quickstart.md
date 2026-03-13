@@ -40,7 +40,7 @@ verify=ok
 
 For SDKs and wrappers, prefer the JSON form and treat the text form as human-facing output only.
 
-Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`; raw intent context claims are not authoritative by themselves.
+Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw intent context claims are not authoritative by themselves.
 
 Then continue with one integration seam:
 
@@ -52,7 +52,7 @@ Then continue with one integration seam:
 Boundary touchpoints:
 
 - wrapper or sidecar dispatch site: `gait gate eval`
-- context-required boundary: `gait gate eval --context-envelope ...`
+- context-required boundary: `gait gate eval --context-envelope ...` or `gait mcp serve --context-envelope ...`
 - machine-readable smoke path: `gait demo --json`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.

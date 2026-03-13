@@ -16,7 +16,7 @@ If you cannot intercept tool calls, Gait can still add observe/report/regress va
 Concrete boundary touchpoints:
 
 - call `gait gate eval` at the final adapter or middleware dispatch site before execution
-- pass `--context-envelope <context_envelope.json>` whenever policy requires context evidence; raw context digest or freshness claims are not enough
+- pass `--context-envelope <context_envelope.json>` whenever policy requires context evidence; for MCP server boundaries, either start `gait mcp serve` with `--context-envelope` or explicitly allow same-host request paths with `--allow-client-artifact-paths` and `call.context.context_envelope_path`
 - keep `verdict != allow` as non-executing in the adapter response
 - use `gait demo --json` for machine-readable wrapper or CI smoke checks
 
@@ -35,7 +35,7 @@ What Gait can do:
 
 - full policy enforcement (`allow` only executes)
 - approval/delegation token checks
-- verified context-evidence enforcement when the wrapper or sidecar passes `--context-envelope` for context-required policies
+- verified context-evidence enforcement when the wrapper, sidecar, or MCP boundary passes `--context-envelope` for context-required policies
 - signed trace emission
 - runpack/pack capture and regress loop
 
@@ -56,6 +56,7 @@ What Gait can do:
 - emit signed traces and artifacts
 - provide deterministic CI regression loop
 - enforce authenticated context-proof checks when middleware can supply the local context envelope artifact alongside the gate call
+- for `gait mcp serve`, keep the default fail-closed boundary by pinning `--context-envelope`, or explicitly opt into same-host request artifact paths before honoring `call.context.context_envelope_path`
 
 Constraints:
 
@@ -90,7 +91,7 @@ What Gait cannot do (without interception):
 ## Practical Paths
 
 - Tier A quickstart: `examples/integrations/openai_agents/quickstart.py`
-- Tier A/B transport path: `gait mcp serve`
+- Tier A/B transport path: `gait mcp serve --context-envelope ./context_envelope.json`
 - Tier C fallback: `gait report top`, `gait capture`, `gait regress add`, `gait regress run` (or `gait regress bootstrap` for the one-command path)
 
 ## Related Docs
