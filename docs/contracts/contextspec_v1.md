@@ -166,7 +166,7 @@ A context envelope is a deterministic JSON artifact that captures what context m
 
 ### When does context evidence fail-closed?
 
-When policy requires context evidence for a high-risk action class and the evidence is missing, stale, or not supplied through a verified context envelope, the gate blocks execution with an explicit reason code.
+When policy requires context evidence for a high-risk action class and the evidence is missing, stale, or not supplied through a verified context envelope, the gate blocks execution with an explicit reason code. Raw `intent.context_set_digest`, `intent.context_evidence_mode`, and `context.auth_context.context_age_seconds` claims are stripped before evaluation unless a matching envelope is verified at the boundary.
 
 ### What privacy modes are available?
 

@@ -74,3 +74,13 @@ Mapped hardening epics: `H5`, `H6`.
 - Integrity artifacts (checksums/signatures/provenance) are verified before release completion.
 
 Mapped hardening epics: `H7`, `H9`, `H12`.
+
+### NFR-09 Boundary Authenticity And Contract-Recovery Guards
+
+- Context-required gate paths MUST ignore unverified context digest/mode/age claims and only bind those fields from a verified `--context-envelope`.
+- Equal-priority rule renames MUST NOT change verdict or reason-code outcomes.
+- Durable job append failures MUST either roll back state or preserve a deterministic pending-recovery marker until reconciliation succeeds.
+- Machine-readable SDK/demo capture MUST consume `gait demo --json`; human demo text is not a stable automation surface.
+- These guards are release-blocking and MUST remain wired into fast/core/release CI lanes.
+
+Mapped hardening epics: `W1`, `W2`, `W3`, `W4`.

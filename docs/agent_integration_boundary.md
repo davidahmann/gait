@@ -13,6 +13,13 @@ Fail-closed enforcement requires an interception point before real tool executio
 
 If you cannot intercept tool calls, Gait can still add observe/report/regress value, but it cannot block side effects inline.
 
+Concrete boundary touchpoints:
+
+- call `gait gate eval` at the final adapter or middleware dispatch site before execution
+- pass `--context-envelope <context_envelope.json>` whenever policy requires context evidence; raw context digest or freshness claims are not enough
+- keep `verdict != allow` as non-executing in the adapter response
+- use `gait demo --json` for machine-readable wrapper or CI smoke checks
+
 ## Integration Tiers
 
 ## Tier A: Full Runtime Interception (Best Fit)

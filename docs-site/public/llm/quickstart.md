@@ -40,12 +40,20 @@ verify=ok
 
 For SDKs and wrappers, prefer the JSON form and treat the text form as human-facing output only.
 
+Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`; raw intent context claims are not authoritative by themselves.
+
 Then continue with one integration seam:
 
 - one-PR CI adoption: `/docs/adopt_in_one_pr/`
 - durable jobs lifecycle: `/docs/durable_jobs/`
 - production integration checklist: `/docs/integration_checklist/`
 - LangChain middleware contract: `/docs/sdk/python/`
+
+Boundary touchpoints:
+
+- wrapper or sidecar dispatch site: `gait gate eval`
+- context-required boundary: `gait gate eval --context-envelope ...`
+- machine-readable smoke path: `gait demo --json`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.
 

@@ -108,6 +108,7 @@ Consumer obligations:
 
 - MUST fail closed for high-risk paths when intent cannot be evaluated.
 - MUST NOT execute side effects on non-`allow` outcomes.
+- MUST treat incoming `context.context_set_digest`, `context.context_evidence_mode`, and `context.auth_context.context_age_seconds` as transport claims only; context-required enforcement becomes authoritative only after `gait gate eval` binds a verified `--context-envelope` at the boundary.
 
 Script mode semantics:
 

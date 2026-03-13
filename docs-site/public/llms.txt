@@ -35,6 +35,7 @@
 - Boundary location: the exact adapter call site before real tool side effects execute.
 - Input: structured intent payload.
 - Rule: `verdict != allow` means no tool execution.
+- Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
 
 ## When To Use
@@ -50,6 +51,7 @@
 ## Safety Model
 - Fail-closed by default for ambiguous high-risk policy outcomes.
 - Equal-priority rule overlaps resolve to the most restrictive verdict for that priority tier, not by rule name ordering.
+- Machine-readable wrappers and SDKs use `gait demo --json`; the text form is human-facing only.
 - `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
 - Offline verification for packs, runpacks, and traces.
 - Structured intent model for policy decisions, not free-form prompt filtering.

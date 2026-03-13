@@ -58,6 +58,31 @@ jobs:
         run: |
           bash scripts/validate_scenarios.sh
 
+  repro-guards:
+    name: pr-fast-repro-guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        run: |
+          python -m pip install --upgrade pip uv
+      - name: Run boundary contract repro guards
+        env:
+          PYTHONPATH: .
+        shell: bash
+        run: |
+          go test ./cmd/gait -count=1 -run 'TestRunGateEvalRequiresVerifiedContextEnvelopeForContextPolicies|TestPolicyTestEqualPriorityRenamesDoNotChangeVerdict'
+          go test ./core/gate -count=1 -run 'TestEvaluatePolicyDetailedEqualPriorityRenameDoesNotChangeVerdict'
+          go test ./core/jobruntime -count=1 -run 'TestSubmitAppendFailureRollsBackNewJob|TestMutationAppendFailureRollsBackStateAndRetrySucceeds|TestMutationAppendFailureWithDurableEventPreservesPendingMarker'
+          cd sdk/python
+          uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
+
   windows-fast:
     name: pr-fast-windows
     runs-on: windows-latest
@@ -67,8 +92,22 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip uv
       - name: Windows Go smoke suite
         shell: bash
         run: |
           go test -json ./...
           go build ./cmd/gait
+      - name: Windows Python SDK repro guard
+        shell: bash
+        env:
+          PYTHONPATH: .
+        run: |
+          cd sdk/python
+          uv run --python 3.13 --extra dev pytest tests/test_client.py -q -k 'capture_demo_runpack_uses_json_cli_contract or capture_demo_runpack_malformed_json_raises_command_error'
