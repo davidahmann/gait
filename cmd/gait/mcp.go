@@ -18,6 +18,7 @@ import (
 	"github.com/Clyra-AI/gait/core/pack"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
 	schemarunpack "github.com/Clyra-AI/gait/core/schema/v1/runpack"
 	sign "github.com/Clyra-AI/proof/signing"
@@ -66,21 +67,23 @@ type mcpVerifyOutput struct {
 }
 
 type mcpProxyEvalOptions struct {
-	Adapter                    string
-	Profile                    string
-	JobRoot                    string
-	RunID                      string
-	ContextEnvelopePath        string
-	TracePath                  string
-	RunpackOut                 string
-	PackOut                    string
-	AutoPackDir                string
-	LogExportPath              string
-	OTelExport                 string
-	KeyMode                    string
-	PrivateKey                 string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
-	PrivateKeyEnv              string
-	AllowLocalContextArtifacts bool
+	Adapter                     string
+	Profile                     string
+	JobRoot                     string
+	RunID                       string
+	ContextEnvelopePath         string
+	VerifiedContextEnvelope     *schemacontext.Envelope
+	TracePath                   string
+	RunpackOut                  string
+	PackOut                     string
+	AutoPackDir                 string
+	LogExportPath               string
+	OTelExport                  string
+	KeyMode                     string
+	PrivateKey                  string // #nosec G117 -- field name is explicit config surface, not a hardcoded secret.
+	PrivateKeyEnv               string
+	AllowLocalContextArtifacts  bool
+	AllowPayloadContextEnvelope bool
 }
 
 func runMCP(arguments []string) int {
@@ -359,26 +362,26 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
-	if strings.TrimSpace(call.Context.ContextEnvelopePath) != "" {
-		return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("call.context.context_envelope_path is not supported; use --context-envelope at the boundary")
-	}
 	evalOptions := gate.EvalOptions{ProducerVersion: version}
-	if envelopePath := strings.TrimSpace(options.ContextEnvelopePath); envelopePath != "" {
-		trimmedEnvelopePath := filepath.Clean(strings.TrimSpace(envelopePath))
-		if trimmedEnvelopePath == "" {
-			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope path is required")
+	envelopePath := strings.TrimSpace(options.ContextEnvelopePath)
+	if options.VerifiedContextEnvelope != nil {
+		evalOptions.VerifiedContextEnvelope = options.VerifiedContextEnvelope
+		evalOptions.ContextEvidenceNow = time.Now().UTC()
+	}
+	if payloadPath := strings.TrimSpace(call.Context.ContextEnvelopePath); payloadPath != "" {
+		if !options.AllowPayloadContextEnvelope {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("call.context.context_envelope_path is not supported; use --context-envelope at the boundary")
 		}
-		if !filepath.IsAbs(trimmedEnvelopePath) && !filepath.IsLocal(trimmedEnvelopePath) {
-			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope path must be a local filesystem path")
+		if options.VerifiedContextEnvelope != nil || envelopePath != "" {
+			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope is already configured at the boundary; remove call.context.context_envelope_path")
 		}
-		// #nosec G304 -- context envelope path is explicit local user input.
-		rawEnvelope, loadErr := os.ReadFile(trimmedEnvelopePath)
+		envelopePath = payloadPath
+		call.Context.ContextEnvelopePath = ""
+	}
+	if options.VerifiedContextEnvelope == nil && envelopePath != "" {
+		envelope, loadErr := readMCPContextEnvelope(envelopePath)
 		if loadErr != nil {
-			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("read context envelope: %w", loadErr)
-		}
-		envelope, parseErr := contextproof.ParseEnvelope(rawEnvelope)
-		if parseErr != nil {
-			return mcpProxyOutput{}, exitInvalidInput, parseErr
+			return mcpProxyOutput{}, exitInvalidInput, loadErr
 		}
 		evalOptions.VerifiedContextEnvelope = &envelope
 		evalOptions.ContextEvidenceNow = time.Now().UTC()
@@ -1001,7 +1004,7 @@ func printMCPUsage() {
 	fmt.Println("  gait mcp proxy --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp bridge --policy <policy.yaml> --call <tool_call.json|-> [--context-envelope <context_envelope.json>] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--trace-out trace.json] [--run-id run_...] [--runpack-out runpack.zip] [--pack-out pack_run.zip] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--json] [--explain]")
 	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>] [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--json] [--explain]")
 	fmt.Println("    serve endpoints: POST /v1/evaluate, POST /v1/evaluate/sse, POST /v1/evaluate/stream")
 }
 
@@ -1013,4 +1016,64 @@ func printMCPProxyUsage() {
 func printMCPVerifyUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait mcp verify --policy <policy.yaml> --server <server.json> [--risk-class <class>] [--json] [--explain]")
+}
+
+func normalizeMCPContextEnvelopePath(path string) (string, error) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", fmt.Errorf("context envelope path is required")
+	}
+	cleaned := filepath.Clean(trimmed)
+	if cleaned == "." || cleaned == string(filepath.Separator) {
+		return "", fmt.Errorf("context envelope path is required")
+	}
+	if filepath.IsLocal(cleaned) {
+		for _, segment := range strings.Split(filepath.ToSlash(cleaned), "/") {
+			if segment == ".." {
+				return "", fmt.Errorf("context envelope path must be a local filesystem path")
+			}
+		}
+		return cleaned, nil
+	}
+	if strings.HasPrefix(cleaned, string(filepath.Separator)) {
+		return cleaned, nil
+	}
+	if volume := filepath.VolumeName(cleaned); volume != "" && strings.HasPrefix(cleaned, volume+string(filepath.Separator)) {
+		return cleaned, nil
+	}
+	return "", fmt.Errorf("context envelope path must be a local filesystem path")
+}
+
+func readMCPContextEnvelope(path string) (schemacontext.Envelope, error) {
+	normalizedPath, err := normalizeMCPContextEnvelopePath(path)
+	if err != nil {
+		return schemacontext.Envelope{}, err
+	}
+	if filepath.IsLocal(normalizedPath) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return parseMCPContextEnvelopeFile(normalizedPath)
+	}
+	if strings.HasPrefix(normalizedPath, string(filepath.Separator)) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return parseMCPContextEnvelopeFile(normalizedPath)
+	}
+	if volume := filepath.VolumeName(normalizedPath); volume != "" && strings.HasPrefix(normalizedPath, volume+string(filepath.Separator)) {
+		// #nosec G304 -- path is normalized and constrained to local relative or absolute.
+		return parseMCPContextEnvelopeFile(normalizedPath)
+	}
+	return schemacontext.Envelope{}, fmt.Errorf("context envelope path must be a local filesystem path")
+}
+
+func parseMCPContextEnvelopeFile(path string) (schemacontext.Envelope, error) {
+	// #nosec G304,G703 -- path is normalized and constrained to local relative or absolute before entering this helper.
+	// lgtm[go/path-injection] path is normalized and constrained to local relative or absolute before entering this helper.
+	rawEnvelope, loadErr := os.ReadFile(path)
+	if loadErr != nil {
+		return schemacontext.Envelope{}, fmt.Errorf("read context envelope: %w", loadErr)
+	}
+	envelope, parseErr := contextproof.ParseEnvelope(rawEnvelope)
+	if parseErr != nil {
+		return schemacontext.Envelope{}, parseErr
+	}
+	return envelope, nil
 }

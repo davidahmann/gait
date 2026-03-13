@@ -61,7 +61,12 @@ Optional record fields:
 
 - `evidence_mode=required` means missing/invalid context evidence blocks high-risk execution paths.
 - For `gait gate eval`, raw `intent.context_set_digest`, `intent.context_evidence_mode`, and `context.auth_context.context_age_seconds` claims are non-authoritative on their own.
-- Required context-proof enforcement at the gate boundary must be satisfied with `--context-envelope <context_envelope.json>` so Gait can verify the envelope and derive digest, mode, and freshness from it.
+- Required context-proof enforcement at the gate boundary must be satisfied with a verified `--context-envelope <context_envelope.json>` so Gait can verify the envelope and derive digest, mode, and freshness from it.
+- Accepted boundary bindings are:
+  - `gait gate eval --context-envelope <context_envelope.json>`
+  - `gait mcp proxy --context-envelope <context_envelope.json>`
+  - `gait mcp serve --context-envelope <context_envelope.json>`
+  - `gait mcp serve` plus `call.context.context_envelope_path`, but only when the server was started with `--allow-client-artifact-paths`
 - Raw context evidence requires explicit unsafe operator intent:
   - `gait run record --unsafe-context-raw`
 - Gate policies may enforce:
@@ -130,6 +135,15 @@ Fail-closed context policy evaluation:
 gait gate eval \
   --policy ./policy.yaml \
   --intent ./intent.json \
+  --context-envelope ./context_envelope.json \
+  --json
+```
+
+MCP serve with a pinned context envelope:
+
+```bash
+gait mcp serve \
+  --policy ./policy.yaml \
   --context-envelope ./context_envelope.json \
   --json
 ```

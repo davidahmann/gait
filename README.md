@@ -130,7 +130,8 @@ For wrappers and SDKs, use `gait demo --json`; machine-readable clients should n
 Integration touchpoints:
 
 - Wrapper or sidecar: call `gait gate eval` at the exact tool-dispatch site before side effects execute.
-- Context-required policies: pass `--context-envelope <context_envelope.json>` at that boundary; raw `intent.context_set_digest`, `intent.context_evidence_mode`, or `context.auth_context.context_age_seconds` claims are treated as non-authoritative until the envelope is verified.
+- Context-required policies: pass `--context-envelope <context_envelope.json>` at that boundary on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw `intent.context_set_digest`, `intent.context_evidence_mode`, or `context.auth_context.context_age_seconds` claims are treated as non-authoritative until the envelope is verified.
+- MCP serve nuance: if the server starts with `--allow-client-artifact-paths`, same-host callers may provide `call.context.context_envelope_path`; otherwise keep context proof fixed at the serve boundary with `--context-envelope`.
 - SDKs and automation: use `gait demo --json` for smoke checks and handoffs; the text form is human-facing only.
 - Policy authors: when same-priority rules overlap, Gait applies the most restrictive verdict for that priority tier. Use a strictly lower numeric `priority` when one rule must win.
 

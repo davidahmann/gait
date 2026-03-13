@@ -19,10 +19,13 @@ import (
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 )
 
 type mcpServeConfig struct {
 	PolicyPath               string
+	ContextEnvelopePath      string
+	VerifiedContextEnvelope  *schemacontext.Envelope
 	ListenAddr               string
 	DefaultAdapter           string
 	Profile                  string
@@ -85,6 +88,7 @@ func runMCPServe(arguments []string) int {
 	}
 	arguments = reorderInterspersedFlags(arguments, map[string]bool{
 		"policy":                      true,
+		"context-envelope":            true,
 		"listen":                      true,
 		"adapter":                     true,
 		"profile":                     true,
@@ -116,6 +120,7 @@ func runMCPServe(arguments []string) int {
 	flagSet.SetOutput(io.Discard)
 
 	var policyPath string
+	var contextEnvelopePath string
 	var listenAddr string
 	var adapter string
 	var profile string
@@ -146,6 +151,7 @@ func runMCPServe(arguments []string) int {
 	var helpFlag bool
 
 	flagSet.StringVar(&policyPath, "policy", "", "path to policy YAML")
+	flagSet.StringVar(&contextEnvelopePath, "context-envelope", "", "path to verified context evidence envelope JSON applied at the serve boundary")
 	flagSet.StringVar(&listenAddr, "listen", "127.0.0.1:8787", "listen address")
 	flagSet.StringVar(&adapter, "adapter", "mcp", "default adapter: mcp|openai|anthropic|langchain|claude_code")
 	flagSet.StringVar(&profile, "profile", "standard", "runtime profile: standard|oss-prod")
@@ -158,7 +164,7 @@ func runMCPServe(arguments []string) int {
 	flagSet.StringVar(&sessionDir, "session-dir", "./gait-out/mcp-serve/sessions", "directory for session journals")
 	flagSet.Int64Var(&maxRequestBytes, "max-request-bytes", 1<<20, "maximum request body size in bytes")
 	flagSet.StringVar(&httpVerdictStatus, "http-verdict-status", "compat", "verdict http status mode: compat|strict")
-	flagSet.BoolVar(&allowClientArtifactPaths, "allow-client-artifact-paths", false, "allow client-provided trace/session/runpack output paths")
+	flagSet.BoolVar(&allowClientArtifactPaths, "allow-client-artifact-paths", false, "allow client-provided trace/session/runpack/context envelope paths")
 	flagSet.StringVar(&traceMaxAgeRaw, "trace-max-age", "0", "optional retention max age for trace files (for example 168h, 0 disables)")
 	flagSet.IntVar(&traceMaxCount, "trace-max-count", 0, "optional retention max file count for trace files (0 disables)")
 	flagSet.StringVar(&runpackMaxAgeRaw, "runpack-max-age", "0", "optional retention max age for runpack files (for example 336h, 0 disables)")
@@ -193,6 +199,7 @@ func runMCPServe(arguments []string) int {
 
 	config := mcpServeConfig{
 		PolicyPath:               policyPath,
+		ContextEnvelopePath:      strings.TrimSpace(contextEnvelopePath),
 		ListenAddr:               strings.TrimSpace(listenAddr),
 		DefaultAdapter:           strings.ToLower(strings.TrimSpace(adapter)),
 		Profile:                  strings.ToLower(strings.TrimSpace(profile)),
@@ -321,6 +328,13 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 			return nil, fmt.Errorf("create trace directory: %w", err)
 		}
 	}
+	if strings.TrimSpace(config.ContextEnvelopePath) != "" {
+		envelope, err := readMCPContextEnvelope(config.ContextEnvelopePath)
+		if err != nil {
+			return nil, err
+		}
+		config.VerifiedContextEnvelope = &envelope
+	}
 	if config.RunpackDir != "" {
 		if err := os.MkdirAll(config.RunpackDir, 0o750); err != nil {
 			return nil, fmt.Errorf("create runpack directory: %w", err)
@@ -445,20 +459,22 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 	}
 
 	output, exitCode, evalErr := evaluateMCPProxyPayload(config.PolicyPath, callPayload, mcpProxyEvalOptions{
-		Adapter:                    adapter,
-		Profile:                    config.Profile,
-		JobRoot:                    config.JobRoot,
-		RunID:                      input.RunID,
-		TracePath:                  tracePath,
-		RunpackOut:                 runpackPath,
-		PackOut:                    packPath,
-		AutoPackDir:                config.PackDir,
-		LogExportPath:              config.LogExportPath,
-		OTelExport:                 config.OTelExport,
-		KeyMode:                    config.KeyMode,
-		PrivateKey:                 config.PrivateKey,
-		PrivateKeyEnv:              config.PrivateKeyEnv,
-		AllowLocalContextArtifacts: config.AllowClientArtifactPaths,
+		Adapter:                     adapter,
+		Profile:                     config.Profile,
+		JobRoot:                     config.JobRoot,
+		RunID:                       input.RunID,
+		VerifiedContextEnvelope:     config.VerifiedContextEnvelope,
+		TracePath:                   tracePath,
+		RunpackOut:                  runpackPath,
+		PackOut:                     packPath,
+		AutoPackDir:                 config.PackDir,
+		LogExportPath:               config.LogExportPath,
+		OTelExport:                  config.OTelExport,
+		KeyMode:                     config.KeyMode,
+		PrivateKey:                  config.PrivateKey,
+		PrivateKeyEnv:               config.PrivateKeyEnv,
+		AllowLocalContextArtifacts:  config.AllowClientArtifactPaths,
+		AllowPayloadContextEnvelope: config.AllowClientArtifactPaths,
 	})
 	if evalErr != nil {
 		return mcpServeEvaluateResponse{}, evalErr
@@ -719,7 +735,7 @@ func mcpRetentionMatches(class string, fileName string) bool {
 
 func printMCPServeUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  gait mcp serve --policy <policy.yaml> [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
+	fmt.Println("  gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>] [--listen 127.0.0.1:8787] [--adapter mcp|openai|anthropic|langchain|claude_code] [--profile standard|oss-prod] [--job-root ./gait-out/jobs] [--auth-mode off|token] [--auth-token-env <VAR>] [--max-request-bytes <bytes>] [--http-verdict-status compat|strict] [--allow-client-artifact-paths] [--trace-dir <dir>] [--runpack-dir <dir>] [--pack-dir <dir>] [--session-dir <dir>] [--trace-max-age <dur>] [--trace-max-count <n>] [--runpack-max-age <dur>] [--runpack-max-count <n>] [--pack-max-age <dur>] [--pack-max-count <n>] [--session-max-age <dur>] [--session-max-count <n>] [--export-log-out events.jsonl] [--export-otel-out otel.jsonl] [--key-mode dev|prod] [--private-key <path>|--private-key-env <VAR>] [--json] [--explain]")
 	fmt.Println("  endpoints: POST /v1/evaluate (json), POST /v1/evaluate/sse (text/event-stream), POST /v1/evaluate/stream (application/x-ndjson)")
 }
 

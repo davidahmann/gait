@@ -10,6 +10,7 @@
 - gait init --json
 - gait check --json
 - gait gate eval --policy <policy.yaml> --intent <intent.json> [--context-envelope <context_envelope.json>]
+- gait mcp serve --policy <policy.yaml> [--context-envelope <context_envelope.json>]
 - gait demo
 - gait demo --json
 - gait verify <run_id|path>
@@ -36,6 +37,7 @@
 - Input: structured intent payload.
 - Rule: `verdict != allow` means no tool execution.
 - Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
+- For `gait mcp serve`, same-host callers may use `call.context.context_envelope_path` only when the server explicitly enables `--allow-client-artifact-paths`.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
 
 ## When To Use

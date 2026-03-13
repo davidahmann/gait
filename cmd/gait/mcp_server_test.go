@@ -11,8 +11,42 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Clyra-AI/gait/core/contextproof"
 	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 )
+
+func mustWriteContextEnvelope(t *testing.T, workDir string) string {
+	t.Helper()
+
+	envelope, err := contextproof.BuildEnvelope([]schemacontext.ReferenceRecord{
+		{
+			RefID:         "ctx-1",
+			SourceType:    "doc",
+			SourceLocator: "file:///repo/context.md",
+			QueryDigest:   strings.Repeat("1", 64),
+			ContentDigest: strings.Repeat("2", 64),
+			RetrievedAt:   time.Now().UTC().Add(-5 * time.Second),
+			RedactionMode: contextproof.PrivacyModeHashes,
+			Immutability:  "immutable",
+		},
+	}, contextproof.BuildEnvelopeOptions{
+		ContextSetID:    "ctx-set-1",
+		EvidenceMode:    contextproof.EvidenceModeRequired,
+		ProducerVersion: "test",
+		CreatedAt:       time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("build envelope: %v", err)
+	}
+	envelopePath := filepath.Join(workDir, "context_envelope.json")
+	envelopeBytes, err := json.MarshalIndent(envelope, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	mustWriteFile(t, envelopePath, string(envelopeBytes)+"\n")
+	return envelopePath
+}
 
 func TestMCPServeHandlerHealthz(t *testing.T) {
 	workDir := t.TempDir()
@@ -569,7 +603,7 @@ func TestMCPServeHandlerRejectsContextEnvelopePathOverridesByDefault(t *testing.
 	}
 }
 
-func TestMCPServeHandlerRejectsContextEnvelopePathEvenWhenArtifactPathsEnabled(t *testing.T) {
+func TestMCPServeHandlerAllowsContextEnvelopePathWhenArtifactPathsEnabled(t *testing.T) {
 	workDir := t.TempDir()
 	policyPath := filepath.Join(workDir, "policy.yaml")
 	mustWriteFile(t, policyPath, `default_verdict: block
@@ -594,15 +628,134 @@ rules:
 	if err != nil {
 		t.Fatalf("newMCPServeHandler: %v", err)
 	}
+	envelopePath := mustWriteContextEnvelope(t, workDir)
+
+	requestPayload := map[string]any{
+		"call": map[string]any{
+			"name": "tool.write",
+			"args": map[string]any{"path": "/tmp/out.txt"},
+			"targets": []map[string]any{{
+				"kind":      "path",
+				"value":     "/tmp/out.txt",
+				"operation": "write",
+			}},
+			"context": map[string]any{
+				"identity":              "alice",
+				"workspace":             "/repo/gait",
+				"risk_class":            "high",
+				"session_id":            "sess-1",
+				"context_envelope_path": envelopePath,
+			},
+		},
+	}
+	requestBody, err := json.Marshal(requestPayload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v body=%s", err, recorder.Body.String())
+	}
+	if response.Verdict != "allow" {
+		t.Fatalf("expected allow with request context envelope, got %#v", response)
+	}
+}
+
+func TestMCPServeHandlerUsesServerContextEnvelopeForContextPolicies(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, `default_verdict: block
+rules:
+  - name: allow-write-with-context
+    effect: allow
+    require_context_evidence: true
+    max_context_age_seconds: 30
+    match:
+      tool_names: [tool.write]
+`)
+	envelopePath := mustWriteContextEnvelope(t, workDir)
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:          policyPath,
+		ContextEnvelopePath: envelopePath,
+		DefaultAdapter:      "mcp",
+		TraceDir:            filepath.Join(workDir, "traces"),
+		SessionDir:          filepath.Join(workDir, "sessions"),
+		MaxRequestBytes:     1 << 20,
+		HTTPVerdictStatus:   "compat",
+		KeyMode:             "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	if err := os.Remove(envelopePath); err != nil {
+		t.Fatalf("remove context envelope after startup: %v", err)
+	}
 
 	requestBody := []byte(`{
 	  "call":{
 	    "name":"tool.write",
 	    "args":{"path":"/tmp/out.txt"},
 	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
-	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1","context_envelope_path":"/tmp/ctx.json"}
+	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1"}
 	  }
 	}`)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
+	request.Header.Set("content-type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected %d got %d body=%s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	var response mcpServeEvaluateResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v body=%s", err, recorder.Body.String())
+	}
+	if response.Verdict != "allow" {
+		t.Fatalf("expected allow with server context envelope, got %#v", response)
+	}
+}
+
+func TestMCPServeHandlerRejectsMultipleContextEnvelopeSources(t *testing.T) {
+	workDir := t.TempDir()
+	policyPath := filepath.Join(workDir, "policy.yaml")
+	mustWriteFile(t, policyPath, "default_verdict: allow\n")
+	handler, err := newMCPServeHandler(mcpServeConfig{
+		PolicyPath:               policyPath,
+		ContextEnvelopePath:      mustWriteContextEnvelope(t, workDir),
+		DefaultAdapter:           "mcp",
+		TraceDir:                 filepath.Join(workDir, "traces"),
+		SessionDir:               filepath.Join(workDir, "sessions"),
+		AllowClientArtifactPaths: true,
+		MaxRequestBytes:          1 << 20,
+		HTTPVerdictStatus:        "compat",
+		KeyMode:                  "dev",
+	})
+	if err != nil {
+		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	requestPayload := map[string]any{
+		"call": map[string]any{
+			"name": "tool.search",
+			"args": map[string]any{"query": "gait"},
+			"context": map[string]any{
+				"identity":              "alice",
+				"workspace":             "/repo/gait",
+				"session_id":            "sess-1",
+				"context_envelope_path": filepath.Join(workDir, "second_context_envelope.json"),
+			},
+		},
+	}
+	requestBody, err := json.Marshal(requestPayload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
 	request.Header.Set("content-type", "application/json")
 	recorder := httptest.NewRecorder()
