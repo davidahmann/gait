@@ -278,8 +278,10 @@ func matchedRuleIDsFromStepVerdicts(stepVerdicts []schemagate.TraceStepVerdict) 
 	}
 	matched := make([]string, 0, len(stepVerdicts))
 	for _, step := range stepVerdicts {
-		if ruleID := strings.TrimSpace(step.MatchedRule); ruleID != "" {
-			matched = append(matched, ruleID)
+		for _, ruleID := range strings.Split(step.MatchedRule, ",") {
+			if trimmed := strings.TrimSpace(ruleID); trimmed != "" {
+				matched = append(matched, trimmed)
+			}
 		}
 	}
 	return uniqueSorted(matched)

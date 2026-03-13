@@ -419,7 +419,7 @@ func TestEmitSignedTraceRelationshipEnvelope(t *testing.T) {
 		TracePath:         filepath.Join(t.TempDir(), "trace_relationship_1.json"),
 		StepVerdicts: []schemagate.TraceStepVerdict{
 			{Index: 0, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-z"},
-			{Index: 1, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-a"},
+			{Index: 1, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-b, rule-a"},
 			{Index: 2, ToolName: "tool.write", Verdict: "allow", MatchedRule: "rule-a"},
 		},
 	})
@@ -432,16 +432,16 @@ func TestEmitSignedTraceRelationshipEnvelope(t *testing.T) {
 	if first.Trace.Relationship.ParentRef == nil || first.Trace.Relationship.ParentRef.Kind != "session" || first.Trace.Relationship.ParentRef.ID != "sess_demo" {
 		t.Fatalf("unexpected parent_ref: %#v", first.Trace.Relationship.ParentRef)
 	}
-	if first.Trace.Relationship.PolicyRef == nil || len(first.Trace.Relationship.PolicyRef.MatchedRuleIDs) != 2 {
+	if first.Trace.Relationship.PolicyRef == nil || len(first.Trace.Relationship.PolicyRef.MatchedRuleIDs) != 3 {
 		t.Fatalf("expected matched rule ids in relationship policy_ref: %#v", first.Trace.Relationship.PolicyRef)
 	}
 	if first.Trace.PolicyID != policy.SchemaID || first.Trace.PolicyVersion != policy.SchemaVersion {
 		t.Fatalf("expected policy lineage fields in trace: id=%q version=%q", first.Trace.PolicyID, first.Trace.PolicyVersion)
 	}
-	if len(first.Trace.MatchedRuleIDs) != 2 {
+	if len(first.Trace.MatchedRuleIDs) != 3 {
 		t.Fatalf("expected matched_rule_ids in trace: %#v", first.Trace.MatchedRuleIDs)
 	}
-	if first.Trace.Relationship.PolicyRef.MatchedRuleIDs[0] != "rule-a" || first.Trace.Relationship.PolicyRef.MatchedRuleIDs[1] != "rule-z" {
+	if first.Trace.Relationship.PolicyRef.MatchedRuleIDs[0] != "rule-a" || first.Trace.Relationship.PolicyRef.MatchedRuleIDs[1] != "rule-b" || first.Trace.Relationship.PolicyRef.MatchedRuleIDs[2] != "rule-z" {
 		t.Fatalf("expected deterministic matched rule ordering, got %#v", first.Trace.Relationship.PolicyRef.MatchedRuleIDs)
 	}
 	if len(first.Trace.Relationship.EntityRefs) == 0 || len(first.Trace.Relationship.Edges) == 0 {
