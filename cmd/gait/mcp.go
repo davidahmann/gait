@@ -1060,6 +1060,8 @@ func readMCPContextEnvelope(path string) (schemacontext.Envelope, error) {
 }
 
 func parseMCPContextEnvelopeFile(path string) (schemacontext.Envelope, error) {
+	// #nosec G304,G703 -- path is normalized and constrained to local relative or absolute before entering this helper.
+	// lgtm[go/path-injection] path is normalized and constrained to local relative or absolute before entering this helper.
 	rawEnvelope, loadErr := os.ReadFile(path)
 	if loadErr != nil {
 		return schemacontext.Envelope{}, fmt.Errorf("read context envelope: %w", loadErr)

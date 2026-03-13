@@ -630,14 +630,28 @@ rules:
 	}
 	envelopePath := mustWriteContextEnvelope(t, workDir)
 
-	requestBody := []byte(`{
-	  "call":{
-	    "name":"tool.write",
-	    "args":{"path":"/tmp/out.txt"},
-	    "targets":[{"kind":"path","value":"/tmp/out.txt","operation":"write"}],
-	    "context":{"identity":"alice","workspace":"/repo/gait","risk_class":"high","session_id":"sess-1","context_envelope_path":"` + envelopePath + `"}
-	  }
-	}`)
+	requestPayload := map[string]any{
+		"call": map[string]any{
+			"name": "tool.write",
+			"args": map[string]any{"path": "/tmp/out.txt"},
+			"targets": []map[string]any{{
+				"kind":      "path",
+				"value":     "/tmp/out.txt",
+				"operation": "write",
+			}},
+			"context": map[string]any{
+				"identity":              "alice",
+				"workspace":             "/repo/gait",
+				"risk_class":            "high",
+				"session_id":            "sess-1",
+				"context_envelope_path": envelopePath,
+			},
+		},
+	}
+	requestBody, err := json.Marshal(requestPayload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
 	request.Header.Set("content-type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -722,13 +736,22 @@ func TestMCPServeHandlerRejectsMultipleContextEnvelopeSources(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newMCPServeHandler: %v", err)
 	}
-	requestBody := []byte(`{
-	  "call":{
-	    "name":"tool.search",
-	    "args":{"query":"gait"},
-	    "context":{"identity":"alice","workspace":"/repo/gait","session_id":"sess-1","context_envelope_path":"` + filepath.Join(workDir, "second_context_envelope.json") + `"}
-	  }
-	}`)
+	requestPayload := map[string]any{
+		"call": map[string]any{
+			"name": "tool.search",
+			"args": map[string]any{"query": "gait"},
+			"context": map[string]any{
+				"identity":              "alice",
+				"workspace":             "/repo/gait",
+				"session_id":            "sess-1",
+				"context_envelope_path": filepath.Join(workDir, "second_context_envelope.json"),
+			},
+		},
+	}
+	requestBody, err := json.Marshal(requestPayload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluate", bytes.NewReader(requestBody))
 	request.Header.Set("content-type", "application/json")
 	recorder := httptest.NewRecorder()
