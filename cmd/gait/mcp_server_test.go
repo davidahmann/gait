@@ -680,9 +680,10 @@ rules:
     match:
       tool_names: [tool.write]
 `)
+	envelopePath := mustWriteContextEnvelope(t, workDir)
 	handler, err := newMCPServeHandler(mcpServeConfig{
 		PolicyPath:          policyPath,
-		ContextEnvelopePath: mustWriteContextEnvelope(t, workDir),
+		ContextEnvelopePath: envelopePath,
 		DefaultAdapter:      "mcp",
 		TraceDir:            filepath.Join(workDir, "traces"),
 		SessionDir:          filepath.Join(workDir, "sessions"),
@@ -692,6 +693,9 @@ rules:
 	})
 	if err != nil {
 		t.Fatalf("newMCPServeHandler: %v", err)
+	}
+	if err := os.Remove(envelopePath); err != nil {
+		t.Fatalf("remove context envelope after startup: %v", err)
 	}
 
 	requestBody := []byte(`{

@@ -19,11 +19,13 @@ import (
 	"github.com/Clyra-AI/gait/core/jobruntime"
 	"github.com/Clyra-AI/gait/core/runpack"
 	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
+	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 )
 
 type mcpServeConfig struct {
 	PolicyPath               string
 	ContextEnvelopePath      string
+	VerifiedContextEnvelope  *schemacontext.Envelope
 	ListenAddr               string
 	DefaultAdapter           string
 	Profile                  string
@@ -327,9 +329,11 @@ func newMCPServeHandler(config mcpServeConfig) (http.Handler, error) {
 		}
 	}
 	if strings.TrimSpace(config.ContextEnvelopePath) != "" {
-		if _, err := readMCPContextEnvelope(config.ContextEnvelopePath); err != nil {
+		envelope, err := readMCPContextEnvelope(config.ContextEnvelopePath)
+		if err != nil {
 			return nil, err
 		}
+		config.VerifiedContextEnvelope = &envelope
 	}
 	if config.RunpackDir != "" {
 		if err := os.MkdirAll(config.RunpackDir, 0o750); err != nil {
@@ -459,7 +463,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 		Profile:                     config.Profile,
 		JobRoot:                     config.JobRoot,
 		RunID:                       input.RunID,
-		ContextEnvelopePath:         config.ContextEnvelopePath,
+		VerifiedContextEnvelope:     config.VerifiedContextEnvelope,
 		TracePath:                   tracePath,
 		RunpackOut:                  runpackPath,
 		PackOut:                     packPath,

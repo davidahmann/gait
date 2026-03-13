@@ -72,6 +72,7 @@ type mcpProxyEvalOptions struct {
 	JobRoot                     string
 	RunID                       string
 	ContextEnvelopePath         string
+	VerifiedContextEnvelope     *schemacontext.Envelope
 	TracePath                   string
 	RunpackOut                  string
 	PackOut                     string
@@ -363,17 +364,21 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	}
 	evalOptions := gate.EvalOptions{ProducerVersion: version}
 	envelopePath := strings.TrimSpace(options.ContextEnvelopePath)
+	if options.VerifiedContextEnvelope != nil {
+		evalOptions.VerifiedContextEnvelope = options.VerifiedContextEnvelope
+		evalOptions.ContextEvidenceNow = time.Now().UTC()
+	}
 	if payloadPath := strings.TrimSpace(call.Context.ContextEnvelopePath); payloadPath != "" {
 		if !options.AllowPayloadContextEnvelope {
 			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("call.context.context_envelope_path is not supported; use --context-envelope at the boundary")
 		}
-		if envelopePath != "" {
+		if options.VerifiedContextEnvelope != nil || envelopePath != "" {
 			return mcpProxyOutput{}, exitInvalidInput, fmt.Errorf("context envelope is already configured at the boundary; remove call.context.context_envelope_path")
 		}
 		envelopePath = payloadPath
 		call.Context.ContextEnvelopePath = ""
 	}
-	if envelopePath != "" {
+	if options.VerifiedContextEnvelope == nil && envelopePath != "" {
 		envelope, loadErr := readMCPContextEnvelope(envelopePath)
 		if loadErr != nil {
 			return mcpProxyOutput{}, exitInvalidInput, loadErr
