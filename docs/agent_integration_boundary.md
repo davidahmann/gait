@@ -92,6 +92,7 @@ What Gait cannot do (without interception):
 
 - Tier A quickstart: `examples/integrations/openai_agents/quickstart.py`
 - Tier A/B transport path: `gait mcp serve --context-envelope ./context_envelope.json`
+- Reference adapter note: `examples/integrations/claude_code/gait-gate.sh` fails closed on hook/runtime/input errors by default; `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is a debugging-only unsafe override, not a promoted lane.
 - Tier C fallback: `gait report top`, `gait capture`, `gait regress add`, `gait regress run` (or `gait regress bootstrap` for the one-command path)
 
 ## Related Docs

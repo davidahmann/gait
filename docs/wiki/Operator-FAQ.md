@@ -11,7 +11,7 @@ Yes for core workflows. Policy bootstrap, recording, verifying, diffing, replay,
 
 ## Is fail-open supported?
 
-Default is fail-closed for high-risk paths. Simulation mode exists for staged rollout.
+Default is fail-closed for high-risk paths. The Claude Code reference hook also fails closed on hook/runtime/input errors by default; `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an explicit unsafe override only. Simulation mode exists for staged rollout.
 
 ## How do we prove what happened?
 
@@ -25,6 +25,7 @@ Gait is not a framework replacement; it owns the execution verdict and evidence 
 ## How do we keep reports deterministic?
 
 - Use `--json` outputs.
+- Use `gait version --json` for install probes and `gait doctor --production-readiness --json` before calling high-risk enforcement production-ready.
 - Preserve canonical artifacts under `gait-out/`.
 - Run regress fixtures in CI.
 

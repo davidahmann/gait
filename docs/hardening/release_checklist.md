@@ -9,6 +9,7 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
   - Go coverage >= 85%
   - Python coverage >= 85%
 - [ ] `make test-hardening-acceptance` passes.
+- [ ] `make test-install-path-versions` passes.
 - [ ] Versioned acceptance/context gates pass:
   - `make test-v2-3-acceptance`
   - `make test-v2-4-acceptance`
@@ -68,6 +69,8 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 ## 6) Operational Readiness (RECOMMENDED)
 
 - [ ] `gait doctor --json` includes green checks for hooks, cache, lock staleness, temp writeability, and key-source ambiguity.
+- [ ] Install and release docs point operators to `examples/config/oss_prod_template.yaml` and require `gait doctor --production-readiness --json` before claiming `oss-prod` readiness.
+- [ ] Installer/Homebrew/manual verification uses `gait version --json` as the machine-readable binary probe.
 - [ ] Correlation IDs and operational events are emitted in opt-in logs where enabled.
 - [ ] Homebrew tap install/test smoke passes for the release:
   - `brew reinstall Clyra-AI/tap/gait`

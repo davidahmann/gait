@@ -10,13 +10,14 @@ It provides seven OSS primitives:
 4. **Jobs**: Dispatch multi-step, multi-hour agent work with checkpoints, pause/resume/stop/cancel, approval gates, deterministic stop reasons, and emergency-stop preemption evidence.
 5. **Voice**: Gate high-stakes spoken commitments before they are uttered with SayToken capability tokens and callpack artifacts.
 6. **Context Evidence**: Deterministic proof of what context the model was working from at decision time. Privacy-aware envelopes with fail-closed enforcement when evidence is missing, and context-required gate checks bind digest/mode/freshness from a verified `--context-envelope`.
-7. **Doctor**: Diagnose first-run environment issues with stable JSON output.
+7. **Doctor**: Diagnose first-run environment issues with stable JSON output. `gait doctor --production-readiness --json` is the explicit gate before claiming high-risk `oss-prod` readiness.
 
 Secondary boundary surfaces:
 
 - **MCP Trust**: evaluate local trust snapshots for MCP server admission with `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve`.
 - **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
 - **LangChain Middleware**: official Python middleware with optional callback correlation; callbacks never decide allow or block behavior, and demo capture stays bound to `gait demo --json`.
+- **Reference Adapters**: `examples/integrations/claude_code/` remains a reference lane; its hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 
 Gait is vendor-neutral and offline-first for core workflows: capture, verify, diff, policy evaluation, regressions, and voice/context verification all run without network dependencies.
 
@@ -32,6 +33,7 @@ When to use:
 - incidents must become deterministic CI regressions
 - teams need signed portable evidence instead of dashboard-only traces
 - teams want truthful repo bootstrap commands before wiring a full integration
+- teams need a documented path from demo mode to `oss-prod` readiness using `examples/config/oss_prod_template.yaml` plus `gait doctor --production-readiness --json`
 
 When not to use:
 

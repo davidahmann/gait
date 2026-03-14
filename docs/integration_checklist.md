@@ -203,7 +203,7 @@ Reference adapters:
 - `examples/integrations/autogpt/`
 - `examples/integrations/gastown/`
 - `examples/integrations/voice_reference/`
-- `examples/integrations/claude_code/`
+- `examples/integrations/claude_code/` (reference adapter; hook/runtime/input errors fail closed by default, `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an explicit unsafe override)
 - sidecar path: `examples/sidecar/gate_sidecar.py`
 - MCP proxy/serve: `gait mcp proxy`, `gait mcp serve`
 

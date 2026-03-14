@@ -27,7 +27,7 @@ Runpack, Gate, Regress, and Doctor all run offline-first with local artifacts.
 ## "Can we fail-open for velocity?"
 
 Default posture for high-risk paths is fail-closed.
-Staged rollout exists via `--simulate`; enforcement modes should not silently bypass policy.
+Staged rollout exists via `--simulate`; enforcement modes should not silently bypass policy. Reference adapters such as the Claude Code hook also fail closed by default, and any fail-open behavior must be explicit, unsafe, and kept out of promoted launch flows.
 
 ## "Are we locked into Gait-specific infra?"
 

@@ -6,7 +6,7 @@ Gait enforces fail-closed policy before agent tool side effects execute and keep
 
 ## What should teams run first?
 
-Run `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
+Run `gait version --json`, `gait init --json`, `gait check --json`, `gait demo` for the operator path, `gait demo --json` for wrappers/SDKs, then `gait verify run_demo --json` and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml`.
 
 ## What problem does Gait solve for long-running agent work?
 
@@ -38,13 +38,17 @@ Context evidence is deterministic proof of what context material the model was w
 
 For context-required policies, the gate only trusts a verified `--context-envelope` input; raw context digest, mode, or age claims inside the intent are not sufficient on their own.
 
+## How do I know install is valid and high-risk enforcement is production-ready?
+
+Use `gait version --json` as the machine-readable install probe. For `oss-prod`, copy `examples/config/oss_prod_template.yaml` into `.gait/config.yaml`, run `gait check --json`, then require `gait doctor --production-readiness --json` to return `ok=true` before treating high-risk enforcement as production-ready.
+
 ## Can I replay an agent run without re-executing real API calls?
 
 Yes. `gait run replay` uses recorded results as deterministic stubs so you can debug safely. `gait pack diff` then shows exactly what changed between two runs, including context drift classification.
 
 ## How does Gait integrate with agent frameworks?
 
-Gait provides wrapper or sidecar, Python SDK, and MCP boundary modes. The official LangChain surface is middleware with optional callback correlation; enforcement still happens only at the tool boundary.
+Gait provides wrapper or sidecar, Python SDK, and MCP boundary modes. The official LangChain surface is middleware with optional callback correlation; enforcement still happens only at the tool boundary. Claude Code remains a reference adapter, and its hook/runtime/input errors fail closed by default unless an operator explicitly opts into unsafe fail-open behavior.
 
 ## Can Gait pre-approve known multi-step scripts?
 

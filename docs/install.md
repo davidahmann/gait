@@ -73,6 +73,7 @@ bash scripts/install.sh --version vX.Y.Z --install-dir ~/.local/bin
 ## Verify Installation
 
 ```bash
+gait version --json
 gait doctor --json
 gait demo
 gait verify run_demo
@@ -91,35 +92,12 @@ Before production use, apply hardened defaults and validate readiness:
 
 ```bash
 gait init --json
-cat > .gait/config.yaml <<'YAML'
-gate:
-  policy: .gait.yaml
-  profile: oss-prod
-  key_mode: prod
-  private_key_env: GAIT_PRIVATE_KEY
-  credential_broker: env
-  credential_env_prefix: GAIT_BROKER_TOKEN_
-  rate_limit_state: ./gait-out/gate_rate_limits.json
-
-mcp_serve:
-  enabled: true
-  listen: 127.0.0.1:8787
-  auth_mode: token
-  auth_token_env: GAIT_MCP_TOKEN
-  max_request_bytes: 1048576
-  http_verdict_status: strict
-  allow_client_artifact_paths: false
-
-retention:
-  trace_ttl: 168h
-  session_ttl: 336h
-  export_ttl: 168h
-YAML
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
 gait check --json
 gait doctor --production-readiness --json
 ```
 
-Production readiness must report `ok=true` before enforcing high-risk runtime boundaries.
+Use `examples/config/oss_prod_template.yaml` as the canonical hardened starting point, then review the environment variable names, listener, and retention values for your deployment before enforcing. High-risk runtime boundaries are not production-ready until `gait doctor --production-readiness --json` reports `ok=true`.
 
 If PATH is still not updated, run directly once:
 
@@ -143,6 +121,7 @@ curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/quicksta
 4. Open a new shell and run:
 
 ```powershell
+gait.exe version --json
 gait.exe doctor --json
 gait.exe demo
 gait.exe verify run_demo
@@ -170,7 +149,7 @@ Yes. Download the Windows binary from the GitHub release and add it to your PATH
 
 ### How do I verify the install worked?
 
-Run `gait doctor --json`. All checks should pass. Then run `gait demo` to create your first signed artifact.
+Run `gait version --json` and `gait doctor --json`. Then run `gait demo` to create your first signed artifact. Before claiming high-risk production readiness, require `gait doctor --production-readiness --json` to return `ok=true`.
 
 ### Can I install via Homebrew?
 

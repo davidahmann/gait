@@ -6,6 +6,9 @@ Use this when you need deterministic control plus evidence at agent tool boundar
 # Install
 curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 
+# Machine-readable install probe
+gait version --json
+
 # Bootstrap repo policy-as-code
 gait init --json
 gait check --json
@@ -40,6 +43,8 @@ verify=ok
 
 For SDKs and wrappers, prefer the JSON form and treat the text form as human-facing output only.
 
+For binary discovery and install automation, use `gait version --json` (or `gait --version --json` / `gait -v --json`). `gait --help` is text-only and exits `0`.
+
 Context-required policies must pass `--context-envelope <context_envelope.json>` on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw intent context claims are not authoritative by themselves.
 
 Then continue with one integration seam:
@@ -56,6 +61,16 @@ Boundary touchpoints:
 - machine-readable smoke path: `gait demo --json`
 
 Use `gait policy test` and `gait gate eval --simulate` before enforce rollout on high-risk tool-call boundaries. `gait enforce` is a bounded wrapper for integrations that already emit Gait trace references.
+
+Before high-risk production enforcement, seed the canonical hardened config from a repo checkout and require readiness to pass:
+
+```bash
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
+gait check --json
+gait doctor --production-readiness --json
+```
+
+Do not treat `oss-prod` enforcement as production-ready until that doctor command reports `ok=true`.
 
 Wrapper lane example:
 
