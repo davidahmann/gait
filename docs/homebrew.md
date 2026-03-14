@@ -60,6 +60,7 @@ brew update
 brew tap Clyra-AI/tap
 brew reinstall Clyra-AI/tap/gait
 brew test Clyra-AI/tap/gait
+gait version --json
 gait demo --json
 ```
 

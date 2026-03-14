@@ -77,6 +77,9 @@ Start here:
 # Install
 curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
 
+# Machine-readable install probe
+gait version --json
+
 # Bootstrap repo policy-as-code
 gait init --json
 gait check --json
@@ -88,6 +91,8 @@ gait verify run_demo --json
 # Turn the same artifact into a CI gate
 gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
+
+Before high-risk production enforcement, start from the canonical hardened template at `examples/config/oss_prod_template.yaml` from a repo checkout, or fetch that same file from the repo if you installed only the binary. Then require `gait doctor --production-readiness --json` to return `ok=true`. The full path is documented in `docs/install.md`.
 
 `gait init --json` writes `.gait.yaml` and returns a real scaffold summary like:
 
