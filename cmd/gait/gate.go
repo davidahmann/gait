@@ -314,10 +314,11 @@ func runGateEval(arguments []string) int {
 	approvedRegistryConfigured := strings.TrimSpace(approvedScriptRegistryPath) != ""
 	approvedRegistryEntries := []schemagate.ApprovedScriptEntry{}
 	if approvedRegistryConfigured {
+		riskClass := strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))
+		failClosedApprovedRegistry := resolvedProfile == gateProfileOSSProd || riskClass == "high" || riskClass == "critical"
 		entries, readErr := gate.ReadApprovedScriptRegistry(approvedScriptRegistryPath)
 		if readErr != nil {
-			riskClass := strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))
-			if resolvedProfile == gateProfileOSSProd || riskClass == "high" || riskClass == "critical" {
+			if failClosedApprovedRegistry {
 				return writeGateEvalOutput(jsonOutput, gateEvalOutput{
 					OK:    false,
 					Error: "approved script registry unavailable in fail-closed mode: " + readErr.Error(),
@@ -337,13 +338,16 @@ func runGateEval(arguments []string) int {
 					PrivateKeyEnv:  approvalPrivateKeyEnv,
 				}
 			}
-			if resolvedProfile == gateProfileOSSProd && !hasAnyKeySource(approvedVerifyConfig) {
-				return writeGateEvalOutput(jsonOutput, gateEvalOutput{
-					OK:    false,
-					Error: "oss-prod profile requires approved-script verify key when --approved-script-registry is set",
-				}, exitInvalidInput)
-			}
-			if hasAnyKeySource(approvedVerifyConfig) {
+			if !hasAnyKeySource(approvedVerifyConfig) {
+				if failClosedApprovedRegistry {
+					return writeGateEvalOutput(jsonOutput, gateEvalOutput{
+						OK:    false,
+						Error: "approved script registry verification unavailable in fail-closed mode: verify key required",
+					}, exitPolicyBlocked)
+				}
+				startupWarnings = append(startupWarnings, "approved script fast-path disabled because registry verify key is not configured")
+				entries = []schemagate.ApprovedScriptEntry{}
+			} else {
 				verifyKey, verifyErr := sign.LoadVerifyKey(approvedVerifyConfig)
 				if verifyErr != nil {
 					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: verifyErr.Error()}, exitCodeForError(verifyErr, exitInvalidInput))
@@ -351,8 +355,7 @@ func runGateEval(arguments []string) int {
 				nowUTC := time.Now().UTC()
 				for index, entry := range entries {
 					if verifyErr := gate.VerifyApprovedScriptEntry(entry, verifyKey, nowUTC); verifyErr != nil {
-						riskClass := strings.ToLower(strings.TrimSpace(intent.Context.RiskClass))
-						if resolvedProfile == gateProfileOSSProd || riskClass == "high" || riskClass == "critical" {
+						if failClosedApprovedRegistry {
 							return writeGateEvalOutput(jsonOutput, gateEvalOutput{
 								OK:    false,
 								Error: fmt.Sprintf("approved script registry verification failed at entry %d: %v", index, verifyErr),
@@ -514,66 +517,39 @@ func runGateEval(arguments []string) int {
 			result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
 			exitCode = exitPolicyBlocked
 		} else {
-			expectedDelegator := ""
-			expectedDelegate := ""
-			if preparedIntent.Delegation != nil {
-				expectedDelegate = preparedIntent.Delegation.RequesterIdentity
-				if len(preparedIntent.Delegation.Chain) > 0 {
-					last := preparedIntent.Delegation.Chain[len(preparedIntent.Delegation.Chain)-1]
-					expectedDelegator = last.DelegatorIdentity
-					if expectedDelegate == "" {
-						expectedDelegate = last.DelegateIdentity
-					}
-				}
-			}
-			validTokenRefs := make([]string, 0, len(delegationTokenPaths))
+			tokens := make([]schemagate.DelegationToken, 0, len(delegationTokenPaths))
 			for _, tokenPath := range delegationTokenPaths {
 				token, readErr := gate.ReadDelegationToken(tokenPath)
 				if readErr != nil {
 					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: readErr.Error()}, exitCodeForError(readErr, exitInvalidInput))
 				}
-				entry := schemagate.DelegationAuditEntry{
-					TokenID:           token.TokenID,
-					DelegatorIdentity: token.DelegatorIdentity,
-					DelegateIdentity:  token.DelegateIdentity,
-					Scope:             mergeUniqueSorted(nil, token.Scope),
-					ExpiresAt:         token.ExpiresAt.UTC(),
-					Valid:             false,
-				}
-				validateErr := gate.ValidateDelegationToken(token, verifyKey, gate.DelegationValidationOptions{
-					Now:                  time.Now().UTC(),
-					ExpectedDelegator:    expectedDelegator,
-					ExpectedDelegate:     expectedDelegate,
-					ExpectedIntentDigest: intentDigestForContext,
-					ExpectedPolicyDigest: policyDigestForContext,
-				})
-				if validateErr != nil {
-					reasonCode := gate.DelegationCodeSchemaInvalid
-					var tokenErr *gate.DelegationTokenError
-					if errors.As(validateErr, &tokenErr) && tokenErr.Code != "" {
-						reasonCode = tokenErr.Code
-					}
-					entry.ErrorCode = reasonCode
-					result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{reasonCode})
-					delegationEntries = append(delegationEntries, entry)
-					continue
-				}
-				entry.Valid = true
-				delegationEntries = append(delegationEntries, entry)
-				validDelegations++
-				if token.TokenID != "" {
-					validTokenRefs = append(validTokenRefs, token.TokenID)
-				}
+				tokens = append(tokens, token)
 			}
-			if validDelegations == 0 {
+			validation, validateErr := gate.ValidateDelegationChain(preparedIntent.Delegation, tokens, verifyKey, gate.DelegationChainValidationOptions{
+				Now:                  time.Now().UTC(),
+				RequiredScope:        outcome.RequiredDelegationScopes,
+				ExpectedIntentDigest: intentDigestForContext,
+				ExpectedPolicyDigest: policyDigestForContext,
+			})
+			if validateErr != nil {
+				return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: validateErr.Error()}, exitCodeForError(validateErr, exitInvalidInput))
+			}
+			delegationEntries = append(delegationEntries, validation.Entries...)
+			validDelegations = validation.ValidDelegations
+			if !validation.Complete {
+				for _, entry := range validation.Entries {
+					if !entry.Valid && strings.TrimSpace(entry.ErrorCode) != "" {
+						result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{entry.ErrorCode})
+					}
+				}
 				result.Verdict = "block"
 				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_chain_insufficient"})
 				result.Violations = mergeUniqueSorted(result.Violations, []string{"delegation_not_granted"})
 				exitCode = exitPolicyBlocked
 			} else {
 				result.ReasonCodes = mergeUniqueSorted(result.ReasonCodes, []string{"delegation_granted"})
-				if len(validTokenRefs) > 0 {
-					resolvedDelegationRef = strings.Join(mergeUniqueSorted(nil, validTokenRefs), ",")
+				if len(validation.ValidTokenIDs) > 0 {
+					resolvedDelegationRef = strings.Join(validation.ValidTokenIDs, ",")
 				}
 			}
 		}

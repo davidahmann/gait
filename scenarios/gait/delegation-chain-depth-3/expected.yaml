@@ -1,5 +1,5 @@
 exit_code: 0
 verdict: allow
-valid_delegations: 1
+valid_delegations: 3
 reason_codes_must_include:
   - delegation_granted

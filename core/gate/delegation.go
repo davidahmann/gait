@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,6 +31,7 @@ const (
 	DelegationCodeScopeMismatch   = "delegation_token_scope_mismatch"
 	DelegationCodeIntentMismatch  = "delegation_token_intent_mismatch"
 	DelegationCodePolicyMismatch  = "delegation_token_policy_mismatch"
+	DelegationCodeChainMismatch   = "delegation_token_chain_mismatch"
 )
 
 type MintDelegationTokenOptions struct {
@@ -63,6 +65,21 @@ type DelegationValidationOptions struct {
 type DelegationTokenError struct {
 	Code string
 	Err  error
+}
+
+type DelegationChainValidationOptions struct {
+	Now                  time.Time
+	RequiredScope        []string
+	ExpectedIntentDigest string
+	ExpectedPolicyDigest string
+}
+
+type DelegationChainValidationResult struct {
+	Complete            bool
+	RequiredDelegations int
+	ValidDelegations    int
+	ValidTokenIDs       []string
+	Entries             []schemagate.DelegationAuditEntry
 }
 
 func (e *DelegationTokenError) Error() string {
@@ -252,10 +269,129 @@ func ValidateDelegationToken(token schemagate.DelegationToken, publicKey ed25519
 	}
 
 	requiredScope := normalizeStringListLower(opts.RequiredScope)
-	if len(requiredScope) > 0 && !matchesApprovalScope(requiredScope, normalized.Scope) {
+	if len(requiredScope) > 0 && !matchesDelegationScope(requiredScope, normalized.Scope, normalized.ScopeClass) {
 		return &DelegationTokenError{Code: DelegationCodeScopeMismatch, Err: fmt.Errorf("scope mismatch")}
 	}
 	return nil
+}
+
+func ValidateDelegationChain(delegation *schemagate.IntentDelegation, tokens []schemagate.DelegationToken, publicKey ed25519.PublicKey, opts DelegationChainValidationOptions) (DelegationChainValidationResult, error) {
+	normalizedDelegation, err := normalizeDelegation(delegation)
+	if err != nil {
+		return DelegationChainValidationResult{}, err
+	}
+	if normalizedDelegation == nil {
+		return DelegationChainValidationResult{}, nil
+	}
+
+	requiredLinks := append([]schemagate.DelegationLink(nil), normalizedDelegation.Chain...)
+	if len(requiredLinks) == 0 {
+		requiredLinks = []schemagate.DelegationLink{{
+			DelegateIdentity: normalizedDelegation.RequesterIdentity,
+			ScopeClass:       normalizedDelegation.ScopeClass,
+		}}
+	}
+
+	used := make([]bool, len(tokens))
+	matchedLinks := make([]bool, len(requiredLinks))
+	entries := make([]schemagate.DelegationAuditEntry, 0, len(tokens)+len(requiredLinks))
+	validTokenIDs := make([]string, 0, len(requiredLinks))
+	validDelegations := 0
+	requiredScope := normalizeStringListLower(opts.RequiredScope)
+
+	for linkIndex, link := range requiredLinks {
+		matched := false
+		for index, token := range tokens {
+			if used[index] {
+				continue
+			}
+			validateErr := ValidateDelegationToken(token, publicKey, DelegationValidationOptions{
+				Now:                  opts.Now,
+				ExpectedDelegator:    strings.TrimSpace(link.DelegatorIdentity),
+				ExpectedDelegate:     strings.TrimSpace(link.DelegateIdentity),
+				RequiredScope:        requiredScope,
+				ExpectedIntentDigest: opts.ExpectedIntentDigest,
+				ExpectedPolicyDigest: opts.ExpectedPolicyDigest,
+			})
+			if validateErr != nil {
+				continue
+			}
+			used[index] = true
+			matchedLinks[linkIndex] = true
+			matched = true
+			validDelegations++
+			if token.TokenID != "" {
+				validTokenIDs = append(validTokenIDs, token.TokenID)
+			}
+			entries = append(entries, schemagate.DelegationAuditEntry{
+				TokenID:           token.TokenID,
+				DelegatorIdentity: token.DelegatorIdentity,
+				DelegateIdentity:  token.DelegateIdentity,
+				Scope:             mergeUniqueSorted(nil, token.Scope),
+				ExpiresAt:         token.ExpiresAt.UTC(),
+				Valid:             true,
+			})
+			break
+		}
+		if matched {
+			continue
+		}
+		entries = append(entries, schemagate.DelegationAuditEntry{
+			DelegatorIdentity: strings.TrimSpace(link.DelegatorIdentity),
+			DelegateIdentity:  strings.TrimSpace(link.DelegateIdentity),
+			Valid:             false,
+			ErrorCode:         "delegation_token_missing",
+		})
+	}
+
+	for index, token := range tokens {
+		if used[index] {
+			continue
+		}
+		errorCode := DelegationCodeChainMismatch
+		for linkIndex, link := range requiredLinks {
+			if matchedLinks[linkIndex] {
+				continue
+			}
+			validateErr := ValidateDelegationToken(token, publicKey, DelegationValidationOptions{
+				Now:                  opts.Now,
+				ExpectedDelegator:    strings.TrimSpace(link.DelegatorIdentity),
+				ExpectedDelegate:     strings.TrimSpace(link.DelegateIdentity),
+				RequiredScope:        requiredScope,
+				ExpectedIntentDigest: opts.ExpectedIntentDigest,
+				ExpectedPolicyDigest: opts.ExpectedPolicyDigest,
+			})
+			if validateErr == nil {
+				errorCode = ""
+				break
+			}
+			var tokenErr *DelegationTokenError
+			if errors.As(validateErr, &tokenErr) && tokenErr.Code != "" {
+				errorCode = tokenErr.Code
+				break
+			}
+		}
+		if errorCode == "" {
+			errorCode = DelegationCodeChainMismatch
+		}
+		entries = append(entries, schemagate.DelegationAuditEntry{
+			TokenID:           token.TokenID,
+			DelegatorIdentity: token.DelegatorIdentity,
+			DelegateIdentity:  token.DelegateIdentity,
+			Scope:             mergeUniqueSorted(nil, token.Scope),
+			ExpiresAt:         token.ExpiresAt.UTC(),
+			Valid:             false,
+			ErrorCode:         errorCode,
+		})
+	}
+
+	return DelegationChainValidationResult{
+		Complete:            validDelegations == len(requiredLinks),
+		RequiredDelegations: len(requiredLinks),
+		ValidDelegations:    validDelegations,
+		ValidTokenIDs:       mergeUniqueSorted(nil, validTokenIDs),
+		Entries:             entries,
+	}, nil
 }
 
 func normalizeDelegationToken(token schemagate.DelegationToken) (schemagate.DelegationToken, error) {
@@ -315,6 +451,29 @@ func computeDelegationTokenID(delegator, delegate string, scope []string, scopeC
 	}, ":")
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:12])
+}
+
+func matchesDelegationScope(requiredScope []string, tokenScope []string, scopeClass string) bool {
+	if len(requiredScope) == 0 {
+		return true
+	}
+	tokenSet := make(map[string]struct{}, len(tokenScope)+1)
+	for _, scope := range tokenScope {
+		tokenSet[scope] = struct{}{}
+	}
+	normalizedScopeClass := strings.ToLower(strings.TrimSpace(scopeClass))
+	if normalizedScopeClass != "" {
+		tokenSet[normalizedScopeClass] = struct{}{}
+	}
+	if _, ok := tokenSet["*"]; ok {
+		return true
+	}
+	for _, scope := range requiredScope {
+		if _, ok := tokenSet[scope]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func DelegationDigest(delegation schemagate.IntentDelegation) (string, error) {

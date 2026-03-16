@@ -110,6 +110,13 @@ Producer obligations:
   - `scope_class`
   - `token_refs`
 
+Delegation obligations:
+
+- Producers MUST keep `delegation.chain[]` contiguous: each link's `delegator_identity` must equal the previous link's `delegate_identity`.
+- Producers MUST terminate `delegation.chain[]` at `delegation.requester_identity`.
+- Consumers MUST require signed token evidence for every claimed delegation hop before treating the chain as authorizing input.
+- Consumers MUST enforce policy-required delegation scope against the delegation token's signed `scope` or signed `scope_class`, not against unsigned intent fields alone.
+
 Consumer obligations:
 
 - MUST fail closed for high-risk paths when intent cannot be evaluated.
@@ -297,6 +304,7 @@ Consumer obligations:
   - supports signed pre-approved fast-path via:
     - `--approved-script-registry <registry.json>`
     - `--approved-script-public-key <path>` or `--approved-script-public-key-env <VAR>`
+  - missing approved-script verify keys disable fast-path in standard low-risk mode and fail closed in high-risk / `oss-prod` paths
 - `gait approve-script`:
   - creates signed approved-script entries bound to policy digest + script hash
 - `gait list-scripts`:

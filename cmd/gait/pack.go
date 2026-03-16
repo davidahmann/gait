@@ -270,6 +270,8 @@ func runPackVerify(arguments []string) int {
 	ok := len(result.MissingFiles) == 0 && len(result.HashMismatches) == 0 && len(result.UndeclaredFiles) == 0
 	if requireSignature {
 		ok = ok && result.SignatureStatus == "verified"
+	} else {
+		ok = ok && result.SignatureStatus != "failed"
 	}
 	exitCode := exitOK
 	if !ok {

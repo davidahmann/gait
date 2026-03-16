@@ -31,6 +31,7 @@ trap 'rm -rf "${TMP_DIR}"' EXIT
 WRKR_POLICY_PATH="${TMP_DIR}/policy_wrkr.yaml"
 APPROVAL_POLICY_PATH="${TMP_DIR}/policy_approval.yaml"
 SCRIPT_INTENT_PATH="${TMP_DIR}/intent_script.json"
+SCRIPT_INTENT_LOW_RISK_PATH="${TMP_DIR}/intent_script_low_risk.json"
 WRKR_INVENTORY_PATH="${TMP_DIR}/wrkr_inventory.json"
 REGISTRY_PATH="${TMP_DIR}/approved_scripts.json"
 TAMPERED_REGISTRY_PATH="${TMP_DIR}/approved_scripts_tampered.json"
@@ -130,6 +131,18 @@ cat >"${SCRIPT_INTENT_PATH}" <<'JSON'
   }
 }
 JSON
+
+python3 - <<'PY' "${SCRIPT_INTENT_PATH}" "${SCRIPT_INTENT_LOW_RISK_PATH}"
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+payload["context"]["risk_class"] = "low"
+pathlib.Path(sys.argv[2]).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
 
 cat >"${WRKR_INVENTORY_PATH}" <<'JSON'
 [
@@ -257,6 +270,45 @@ assert payload.get("verdict") == "allow", payload
 assert payload.get("pre_approved") is True, payload
 assert payload.get("pattern_id"), payload
 assert payload.get("registry_reason") == "approved_script_match", payload
+PY
+
+echo "==> approved-script fast-path fail-closed when verify key is missing in high-risk mode"
+EVAL_MISSING_KEY_HIGH_EXIT="$(run_eval "${TMP_DIR}/eval_missing_key_high.json" --policy "${APPROVAL_POLICY_PATH}" --intent "${SCRIPT_INTENT_PATH}" --approved-script-registry "${REGISTRY_PATH}")"
+if [[ "${EVAL_MISSING_KEY_HIGH_EXIT}" -ne 3 ]]; then
+  echo "expected missing verify key fail-closed exit (3), got ${EVAL_MISSING_KEY_HIGH_EXIT}" >&2
+  exit 1
+fi
+python3 - <<'PY' "${TMP_DIR}/eval_missing_key_high.json"
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload.get("ok") is False, payload
+assert "verify key required" in str(payload.get("error", "")), payload
+PY
+
+echo "==> approved-script fast-path disables without key in standard low-risk mode"
+EVAL_MISSING_KEY_LOW_EXIT="$(run_eval "${TMP_DIR}/eval_missing_key_low.json" --policy "${APPROVAL_POLICY_PATH}" --intent "${SCRIPT_INTENT_LOW_RISK_PATH}" --approved-script-registry "${REGISTRY_PATH}")"
+if [[ "${EVAL_MISSING_KEY_LOW_EXIT}" -ne 4 ]]; then
+  echo "expected missing verify key low-risk exit (4), got ${EVAL_MISSING_KEY_LOW_EXIT}" >&2
+  exit 1
+fi
+python3 - <<'PY' "${TMP_DIR}/eval_missing_key_low.json"
+from __future__ import annotations
+
+import json
+import pathlib
+import sys
+
+payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+assert payload.get("ok") is True, payload
+assert payload.get("verdict") == "require_approval", payload
+assert payload.get("pre_approved") is not True, payload
+warnings = payload.get("warnings") or []
+assert any("registry verify key is not configured" in str(item) for item in warnings), payload
 PY
 
 echo "==> approved-script fail-closed on signature mismatch"

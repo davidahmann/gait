@@ -199,6 +199,7 @@ type EvalOutcome struct {
 	RequireDistinctApprovers bool
 	RequireBrokerCredential  bool
 	RequireDelegation        bool
+	RequiredDelegationScopes []string
 	BrokerReference          string
 	BrokerScopes             []string
 	RateLimit                RateLimitPolicy
@@ -225,6 +226,7 @@ type matchedRuleEvaluation struct {
 	RequireDistinctApprovers bool
 	RequireBrokerCredential  bool
 	RequireDelegation        bool
+	RequiredDelegationScopes []string
 	BrokerReference          string
 	BrokerScopes             []string
 	RateLimit                RateLimitPolicy
@@ -382,6 +384,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 		requireDistinctApprovers := false
 		requireBrokerCredential := false
 		requireDelegation := false
+		requiredDelegationScopes := []string{}
 		brokerReferences := []string{}
 		brokerScopes := []string{}
 		rateLimit := RateLimitPolicy{}
@@ -399,6 +402,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			requireDistinctApprovers = requireDistinctApprovers || evaluation.RequireDistinctApprovers
 			requireBrokerCredential = requireBrokerCredential || evaluation.RequireBrokerCredential
 			requireDelegation = requireDelegation || evaluation.RequireDelegation
+			requiredDelegationScopes = mergeUniqueSorted(requiredDelegationScopes, evaluation.RequiredDelegationScopes)
 			brokerReferences = mergeUniqueSorted(brokerReferences, []string{evaluation.BrokerReference})
 			brokerScopes = mergeUniqueSorted(brokerScopes, evaluation.BrokerScopes)
 			rateLimit = mostRestrictiveRateLimitPolicy(rateLimit, evaluation.RateLimit)
@@ -417,6 +421,7 @@ func evaluateSingleIntent(policy Policy, intent schemagate.IntentRequest, opts E
 			RequireDistinctApprovers: requireDistinctApprovers,
 			RequireBrokerCredential:  requireBrokerCredential,
 			RequireDelegation:        requireDelegation,
+			RequiredDelegationScopes: uniqueSorted(requiredDelegationScopes),
 			BrokerReference:          strings.Join(uniqueSorted(brokerReferences), ","),
 			BrokerScopes:             uniqueSorted(brokerScopes),
 			RateLimit:                rateLimit,
@@ -495,6 +500,7 @@ func evaluateMatchedRule(rule PolicyRule, intent schemagate.IntentRequest) match
 		RequireDistinctApprovers: rule.RequireDistinctApprovers,
 		RequireBrokerCredential:  rule.RequireBrokerCredential,
 		RequireDelegation:        rule.Match.RequireDelegation,
+		RequiredDelegationScopes: uniqueSorted(rule.Match.DelegationScopes),
 		BrokerReference:          rule.BrokerReference,
 		BrokerScopes:             uniqueSorted(rule.BrokerScopes),
 		RateLimit:                rule.RateLimit,
@@ -516,6 +522,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 	requireDistinctApprovers := false
 	requireBrokerCredential := false
 	requireDelegation := false
+	requiredDelegationScopes := []string{}
 	brokerScopes := []string{}
 	brokerReference := ""
 	dataflowTriggered := false
@@ -570,6 +577,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		if stepOutcome.RequireDelegation {
 			requireDelegation = true
 		}
+		requiredDelegationScopes = mergeUniqueSorted(requiredDelegationScopes, stepOutcome.RequiredDelegationScopes)
 		if brokerReference == "" {
 			brokerReference = stepOutcome.BrokerReference
 		}
@@ -621,6 +629,7 @@ func evaluateScriptPolicyDetailed(policy Policy, intent schemagate.IntentRequest
 		RequireDistinctApprovers: requireDistinctApprovers,
 		RequireBrokerCredential:  requireBrokerCredential,
 		RequireDelegation:        requireDelegation,
+		RequiredDelegationScopes: uniqueSorted(requiredDelegationScopes),
 		BrokerReference:          brokerReference,
 		BrokerScopes:             uniqueSorted(brokerScopes),
 		RateLimit:                aggregatedRateLimit,

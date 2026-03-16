@@ -732,6 +732,9 @@ func normalizeDelegation(input *schemagate.IntentDelegation) (*schemagate.Intent
 		if delegatorIdentity == "" || delegateIdentity == "" {
 			return nil, fmt.Errorf("delegation.chain[%d] requires delegator_identity and delegate_identity", i)
 		}
+		if i > 0 && normalizedChain[i-1].DelegateIdentity != delegatorIdentity {
+			return nil, fmt.Errorf("delegation.chain[%d] delegator_identity must match delegation.chain[%d].delegate_identity", i, i-1)
+		}
 		issuedAt := link.IssuedAt.UTC()
 		expiresAt := link.ExpiresAt.UTC()
 		if !issuedAt.IsZero() && !expiresAt.IsZero() && !expiresAt.After(issuedAt) {
@@ -751,6 +754,9 @@ func normalizeDelegation(input *schemagate.IntentDelegation) (*schemagate.Intent
 	expiresAt := input.ExpiresAt.UTC()
 	if !issuedAt.IsZero() && !expiresAt.IsZero() && !expiresAt.After(issuedAt) {
 		return nil, fmt.Errorf("delegation.expires_at must be after issued_at")
+	}
+	if len(normalizedChain) > 0 && normalizedChain[len(normalizedChain)-1].DelegateIdentity != requesterIdentity {
+		return nil, fmt.Errorf("delegation.chain last delegate_identity must match delegation.requester_identity")
 	}
 
 	return &schemagate.IntentDelegation{

@@ -145,6 +145,7 @@ Rollout gate:
 
 - approved-script entries must be policy-digest bound and signature verified.
 - missing/invalid registry state must fail closed in high-risk/oss-prod paths.
+- missing approved-script verify keys disable fast-path in standard low-risk mode; they do not create an implicit allow path.
 - monitor `pre_approved`, `pattern_id`, and `registry_reason` in gate JSON and trace artifacts.
 
 ## Stage 3B: Skill Trust Guardrails
@@ -188,6 +189,8 @@ Rollout gate:
 Identity boundary note:
 
 - Gait validates signed delegation evidence (identity/scope/digest bindings) presented at eval time.
+- For multi-hop delegation, every claimed `delegation.chain[]` hop must be backed by a signed delegation token for that hop; partial chains remain blocked.
+- Policy `delegation_scopes` must be satisfied by the delegation token's signed `scope` or signed `scope_class`; unsigned intent-only scope claims do not authorize execution.
 - Enterprise IdP/OIDC token exchange and identity lifecycle remain external to Gait.
 - Integration teams should map IdP-issued identities/claims into delegation token issuance before `gait gate eval`.
 

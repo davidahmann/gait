@@ -527,6 +527,35 @@ func TestNormalizeIntentValidationErrors(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "invalid_delegation_chain_continuity",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.demo",
+				Args:     map[string]any{},
+				Delegation: &schemagate.IntentDelegation{
+					RequesterIdentity: "agent.worker",
+					Chain: []schemagate.DelegationLink{
+						{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.manager"},
+						{DelegatorIdentity: "agent.other", DelegateIdentity: "agent.worker"},
+					},
+				},
+				Context: schemagate.IntentContext{Identity: "agent.worker", Workspace: "/tmp", RiskClass: "high"},
+			},
+		},
+		{
+			name: "invalid_delegation_chain_requester_mismatch",
+			intent: schemagate.IntentRequest{
+				ToolName: "tool.demo",
+				Args:     map[string]any{},
+				Delegation: &schemagate.IntentDelegation{
+					RequesterIdentity: "agent.worker",
+					Chain: []schemagate.DelegationLink{
+						{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.manager"},
+					},
+				},
+				Context: schemagate.IntentContext{Identity: "agent.worker", Workspace: "/tmp", RiskClass: "high"},
+			},
+		},
 	}
 
 	for _, testCase := range tests {

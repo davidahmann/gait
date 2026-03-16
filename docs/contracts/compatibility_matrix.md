@@ -39,6 +39,6 @@ Breaking changes require:
 If you are emitting PackSpec outside Gait runtime:
 - implement RFC 8785 canonicalization for digest/signature inputs
 - keep zip output deterministic
-- validate outputs with `gait pack verify` in CI
+- validate outputs with `gait pack verify` in CI, and treat wrong-key signature failures as hard verification failures even in standard mode when a verify key is supplied
 
 Reference kit: `docs/contracts/pack_producer_kit.md`

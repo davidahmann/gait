@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	jcs "github.com/Clyra-AI/proof/canon"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestRunPackLifecycleCommands(t *testing.T) {
@@ -293,6 +295,57 @@ func TestRunPackVerifySchemaFailureExitCode(t *testing.T) {
 
 	if code := runPack([]string{"verify", mutatedPath, "--json"}); code != exitVerifyFailed {
 		t.Fatalf("pack verify invalid payload expected %d got %d", exitVerifyFailed, code)
+	}
+}
+
+func TestRunPackVerifyWrongKeyFailsInStandardMode(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	if code := runDemo(nil); code != exitOK {
+		t.Fatalf("demo expected %d got %d", exitOK, code)
+	}
+
+	signingPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate signing key pair: %v", err)
+	}
+	signingPrivateKeyPath := filepath.Join(workDir, "signing_private.key")
+	if err := os.WriteFile(signingPrivateKeyPath, []byte(base64.StdEncoding.EncodeToString(signingPair.Private)+"\n"), 0o600); err != nil {
+		t.Fatalf("write signing private key: %v", err)
+	}
+
+	wrongPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate wrong key pair: %v", err)
+	}
+	wrongPublicKeyPath := filepath.Join(workDir, "wrong_public.key")
+	if err := os.WriteFile(wrongPublicKeyPath, []byte(base64.StdEncoding.EncodeToString(wrongPair.Public)+"\n"), 0o600); err != nil {
+		t.Fatalf("write wrong public key: %v", err)
+	}
+
+	packPath := filepath.Join(workDir, "signed_pack.zip")
+	if code := runPack([]string{
+		"build",
+		"--type", "run",
+		"--from", "run_demo",
+		"--out", packPath,
+		"--key-mode", "prod",
+		"--private-key", signingPrivateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("signed pack build expected %d got %d", exitOK, code)
+	}
+
+	verifyCode, verifyOut := runPackJSON(t, []string{"verify", packPath, "--public-key", wrongPublicKeyPath, "--json"})
+	if verifyCode != exitVerifyFailed {
+		t.Fatalf("pack verify wrong-key standard mode expected %d got %d output=%#v", exitVerifyFailed, verifyCode, verifyOut)
+	}
+	if verifyOut.OK {
+		t.Fatalf("expected verify output ok=false, got %#v", verifyOut)
+	}
+	if verifyOut.Verify == nil || verifyOut.Verify.SignatureStatus != "failed" {
+		t.Fatalf("expected signature_status=failed, got %#v", verifyOut)
 	}
 }
 

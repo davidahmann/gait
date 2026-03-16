@@ -184,6 +184,14 @@ func TestValidateDelegationTokenAdditionalFailureModes(t *testing.T) {
 		ExpectedPolicyDigest: "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
 	})
 	assertDelegationErrorCode(t, err, DelegationCodePolicyMismatch)
+
+	err = ValidateDelegationToken(minted.Token, keyPair.Public, DelegationValidationOptions{
+		Now:           time.Date(2026, time.February, 10, 0, 30, 0, 0, time.UTC),
+		RequiredScope: []string{"write"},
+	})
+	if err != nil {
+		t.Fatalf("expected signed scope_class to satisfy required scope, got %v", err)
+	}
 }
 
 func TestDelegationBindingDigest(t *testing.T) {
@@ -427,5 +435,125 @@ func TestValidateDelegationTokenSchemaFailuresAndSignatureTamper(t *testing.T) {
 	}
 	if err := WriteDelegationToken(filepath.Join(parentFile, "delegation.json"), minted.Token); err == nil {
 		t.Fatalf("expected write delegation token failure when parent is not directory")
+	}
+}
+
+func TestValidateDelegationChainRequiresEveryHop(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	workDir := t.TempDir()
+
+	midPath := filepath.Join(workDir, "mid.json")
+	leafPath := filepath.Join(workDir, "leaf.json")
+	mid, err := MintDelegationToken(MintDelegationTokenOptions{
+		ProducerVersion:   "test",
+		DelegatorIdentity: "agent.lead",
+		DelegateIdentity:  "agent.manager",
+		Scope:             []string{"tool:tool.write"},
+		ScopeClass:        "write",
+		TTL:               time.Hour,
+		Now:               time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
+		SigningPrivateKey: keyPair.Private,
+		TokenPath:         midPath,
+	})
+	if err != nil {
+		t.Fatalf("mint mid delegation token: %v", err)
+	}
+	leaf, err := MintDelegationToken(MintDelegationTokenOptions{
+		ProducerVersion:   "test",
+		DelegatorIdentity: "agent.manager",
+		DelegateIdentity:  "agent.specialist",
+		Scope:             []string{"tool:tool.write"},
+		ScopeClass:        "write",
+		TTL:               time.Hour,
+		Now:               time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
+		SigningPrivateKey: keyPair.Private,
+		TokenPath:         leafPath,
+	})
+	if err != nil {
+		t.Fatalf("mint leaf delegation token: %v", err)
+	}
+
+	delegation := &schemagate.IntentDelegation{
+		RequesterIdentity: "agent.specialist",
+		ScopeClass:        "write",
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.manager", ScopeClass: "write"},
+			{DelegatorIdentity: "agent.manager", DelegateIdentity: "agent.specialist", ScopeClass: "write"},
+		},
+	}
+
+	partial, err := ValidateDelegationChain(delegation, []schemagate.DelegationToken{leaf.Token}, keyPair.Public, DelegationChainValidationOptions{
+		Now: time.Date(2026, time.February, 10, 0, 30, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("validate partial delegation chain: %v", err)
+	}
+	if partial.Complete {
+		t.Fatalf("expected partial delegation chain to be incomplete")
+	}
+	if partial.RequiredDelegations != 2 || partial.ValidDelegations != 1 {
+		t.Fatalf("unexpected partial delegation chain counts: %#v", partial)
+	}
+	if len(partial.Entries) != 2 {
+		t.Fatalf("expected one valid entry and one missing-link entry, got %#v", partial.Entries)
+	}
+
+	complete, err := ValidateDelegationChain(delegation, []schemagate.DelegationToken{mid.Token, leaf.Token}, keyPair.Public, DelegationChainValidationOptions{
+		Now: time.Date(2026, time.February, 10, 0, 30, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("validate complete delegation chain: %v", err)
+	}
+	if !complete.Complete {
+		t.Fatalf("expected complete delegation chain, got %#v", complete)
+	}
+	if complete.RequiredDelegations != 2 || complete.ValidDelegations != 2 {
+		t.Fatalf("unexpected complete delegation chain counts: %#v", complete)
+	}
+	if len(complete.ValidTokenIDs) != 2 {
+		t.Fatalf("expected two valid token ids, got %#v", complete.ValidTokenIDs)
+	}
+}
+
+func TestValidateDelegationChainRequiresSignedScopeMatch(t *testing.T) {
+	keyPair, err := sign.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("generate key pair: %v", err)
+	}
+	workDir := t.TempDir()
+	tokenPath := filepath.Join(workDir, "delegation_scope_mismatch.json")
+	minted, err := MintDelegationToken(MintDelegationTokenOptions{
+		ProducerVersion:   "test",
+		DelegatorIdentity: "agent.lead",
+		DelegateIdentity:  "agent.specialist",
+		Scope:             []string{"tool:tool.read"},
+		ScopeClass:        "read",
+		TTL:               time.Hour,
+		Now:               time.Date(2026, time.February, 10, 0, 0, 0, 0, time.UTC),
+		SigningPrivateKey: keyPair.Private,
+		TokenPath:         tokenPath,
+	})
+	if err != nil {
+		t.Fatalf("mint delegation token: %v", err)
+	}
+
+	result, err := ValidateDelegationChain(&schemagate.IntentDelegation{
+		RequesterIdentity: "agent.specialist",
+		ScopeClass:        "write",
+		Chain: []schemagate.DelegationLink{
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.specialist", ScopeClass: "write"},
+		},
+	}, []schemagate.DelegationToken{minted.Token}, keyPair.Public, DelegationChainValidationOptions{
+		Now:           time.Date(2026, time.February, 10, 0, 30, 0, 0, time.UTC),
+		RequiredScope: []string{"write"},
+	})
+	if err != nil {
+		t.Fatalf("validate delegation chain with scope mismatch: %v", err)
+	}
+	if result.Complete || result.ValidDelegations != 0 {
+		t.Fatalf("expected scope mismatch to block delegation chain, got %#v", result)
 	}
 }

@@ -405,7 +405,7 @@ func TestEmitSignedTraceRelationshipEnvelope(t *testing.T) {
 	intent.Delegation = &schemagate.IntentDelegation{
 		RequesterIdentity: "agent.requester",
 		Chain: []schemagate.DelegationLink{
-			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.worker"},
+			{DelegatorIdentity: "agent.lead", DelegateIdentity: "agent.requester"},
 		},
 	}
 	result, err := EvaluatePolicy(policy, intent, EvalOptions{ProducerVersion: "test"})

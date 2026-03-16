@@ -181,6 +181,7 @@ Integration touchpoints:
 
 - Wrapper or sidecar: call `gait gate eval` at the exact tool-dispatch site before side effects execute.
 - Context-required policies: pass `--context-envelope <context_envelope.json>` at that boundary on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`; raw `intent.context_set_digest`, `intent.context_evidence_mode`, or `context.auth_context.context_age_seconds` claims are treated as non-authoritative until the envelope is verified.
+- Delegated execution: pass signed delegation token evidence to `gait gate eval`; multi-hop delegation only authorizes when each claimed hop is backed by a signed token for that hop, and policy-required delegation scope must be satisfied by the token's signed `scope` or `scope_class`.
 - MCP serve nuance: if the server starts with `--allow-client-artifact-paths`, same-host callers may provide `call.context.context_envelope_path`; otherwise keep context proof fixed at the serve boundary with `--context-envelope`.
 - SDKs and automation: use `gait demo --json` for smoke checks and handoffs; the text form is human-facing only.
 - Policy authors: when same-priority rules overlap, Gait applies the most restrictive verdict for that priority tier. Use a strictly lower numeric `priority` when one rule must win.
@@ -206,6 +207,7 @@ See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent
 ## What Ships In OSS
 
 **Gate** — evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Non-allow means non-execute. When multiple rules at the same priority match, Gait resolves that priority tier to the most restrictive verdict instead of depending on rule names.
+Approved-script fast-path allow only applies to verified registry entries; missing verification prerequisites disable the fast path in standard low-risk mode and fail closed in high-risk paths.
 
 **Evidence** — signed traces, runpacks, packs, and callpacks you can verify, diff, and attach to tickets, PRs, audits, and incidents.
 
@@ -244,6 +246,7 @@ gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 Put this copy at the bottom of launch surfaces: Gait produces signed evidence artifacts for operational proof.
 
 - `gait verify`, `gait pack verify`, and `gait trace verify` work offline.
+- If you provide a verify key and signature validation fails, `gait pack verify` returns verification failure instead of a soft success.
 - Packs use Ed25519 signatures plus SHA-256 manifests.
 - Artifacts are versioned, deterministic, and designed for change control, audit trails, PRs, and incident handoff.
 
