@@ -37,6 +37,19 @@ echo "==> tck: valid run pack"
 "$BIN_PATH" pack build --type run --from "$WORK_DIR/gait-out/runpack_run_tck.zip" --out "$WORK_DIR/pack_run.zip" --json > "$WORK_DIR/pack_run_build.json"
 "$BIN_PATH" pack verify "$WORK_DIR/pack_run.zip" --json > "$WORK_DIR/pack_run_verify.json"
 
+echo "==> tck: wrong-key signature vector"
+"$BIN_PATH" keys init --out-dir "$WORK_DIR/keys_a" --prefix tck_a --json > "$WORK_DIR/keys_a.json"
+"$BIN_PATH" keys init --out-dir "$WORK_DIR/keys_b" --prefix tck_b --json > "$WORK_DIR/keys_b.json"
+"$BIN_PATH" pack build --type run --from "$WORK_DIR/gait-out/runpack_run_tck.zip" --out "$WORK_DIR/pack_run_signed.zip" --key-mode prod --private-key "$WORK_DIR/keys_a/tck_a_private.key" --json > "$WORK_DIR/pack_run_signed_build.json"
+set +e
+"$BIN_PATH" pack verify "$WORK_DIR/pack_run_signed.zip" --public-key "$WORK_DIR/keys_b/tck_b_public.key" --json > "$WORK_DIR/pack_run_wrong_key_verify.json"
+WRONG_KEY_CODE=$?
+set -e
+if [[ $WRONG_KEY_CODE -eq 0 ]]; then
+  echo "expected wrong-key pack verify to fail" >&2
+  exit 1
+fi
+
 echo "==> tck: valid job pack"
 "$BIN_PATH" job submit --id job_tck --root "$WORK_DIR/jobs" --json > "$WORK_DIR/job_submit.json"
 "$BIN_PATH" job checkpoint add --id job_tck --root "$WORK_DIR/jobs" --type decision-needed --summary "approval required" --required-action "approve" --json > "$WORK_DIR/job_checkpoint.json"
@@ -185,6 +198,11 @@ if legacy_run.get("verify", {}).get("legacy_type") != "runpack":
     raise SystemExit("legacy run verify did not report legacy_type=runpack")
 if legacy_guard.get("verify", {}).get("legacy_type") != "guard":
     raise SystemExit("legacy guard verify did not report legacy_type=guard")
+wrong_key = json.loads((work / "pack_run_wrong_key_verify.json").read_text(encoding="utf-8"))
+if wrong_key.get("ok") is not False:
+    raise SystemExit(f"wrong-key verify expected ok=false, got {wrong_key}")
+if wrong_key.get("verify", {}).get("signature_status") != "failed":
+    raise SystemExit(f"wrong-key verify expected signature_status=failed, got {wrong_key}")
 PY
 
 echo "packspec tck: pass"

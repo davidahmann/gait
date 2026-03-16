@@ -4,6 +4,7 @@ Stable OSS contracts include:
 
 - **PackSpec v1**: Unified portable artifact envelope for run, job, and call evidence with Ed25519 signatures and SHA-256 manifest. Schema: `schemas/v1/pack/manifest.schema.json`.
   - includes first-class export surfaces: `gait pack export --otel-out ...` and `--postgres-sql-out ...` for observability and metadata indexing.
+  - `gait pack verify` remains offline-first, but a supplied verify key that produces `signature_status=failed` is a verification failure, not a soft pass.
 - **ContextSpec v1**: Deterministic context evidence envelopes with privacy-aware modes and fail-closed enforcement. Required context-proof checks are satisfied through a verified `--context-envelope` input on `gait gate eval`, `gait mcp proxy`, or `gait mcp serve`, rather than raw intent claims.
 - **Primitive Contract**: Four deterministic primitives — capture, enforce, regress, diagnose.
 - **CLI Meta Contract**: `gait --help` is text-only and exits `0`; machine-readable version discovery uses `gait version --json` or the `--version` / `-v` aliases.
@@ -16,7 +17,8 @@ Stable OSS contracts include:
   - `mcp_trust.snapshot` must point at a local file; scanners and registries remain complementary inputs.
   - `gait mcp verify --json` reports `trust_model=local_snapshot` and `snapshot_path` when MCP trust is configured.
   - wrapper JSON reports `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` and `invalid_trace_artifact`.
-- **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries.
+- **Script Governance Contract**: Script intent steps, deterministic `script_hash`, Wrkr-derived context matching fields, and signed approved-script registry entries. Fast-path allow requires a verify key; missing verification prerequisites disable fast-path in standard low-risk mode and fail closed in high-risk / `oss-prod` paths.
+- **Delegation Contract**: delegated execution is only authoritative when each claimed delegation hop is backed by signed token evidence; multi-hop chains must stay contiguous and terminate at the requester identity, and policy-required delegation scope must come from the token's signed `scope` or signed `scope_class`.
 - **Intent+Receipt Spec**: Structured tool-call intent with deterministic receipt generation.
 - **Endpoint Action Model**: Maps tool-call intent to policy-evaluated action outcomes.
 - Artifact schemas (`schemas/v1/*`)

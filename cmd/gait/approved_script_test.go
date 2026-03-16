@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/Clyra-AI/gait/core/contextproof"
 	schemacontext "github.com/Clyra-AI/gait/core/schema/v1/context"
 	schemagate "github.com/Clyra-AI/gait/core/schema/v1/gate"
+	sign "github.com/Clyra-AI/proof/signing"
 )
 
 func TestApproveScriptAndListScripts(t *testing.T) {
@@ -72,6 +74,7 @@ func TestGateEvalApprovedScriptFastPath(t *testing.T) {
 	intentPath := filepath.Join(workDir, "script_intent.json")
 	registryPath := filepath.Join(workDir, "approved_scripts.json")
 	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	publicKeyPath := filepath.Join(workDir, "approved_script_public.key")
 	tracePath := filepath.Join(workDir, "trace.json")
 
 	mustWriteFile(t, policyPath, `
@@ -83,7 +86,7 @@ rules:
       tool_names: [tool.write]
 `)
 	mustWriteScriptIntentFixture(t, intentPath)
-	writePrivateKey(t, privateKeyPath)
+	writeApprovedScriptKeyPair(t, privateKeyPath, publicKeyPath)
 
 	if code := runGateEval([]string{
 		"--policy", policyPath,
@@ -111,6 +114,7 @@ rules:
 			"--policy", policyPath,
 			"--intent", intentPath,
 			"--approved-script-registry", registryPath,
+			"--approved-script-public-key", publicKeyPath,
 			"--trace-out", tracePath,
 			"--json",
 		}); code != exitOK {
@@ -134,6 +138,7 @@ func TestGateEvalApprovedScriptFastPathDisabledForContextPolicies(t *testing.T) 
 	intentPath := filepath.Join(workDir, "script_intent.json")
 	registryPath := filepath.Join(workDir, "approved_scripts.json")
 	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	publicKeyPath := filepath.Join(workDir, "approved_script_public.key")
 	envelopePath := filepath.Join(workDir, "context_envelope.json")
 
 	mustWriteFile(t, policyPath, `
@@ -147,7 +152,7 @@ rules:
       tool_names: [tool.write]
 `)
 	mustWriteScriptIntentFixture(t, intentPath)
-	writePrivateKey(t, privateKeyPath)
+	writeApprovedScriptKeyPair(t, privateKeyPath, publicKeyPath)
 
 	envelope, err := contextproof.BuildEnvelope([]schemacontext.ReferenceRecord{
 		{
@@ -192,6 +197,7 @@ rules:
 			"--policy", policyPath,
 			"--intent", intentPath,
 			"--approved-script-registry", registryPath,
+			"--approved-script-public-key", publicKeyPath,
 			"--json",
 		}); code != exitPolicyBlocked {
 			t.Fatalf("runGateEval without context envelope expected %d got %d", exitPolicyBlocked, code)
@@ -210,6 +216,7 @@ rules:
 			"--policy", policyPath,
 			"--intent", intentPath,
 			"--approved-script-registry", registryPath,
+			"--approved-script-public-key", publicKeyPath,
 			"--context-envelope", envelopePath,
 			"--json",
 		}); code != exitOK {
@@ -236,6 +243,7 @@ func TestGateEvalApprovedScriptBypassesBlockingRule(t *testing.T) {
 	intentPath := filepath.Join(workDir, "script_intent.json")
 	registryPath := filepath.Join(workDir, "approved_scripts.json")
 	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	publicKeyPath := filepath.Join(workDir, "approved_script_public.key")
 
 	mustWriteFile(t, policyPath, `
 default_verdict: allow
@@ -247,7 +255,7 @@ rules:
       tool_names: [tool.write]
 `)
 	mustWriteScriptIntentFixture(t, intentPath)
-	writePrivateKey(t, privateKeyPath)
+	writeApprovedScriptKeyPair(t, privateKeyPath, publicKeyPath)
 
 	if code := runGateEval([]string{
 		"--policy", policyPath,
@@ -274,6 +282,7 @@ rules:
 			"--policy", policyPath,
 			"--intent", intentPath,
 			"--approved-script-registry", registryPath,
+			"--approved-script-public-key", publicKeyPath,
 			"--json",
 		}); code != exitOK {
 			t.Fatalf("runGateEval with registry expected %d got %d", exitOK, code)
@@ -288,6 +297,116 @@ rules:
 	}
 	if len(evalOut.ReasonCodes) != 1 || evalOut.ReasonCodes[0] != "approved_script_match" {
 		t.Fatalf("expected fast-path reason only, got %#v", evalOut.ReasonCodes)
+	}
+}
+
+func TestGateEvalApprovedScriptRegistryMissingVerifyKeyFailsClosedForHighRisk(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_require_approval.yaml")
+	intentPath := filepath.Join(workDir, "script_intent.json")
+	registryPath := filepath.Join(workDir, "approved_scripts.json")
+	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	publicKeyPath := filepath.Join(workDir, "approved_script_public.key")
+
+	mustWriteFile(t, policyPath, `
+default_verdict: allow
+rules:
+  - name: require-approval-write
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+`)
+	mustWriteScriptIntentFixture(t, intentPath)
+	writeApprovedScriptKeyPair(t, privateKeyPath, publicKeyPath)
+
+	if code := runApproveScript([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--registry", registryPath,
+		"--approver", "secops",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runApproveScript expected %d got %d", exitOK, code)
+	}
+
+	rawEval := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--approved-script-registry", registryPath,
+			"--json",
+		}); code != exitPolicyBlocked {
+			t.Fatalf("runGateEval missing approved-script verify key expected %d got %d", exitPolicyBlocked, code)
+		}
+	})
+	var evalOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawEval), &evalOut); err != nil {
+		t.Fatalf("decode gate eval output: %v raw=%q", err, rawEval)
+	}
+	if evalOut.OK {
+		t.Fatalf("expected fail-closed output, got %#v", evalOut)
+	}
+	if !strings.Contains(evalOut.Error, "verify key required") {
+		t.Fatalf("expected verify key required error, got %#v", evalOut)
+	}
+}
+
+func TestGateEvalApprovedScriptRegistryMissingVerifyKeyDisablesFastPathForLowRisk(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	policyPath := filepath.Join(workDir, "policy_require_approval.yaml")
+	intentPath := filepath.Join(workDir, "script_intent_low_risk.json")
+	registryPath := filepath.Join(workDir, "approved_scripts.json")
+	privateKeyPath := filepath.Join(workDir, "approved_script_private.key")
+	publicKeyPath := filepath.Join(workDir, "approved_script_public.key")
+
+	mustWriteFile(t, policyPath, `
+default_verdict: allow
+rules:
+  - name: require-approval-write
+    effect: require_approval
+    match:
+      tool_names: [tool.write]
+`)
+	mustWriteLowRiskScriptIntentFixture(t, intentPath)
+	writeApprovedScriptKeyPair(t, privateKeyPath, publicKeyPath)
+
+	if code := runApproveScript([]string{
+		"--policy", policyPath,
+		"--intent", intentPath,
+		"--registry", registryPath,
+		"--approver", "secops",
+		"--key-mode", "prod",
+		"--private-key", privateKeyPath,
+		"--json",
+	}); code != exitOK {
+		t.Fatalf("runApproveScript expected %d got %d", exitOK, code)
+	}
+
+	rawEval := captureStdout(t, func() {
+		if code := runGateEval([]string{
+			"--policy", policyPath,
+			"--intent", intentPath,
+			"--approved-script-registry", registryPath,
+			"--json",
+		}); code != exitApprovalRequired {
+			t.Fatalf("runGateEval missing approved-script verify key expected %d got %d", exitApprovalRequired, code)
+		}
+	})
+	var evalOut gateEvalOutput
+	if err := json.Unmarshal([]byte(rawEval), &evalOut); err != nil {
+		t.Fatalf("decode gate eval output: %v raw=%q", err, rawEval)
+	}
+	if evalOut.PreApproved || evalOut.Verdict != "require_approval" {
+		t.Fatalf("expected fast-path disabled output, got %#v", evalOut)
+	}
+	if !containsString(evalOut.Warnings, "approved script fast-path disabled because registry verify key is not configured") {
+		t.Fatalf("expected missing verify key warning, got %#v", evalOut.Warnings)
 	}
 }
 
@@ -402,7 +521,30 @@ func TestRunApproveAndListScriptsHelpAndValidation(t *testing.T) {
 
 func mustWriteScriptIntentFixture(t *testing.T, path string) {
 	t.Helper()
-	intent := schemagate.IntentRequest{
+	intent := scriptIntentFixture("high")
+	raw, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal script intent: %v", err)
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
+		t.Fatalf("write script intent fixture: %v", err)
+	}
+}
+
+func mustWriteLowRiskScriptIntentFixture(t *testing.T, path string) {
+	t.Helper()
+	intent := scriptIntentFixture("low")
+	raw, err := json.MarshalIndent(intent, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal script intent: %v", err)
+	}
+	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
+		t.Fatalf("write script intent fixture: %v", err)
+	}
+}
+
+func scriptIntentFixture(riskClass string) schemagate.IntentRequest {
+	return schemagate.IntentRequest{
 		SchemaID:        "gait.gate.intent_request",
 		SchemaVersion:   "1.0.0",
 		CreatedAt:       time.Date(2026, time.February, 5, 0, 0, 0, 0, time.UTC),
@@ -413,7 +555,7 @@ func mustWriteScriptIntentFixture(t *testing.T, path string) {
 		Context: schemagate.IntentContext{
 			Identity:  "alice",
 			Workspace: "/repo/gait",
-			RiskClass: "high",
+			RiskClass: riskClass,
 		},
 		Script: &schemagate.IntentScript{
 			Steps: []schemagate.IntentScriptStep{
@@ -427,11 +569,18 @@ func mustWriteScriptIntentFixture(t *testing.T, path string) {
 			},
 		},
 	}
-	raw, err := json.MarshalIndent(intent, "", "  ")
+}
+
+func writeApprovedScriptKeyPair(t *testing.T, privatePath string, publicPath string) {
+	t.Helper()
+	keyPair, err := sign.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf("marshal script intent: %v", err)
+		t.Fatalf("generate keypair: %v", err)
 	}
-	if err := os.WriteFile(path, append(raw, '\n'), 0o600); err != nil {
-		t.Fatalf("write script intent fixture: %v", err)
+	if err := os.WriteFile(privatePath, []byte(base64.StdEncoding.EncodeToString(keyPair.Private)+"\n"), 0o600); err != nil {
+		t.Fatalf("write private key: %v", err)
+	}
+	if err := os.WriteFile(publicPath, []byte(base64.StdEncoding.EncodeToString(keyPair.Public)+"\n"), 0o600); err != nil {
+		t.Fatalf("write public key: %v", err)
 	}
 }

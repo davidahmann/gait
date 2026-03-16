@@ -52,6 +52,7 @@ Producers MUST ensure identical inputs produce identical output bytes:
 - declared file presence and hash integrity
 - undeclared file rejection
 - optional signature requirements (`--profile strict` or `--require-signature`)
+- attempted signature verification failures when a verify key is supplied
 
 Stable exit semantics:
 

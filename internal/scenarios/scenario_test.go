@@ -345,7 +345,7 @@ func runDelegationScenario(t *testing.T, repoRoot string, binaryPath string, sce
 	if got.Verdict != expected.Verdict {
 		t.Fatalf("unexpected delegation verdict: got=%s want=%s output=%s", got.Verdict, expected.Verdict, output)
 	}
-	if expected.ValidDelegations > 0 && got.ValidDelegations != expected.ValidDelegations {
+	if got.ValidDelegations != expected.ValidDelegations {
 		t.Fatalf("unexpected valid_delegations: got=%d want=%d", got.ValidDelegations, expected.ValidDelegations)
 	}
 	for _, required := range expected.ReasonCodesMustInclude {

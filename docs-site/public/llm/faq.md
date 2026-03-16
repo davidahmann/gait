@@ -66,7 +66,7 @@ The practical model is camera plus gate, not camera or gate.
 
 ## Can Gait pre-approve known multi-step scripts?
 
-Yes. Use `gait approve-script` to mint signed registry entries bound to policy digest and script hash, then evaluate with `gait gate eval --approved-script-registry ...`. Invalid or tampered registry state fails closed in high-risk paths.
+Yes. Use `gait approve-script` to mint signed registry entries bound to policy digest and script hash, then evaluate with `gait gate eval --approved-script-registry ... --approved-script-public-key ...`. Invalid or tampered registry state fails closed in high-risk paths, and missing verify keys only disable the fast path in standard low-risk mode.
 
 ## How should teams start?
 

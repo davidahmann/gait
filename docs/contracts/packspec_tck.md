@@ -26,13 +26,14 @@ The TCK validates these required vectors:
 
 1. Valid run pack (`pack_type=run`) verify pass.
 2. Valid job pack (`pack_type=job`) verify pass.
-3. Tampered hash pack verify fail.
-4. Undeclared file pack verify fail.
-5. Schema-invalid manifest verify fail.
-6. Legacy migration vectors:
+3. Wrong-key signature pack verify fail.
+4. Tampered hash pack verify fail.
+5. Undeclared file pack verify fail.
+6. Schema-invalid manifest verify fail.
+7. Legacy migration vectors:
    - legacy runpack verify through `gait pack verify`
    - legacy guard pack verify through `gait pack verify`
-7. Deterministic `pack diff` output (stable hash across repeated runs).
+8. Deterministic `pack diff` output (stable hash across repeated runs).
 
 ## Exit Contract
 
