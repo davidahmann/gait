@@ -283,6 +283,9 @@ func buildPolicyReadinessFindings(policy gate.Policy, detection repoDetection, s
 func findingsToWarnings(findings []readinessFinding) []string {
 	warnings := make([]string, 0, len(findings))
 	for _, finding := range findings {
+		if !strings.EqualFold(strings.TrimSpace(finding.Severity), "warning") {
+			continue
+		}
 		if strings.TrimSpace(finding.Summary) == "" {
 			continue
 		}
@@ -303,7 +306,8 @@ func renderStarterRuleComments(rules []generatedRule, unknown []repoSignal) []st
 			lines = append(lines, fmt.Sprintf("#         priority: %d", rule.Priority))
 			lines = append(lines, fmt.Sprintf("#         effect: %s", rule.Effect))
 			if len(rule.MatchToolNames) > 0 {
-				lines = append(lines, fmt.Sprintf("#         match.tool_names: [%s]", strings.Join(rule.MatchToolNames, ", ")))
+				lines = append(lines, "#         match:")
+				lines = append(lines, fmt.Sprintf("#           tool_names: [%s]", strings.Join(rule.MatchToolNames, ", ")))
 			}
 			if len(rule.ReasonCodes) > 0 {
 				lines = append(lines, fmt.Sprintf("#         reason_codes: [%s]", strings.Join(rule.ReasonCodes, ", ")))

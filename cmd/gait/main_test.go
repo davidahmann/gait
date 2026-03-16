@@ -1567,11 +1567,16 @@ func TestOnboardingSignalClassificationHelpers(t *testing.T) {
 		"# unknown_signals:",
 		"starter.block.destructive",
 		"starter.require_approval.state_change",
+		"#         match:",
+		"#           tool_names:",
 		"acme.sync",
 	} {
 		if !strings.Contains(commentBlock, snippet) {
 			t.Fatalf("expected %q in starter comment block: %s", snippet, commentBlock)
 		}
+	}
+	if strings.Contains(commentBlock, "match.tool_names") {
+		t.Fatalf("starter comment block should render nested match YAML, got %s", commentBlock)
 	}
 
 	normalized := normalizeActionCandidateTools([]string{
@@ -1628,8 +1633,11 @@ func TestOnboardingSignalClassificationHelpers(t *testing.T) {
 			t.Fatalf("expected finding %q in %#v", code, findings)
 		}
 	}
-	if len(warnings) < len(findings) {
-		t.Fatalf("expected warnings to preserve all finding summaries: warnings=%#v findings=%#v", warnings, findings)
+	if len(warnings) >= len(findings) {
+		t.Fatalf("expected warning filter to reduce findings to actionable warnings: warnings=%#v findings=%#v", warnings, findings)
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "detected tool inventory names do not match") {
+		t.Fatalf("expected only warning-level gap warnings, got %#v", warnings)
 	}
 }
 
