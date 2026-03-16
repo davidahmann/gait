@@ -328,12 +328,15 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 		_ = zipReader.Close()
 	}()
 
-	files := make(map[string]*zip.File, len(zipReader.File))
-	for _, zipFile := range zipReader.File {
-		files[zipFile.Name] = zipFile
+	var files map[string]*zip.File
+	if len(zipReader.File) > 16 {
+		files = make(map[string]*zip.File, len(zipReader.File))
+		for _, zipFile := range zipReader.File {
+			files[zipFile.Name] = zipFile
+		}
 	}
 
-	manifestFile := files["pack_manifest.json"]
+	manifestFile := findZipFile(zipReader.File, files, "pack_manifest.json")
 	if manifestFile == nil {
 		return VerifyResult{}, fmt.Errorf("missing pack_manifest.json")
 	}
@@ -354,7 +357,7 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 		SignaturesTotal: len(manifest.Signatures),
 	}
 	for _, entry := range manifest.Contents {
-		zipFile := files[entry.Path]
+		zipFile := findZipFile(zipReader.File, files, entry.Path)
 		if zipFile == nil {
 			result.MissingFiles = append(result.MissingFiles, entry.Path)
 			continue
@@ -363,7 +366,7 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 		if err != nil {
 			return VerifyResult{}, fmt.Errorf("hash %s: %w", entry.Path, err)
 		}
-		if !strings.EqualFold(actualHash, entry.SHA256) {
+		if actualHash != entry.SHA256 && !strings.EqualFold(actualHash, entry.SHA256) {
 			result.HashMismatches = append(result.HashMismatches, HashMismatch{
 				Path:     entry.Path,
 				Expected: entry.SHA256,
@@ -371,10 +374,14 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 			})
 		}
 	}
-	sort.Strings(result.MissingFiles)
-	sort.Slice(result.HashMismatches, func(i, j int) bool {
-		return result.HashMismatches[i].Path < result.HashMismatches[j].Path
-	})
+	if len(result.MissingFiles) > 1 {
+		sort.Strings(result.MissingFiles)
+	}
+	if len(result.HashMismatches) > 1 {
+		sort.Slice(result.HashMismatches, func(i, j int) bool {
+			return result.HashMismatches[i].Path < result.HashMismatches[j].Path
+		})
+	}
 	if len(manifest.Signatures) == 0 {
 		if opts.RequireSignature {
 			result.SignatureErrors = append(result.SignatureErrors, "pack manifest has no signatures")
@@ -416,6 +423,18 @@ func VerifyPackWithOptions(path string, opts VerifyOptions) (VerifyResult, error
 	}
 	sort.Strings(result.SignatureErrors)
 	return result, nil
+}
+
+func findZipFile(all []*zip.File, indexed map[string]*zip.File, name string) *zip.File {
+	if indexed != nil {
+		return indexed[name]
+	}
+	for _, zipFile := range all {
+		if zipFile.Name == name {
+			return zipFile
+		}
+	}
+	return nil
 }
 
 func buildRunpackSummary(data runpack.Runpack) ([]byte, error) {

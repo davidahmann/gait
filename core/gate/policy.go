@@ -69,6 +69,7 @@ type Policy struct {
 	FailClosed     FailClosedPolicy `yaml:"fail_closed"`
 	MCPTrust       MCPTrustPolicy   `yaml:"mcp_trust"`
 	Rules          []PolicyRule     `yaml:"rules"`
+	normalized     bool             `yaml:"-" json:"-"`
 }
 
 type ScriptPolicy struct {
@@ -263,6 +264,13 @@ func ParsePolicyYAML(data []byte) (Policy, error) {
 	return normalizePolicy(policy)
 }
 
+func normalizedPolicy(input Policy) (Policy, error) {
+	if input.normalized {
+		return input, nil
+	}
+	return normalizePolicy(input)
+}
+
 func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (schemagate.GateResult, error) {
 	outcome, err := EvaluatePolicyDetailed(policy, intent, opts)
 	if err != nil {
@@ -272,7 +280,7 @@ func EvaluatePolicy(policy Policy, intent schemagate.IntentRequest, opts EvalOpt
 }
 
 func PolicyHasHighRiskUnbrokeredActions(policy Policy) bool {
-	normalizedPolicy, err := normalizePolicy(policy)
+	normalizedPolicy, err := normalizedPolicy(policy)
 	if err != nil {
 		return false
 	}
@@ -288,7 +296,7 @@ func PolicyHasHighRiskUnbrokeredActions(policy Policy) bool {
 }
 
 func PolicyRequiresBrokerForHighRisk(policy Policy) bool {
-	normalizedPolicy, err := normalizePolicy(policy)
+	normalizedPolicy, err := normalizedPolicy(policy)
 	if err != nil {
 		return false
 	}
@@ -304,7 +312,7 @@ func PolicyRequiresBrokerForHighRisk(policy Policy) bool {
 }
 
 func EvaluatePolicyDetailed(policy Policy, intent schemagate.IntentRequest, opts EvalOptions) (EvalOutcome, error) {
-	normalizedPolicy, err := normalizePolicy(policy)
+	normalizedPolicy, err := normalizedPolicy(policy)
 	if err != nil {
 		return EvalOutcome{}, err
 	}
@@ -721,7 +729,7 @@ func compositeRiskClass(riskClasses []string) string {
 }
 
 func PolicyDigest(policy Policy) (string, error) {
-	normalized, err := normalizePolicy(policy)
+	normalized, err := normalizedPolicy(policy)
 	if err != nil {
 		return "", err
 	}
@@ -1246,6 +1254,7 @@ func normalizePolicy(input Policy) (Policy, error) {
 		}
 		return output.Rules[i].Name < output.Rules[j].Name
 	})
+	output.normalized = true
 	return output, nil
 }
 
@@ -1990,8 +1999,32 @@ func normalizeStringListLower(values []string) []string {
 }
 
 func uniqueSorted(values []string) []string {
-	if len(values) == 0 {
+	switch len(values) {
+	case 0:
 		return []string{}
+	case 1:
+		trimmed := strings.TrimSpace(values[0])
+		if trimmed == "" {
+			return []string{}
+		}
+		return []string{trimmed}
+	case 2:
+		first := strings.TrimSpace(values[0])
+		second := strings.TrimSpace(values[1])
+		switch {
+		case first == "" && second == "":
+			return []string{}
+		case first == "":
+			return []string{second}
+		case second == "":
+			return []string{first}
+		case first == second:
+			return []string{first}
+		case first < second:
+			return []string{first, second}
+		default:
+			return []string{second, first}
+		}
 	}
 	seen := make(map[string]struct{}, len(values))
 	out := make([]string, 0, len(values))
