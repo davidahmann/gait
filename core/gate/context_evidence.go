@@ -149,7 +149,7 @@ func mergeContextSource(current string, extra string) string {
 }
 
 func PolicyRequiresContextEvidence(policy Policy) bool {
-	normalizedPolicy, err := normalizePolicy(policy)
+	normalizedPolicy, err := normalizedPolicy(policy)
 	if err != nil {
 		return false
 	}
