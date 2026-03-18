@@ -15,6 +15,7 @@ Execute this workflow for: "commit/push/open PR", "ship this branch", "merge aft
 - No GitHub issue creation.
 - PR text must use heredoc EOF bodies (no inline `--body` strings).
 - Default posture: when a blocker is actionable from the repo, branch, or CI logs, fix it in-loop and continue instead of stopping at first failure.
+- Do not stop merely because PR CI, passive review, merge propagation, or post-merge `main` CI is still in progress within the configured wait windows.
 
 ## Preconditions
 
@@ -61,6 +62,7 @@ If preconditions fail, stop and report.
 - Watch required checks/run(s) with timeout `25 minutes`.
 - Use polling/watch (for example every 10s).
 - If green, continue.
+- If still pending, keep polling until terminal or timeout; async wait alone is not a blocker.
 - If failed, classify failure:
 - actionable product/test failure
 - flaky/infra/transient
@@ -86,6 +88,7 @@ If preconditions fail, stop and report.
 - Stage A: for the first `15 minutes`, look for latest-head Codex terminal signals or an `eyes` in-progress signal
 - Stage B: if `eyes` was observed during Stage A or later, continue polling every `30s` for up to `15 minutes` from the first observed `eyes` on the current review cycle
 - If no terminal Codex signal appears within that `15 minute` Stage B window, stop and report a blocked Codex review gate
+- While inside Stage A or Stage B, keep waiting and polling; an in-progress review signal is not a blocker by itself
 - If no latest-head terminal signal appears and no `eyes` in-progress signal is seen during Stage A, fall back to PR-wide Codex review inventory:
 - collect prior Codex reviews, inline comments, issue comments, and Codex-authored `+1` / thumbs-up reactions on the PR
 - require at least one prior Codex review artifact before permitting `carry_forward`
@@ -124,6 +127,7 @@ If preconditions fail, stop and report.
 - Codex review settle gate is satisfied (`approved`, `thumbs_up`, `actionable` resolved, or `carry_forward`)
 - no unresolved `P0/P1` review items remain
 - Merge non-interactively (repo-default merge strategy or explicitly chosen one).
+- If a merge attempt fails only because the repository disallows the chosen strategy, retry immediately with a repo-allowed non-interactive strategy instead of stopping.
 - Record merged PR URL and merge commit SHA.
 
 11. Switch to main and sync:
@@ -132,6 +136,7 @@ If preconditions fail, stop and report.
 
 12. Monitor post-merge CI on `main`:
 - Watch the latest `main` CI run with timeout `25 minutes`.
+- If the run is still pending, keep polling until terminal or timeout; async wait alone is not a blocker.
 
 13. Hotfix loop on post-merge red:
 - Run only for actionable or repo-fixable failures.
@@ -150,7 +155,16 @@ If preconditions fail, stop and report.
 - Continue hotfixing while failures remain actionable and each cycle makes progress.
 - Stop only for external/non-actionable blockers, safety blockers, or 2 consecutive no-progress hotfix cycles.
 
-14. Stop conditions:
+15. Global wait rule:
+- Pending CI, pending passive review, pending merge propagation, and pending post-merge checks are not blockers by themselves.
+- While inside the configured timeout windows, keep polling and continue the loop.
+- Only stop for:
+- explicit non-actionable or unsafe failure
+- timeout expiry for the current wait window
+- exhausted no-progress budget
+- unexpected repo state that cannot be reconciled safely
+
+16. Stop conditions:
 - CI green on main: success.
 - Codex gate unresolved after passive latest-head poll plus PR-wide carry-forward triage, without any Codex `eyes` in-progress signal: stop and report blocker.
 - Codex gate remains pending with Codex `eyes` in-progress signal: continue waiting up to the `15 minute` Stage B window; only then stop and report blocker if no terminal signal appears.
@@ -208,3 +222,4 @@ Never use inline `--body "..."` for multi-line PR text.
 - Merge commit SHA(s)
 - Post-merge CI status on `main`
 - If stopped: blocker reason and last failing check
+- Never report a mere in-progress async gate as the final stop reason; report only the hard blocker, timeout, or last terminal failing gate
