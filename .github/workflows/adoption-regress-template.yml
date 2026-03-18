@@ -65,9 +65,9 @@ jobs:
       SOURCE_RUN: ${{ inputs.source_run || github.event.inputs.source_run || 'run_demo' }}
       ARTIFACT_ROOT: gait-out/adoption_regress
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 

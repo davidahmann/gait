@@ -72,6 +72,7 @@ Extended first-class surfaces:
 - Prime-time runbook: `docs/hardening/prime_time_runbook.md`
 - Runtime SLOs: `docs/slo/runtime_slo.md`
 - Retention profiles: `docs/slo/retention_profiles.md`
+- Maintainer CI/runtime policy and local workflow guard: `CONTRIBUTING.md`
 - CI regress runbook: `docs/ci_regress_kit.md`
 - One-PR adoption page: `docs/adopt_in_one_pr.md`
 - Threat model: `docs/threat_model.md`
@@ -108,4 +109,5 @@ Extended first-class surfaces:
 
 - Docs site source: `docs-site/`
 - Docs deployment workflow: `.github/workflows/docs.yml`
+- Local workflow runtime guard: `python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md`
 - Wiki publish script: `scripts/publish_wiki.sh`

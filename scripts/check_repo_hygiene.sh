@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+REPO_ROOT="${GAIT_REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+cd "${REPO_ROOT}"
+
 if ! command -v git >/dev/null 2>&1; then
   echo "[repo-hygiene] git is required"
   exit 1
@@ -61,3 +64,5 @@ if [[ "${#tracked_generated[@]}" -gt 0 ]]; then
   echo "  git rm --cached <path>"
   exit 1
 fi
+
+python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md
