@@ -48,6 +48,24 @@ make hooks
 Install guide: <https://codeql.github.com/docs/codeql-cli/getting-started-with-the-codeql-cli/>.
 Emergency bypass (not recommended for normal flow): `GAIT_SKIP_CODEQL=1 git push`.
 
+## GitHub Actions runtime policy
+
+Keep monitored GitHub Actions references on the repo's Node 24-safe baseline:
+
+- `actions/checkout@v5` or newer
+- `actions/setup-go@v6` or newer
+- `actions/setup-python@v6` or newer
+- `github/codeql-action/init@v4` and `github/codeql-action/analyze@v4` or newer
+
+Validate that baseline locally before opening a PR:
+
+```
+python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md
+```
+
+`make lint-fast` and `make lint` run the same guard through `scripts/check_repo_hygiene.sh`, so runtime deprecations fail before longer suites.
+Do not rely on `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` or `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true` as the default fix path; keep those as emergency-only compatibility levers while the action pin is being updated.
+
 ## Branch protection and required checks
 
 `main` is expected to be PR-only with required checks. Apply/update the repository defaults with:
@@ -63,6 +81,8 @@ This config enforces:
 - strict required status checks (`pr-fast-lint`, `pr-fast-test`, `codeql-scan`)
 - PR flow with `0` required approvals (solo-maintainer-safe)
 
+Treat those required status check names as part of the repo contract when modernizing workflows. Action-major upgrades should preserve them unless the same change intentionally updates branch-protection expectations.
+
 When at least two maintainers are active, raise governance to require approval plus CODEOWNERS review:
 
 ```
@@ -75,6 +95,7 @@ make github-guardrails-strict
 
 - required planning docs under `product/` stay tracked in Git
 - generated artifacts (for example `gait-out/*`, coverage files, local binaries) are not committed
+- monitored GitHub Actions references stay on the supported runtime baseline
 
 If it fails, remove tracked generated files with `git rm --cached <path>` and re-run lint.
 

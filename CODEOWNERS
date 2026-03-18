@@ -1,13 +1,13 @@
 # Default owner for all paths.
-* @davidahmann
+* @davidahmann @ryshman
 
 # Core CLI/policy/artifact enforcement paths.
-/cmd/gait/** @davidahmann
-/core/** @davidahmann
-/schemas/** @davidahmann
+/cmd/gait/** @davidahmann @ryshman
+/core/** @davidahmann @ryshman
+/schemas/** @davidahmann @ryshman
 
 # Scenario fixtures are contract artifacts and require explicit owner review.
 # Changes under /scenarios/ should be reviewed for expected behavior drift.
-/scenarios/ @davidahmann
+/scenarios/ @davidahmann @ryshman
 
-/.github/workflows/** @davidahmann
+/.github/workflows/** @davidahmann @ryshman
