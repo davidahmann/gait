@@ -19,14 +19,14 @@ Secondary boundary surfaces:
 - **MCP Trust**: evaluate local trust snapshots for MCP server admission with `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve`.
 - **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
 - **LangChain Middleware**: official Python middleware with optional callback correlation; callbacks never decide allow or block behavior, and demo capture stays bound to `gait demo --json`.
+- **OpenAI Agents Reference Demo**: in-repo boundary demo showing the wrapper contract with deterministic allow, block, and approval outcomes. It is not a package-backed official SDK lane.
 - **Reference Adapters**: `examples/integrations/claude_code/` remains a reference lane; its hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 
-Official framework lanes today:
+Official framework lane today:
 
-- OpenAI Agents
 - LangChain middleware
 
-Reference adapters stay in-repo but outside official-lane claims until they clear the promotion scorecard. CrewAI is not an official lane today.
+The OpenAI Agents path in this repo is a reference boundary demo. Reference adapters stay in-repo but outside official-lane claims until they clear the promotion scorecard. CrewAI is not an official lane today.
 
 Gait is vendor-neutral and offline-first for core workflows: capture, verify, diff, policy evaluation, regressions, and voice/context verification all run without network dependencies.
 

@@ -394,7 +394,7 @@ func runGateEval(arguments []string) int {
 				}
 				startupWarnings = append(startupWarnings, "approved script fast-path evaluation failed; continuing with policy evaluation")
 			} else if match.Matched {
-				preApprovedOutcome, preApproveErr := buildPreApprovedOutcome(intent, version, match)
+				preApprovedOutcome, preApproveErr := buildPreApprovedOutcome(intent, currentVersion(), match)
 				if preApproveErr != nil {
 					return writeGateEvalOutput(jsonOutput, gateEvalOutput{OK: false, Error: preApproveErr.Error()}, exitCodeForError(preApproveErr, exitInvalidInput))
 				}
@@ -407,7 +407,7 @@ func runGateEval(arguments []string) int {
 	}
 	if !preApprovedFastPath {
 		outcome, err = gate.EvaluatePolicyDetailed(policy, intent, gate.EvalOptions{
-			ProducerVersion:         version,
+			ProducerVersion:         currentVersion(),
 			WrkrInventory:           wrkrInventory,
 			WrkrSource:              wrkrSource,
 			VerifiedContextEnvelope: verifiedContextEnvelope,
@@ -716,7 +716,7 @@ func runGateEval(arguments []string) int {
 	exitCode = gateEvalExitCodeForVerdict(result.Verdict, exitCode)
 
 	traceResult, err := gate.EmitSignedTrace(policy, preparedIntent, result, gate.EmitTraceOptions{
-		ProducerVersion:       version,
+		ProducerVersion:       currentVersion(),
 		CorrelationID:         currentCorrelationID(),
 		ApprovalTokenRef:      resolvedApprovalRef,
 		DelegationTokenRef:    resolvedDelegationRef,
@@ -745,7 +745,7 @@ func runGateEval(arguments []string) int {
 		}
 		audit := gate.BuildApprovalAuditRecord(gate.BuildApprovalAuditOptions{
 			CreatedAt:         result.CreatedAt,
-			ProducerVersion:   version,
+			ProducerVersion:   currentVersion(),
 			TraceID:           traceResult.Trace.TraceID,
 			ToolName:          traceResult.Trace.ToolName,
 			IntentDigest:      traceResult.IntentDigest,
@@ -765,7 +765,7 @@ func runGateEval(arguments []string) int {
 		}
 		credentialRecord := gate.BuildBrokerCredentialRecord(gate.BuildBrokerCredentialRecordOptions{
 			CreatedAt:       result.CreatedAt,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 			TraceID:         traceResult.Trace.TraceID,
 			ToolName:        traceResult.Trace.ToolName,
 			Identity:        preparedIntent.Context.Identity,
@@ -788,7 +788,7 @@ func runGateEval(arguments []string) int {
 		}
 		audit := gate.BuildDelegationAuditRecord(gate.BuildDelegationAuditOptions{
 			CreatedAt:          result.CreatedAt,
-			ProducerVersion:    version,
+			ProducerVersion:    currentVersion(),
 			TraceID:            traceResult.Trace.TraceID,
 			ToolName:           traceResult.Trace.ToolName,
 			IntentDigest:       traceResult.IntentDigest,

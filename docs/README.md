@@ -21,7 +21,7 @@ Extended first-class surfaces:
 
 1. `README.md` for the product wedge and first five commands
 2. `docs/policy_authoring.md` for `.gait.yaml`, validation, and rollout workflow
-3. `docs/integration_checklist.md` for official OpenAI Agents and LangChain lanes plus the reference-adapter promotion rules
+3. `docs/integration_checklist.md` for the official LangChain lane, the OpenAI reference demo, and the reference-adapter promotion rules
 4. `docs/agent_integration_boundary.md` for tool-boundary placement rules
 5. `docs/install.md` for the truthful binary-install lane (`doctor`, `init`, `check`, `demo`, `verify`)
 6. `docs/ci_regress_kit.md` for incident-to-CI adoption
@@ -91,7 +91,7 @@ Extended first-class surfaces:
 - Ecosystem contribution flow: `docs/ecosystem/contribute.md`
 - Launch/distribution assets: `docs/launch/README.md`
 - Activation KPI definition (v2.6): `docs/launch/activation_kpi_v2_6.md`
-- Distribution plan (v2.7 gravity wells): `docs/PLAN_v2.7_distribution.md`
+- Internal distribution planning artifact: `docs/PLAN_v2.7_distribution.md`
 - Marketplace action publishing path: `docs/marketplace_action_publishing.md`
 - Canonical MCP boundary demo: `docs/scenarios/mcp_canonical_boundary.md`
 - Content cadence plan (v2.6): `docs/launch/content_cadence_v2_6.md`

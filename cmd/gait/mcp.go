@@ -375,7 +375,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 	if err != nil {
 		return mcpProxyOutput{}, exitInvalidInput, err
 	}
-	evalOptions := gate.EvalOptions{ProducerVersion: version}
+	evalOptions := gate.EvalOptions{ProducerVersion: currentVersion()}
 	envelopePath := strings.TrimSpace(options.ContextEnvelopePath)
 	if options.VerifiedContextEnvelope != nil {
 		evalOptions.VerifiedContextEnvelope = options.VerifiedContextEnvelope
@@ -445,7 +445,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		resolvedTracePath = fmt.Sprintf("trace_%s_%s.json", normalizeRunID(options.RunID), time.Now().UTC().Format("20060102T150405.000000000"))
 	}
 	traceResult, err := gate.EmitSignedTrace(policy, evalResult.Intent, evalResult.Outcome.Result, gate.EmitTraceOptions{
-		ProducerVersion:    version,
+		ProducerVersion:    currentVersion(),
 		ContextSource:      evalResult.Outcome.ContextSource,
 		CompositeRiskClass: evalResult.Outcome.CompositeRiskClass,
 		StepVerdicts:       evalResult.Outcome.StepVerdicts,
@@ -504,7 +504,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 		buildResult, buildErr := pack.BuildRunPack(pack.BuildRunOptions{
 			RunpackPath:       runpackPathForPack,
 			OutputPath:        resolvedPackPath,
-			ProducerVersion:   version,
+			ProducerVersion:   currentVersion(),
 			SigningPrivateKey: keyPair.Private,
 		})
 		cleanup()
@@ -517,7 +517,7 @@ func evaluateMCPProxyPayload(policyPath string, payload []byte, options mcpProxy
 
 	exportEvent := mcp.ExportEvent{
 		CreatedAt:       evalResult.Outcome.Result.CreatedAt,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		RunID:           resolvedRunID,
 		SessionID:       evalResult.Intent.Context.SessionID,
 		TraceID:         traceResult.Trace.TraceID,
@@ -772,7 +772,7 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 			SchemaID:        "gait.runpack.run",
 			SchemaVersion:   "1.0.0",
 			CreatedAt:       now,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 			RunID:           runID,
 			Timeline: []schemarunpack.TimelineEvt{
 				{Event: "proxy_eval_start", TS: now},
@@ -783,7 +783,7 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 			SchemaID:        "gait.runpack.intent",
 			SchemaVersion:   "1.0.0",
 			CreatedAt:       now,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 			RunID:           runID,
 			IntentID:        "intent_1",
 			ToolName:        evalResult.Intent.ToolName,
@@ -794,7 +794,7 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 			SchemaID:        "gait.runpack.result",
 			SchemaVersion:   "1.0.0",
 			CreatedAt:       now,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 			RunID:           runID,
 			IntentID:        "intent_1",
 			Status:          resultStatus,
@@ -805,7 +805,7 @@ func writeMCPRunpack(path string, runID string, evalResult mcp.EvalResult, trace
 			SchemaID:        "gait.runpack.refs",
 			SchemaVersion:   "1.0.0",
 			CreatedAt:       now,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 			RunID:           runID,
 			Receipts:        []schemarunpack.RefReceipt{},
 		},

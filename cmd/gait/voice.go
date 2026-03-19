@@ -158,7 +158,7 @@ func runVoiceTokenMint(arguments []string) int {
 	if err != nil {
 		return writeVoiceTokenOutput(jsonOutput, voiceTokenOutput{OK: false, Operation: "mint", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	outcome, err := gate.EvaluatePolicyDetailed(policy, normalizedIntent, gate.EvalOptions{ProducerVersion: version})
+	outcome, err := gate.EvaluatePolicyDetailed(policy, normalizedIntent, gate.EvalOptions{ProducerVersion: currentVersion()})
 	if err != nil {
 		return writeVoiceTokenOutput(jsonOutput, voiceTokenOutput{OK: false, Operation: "mint", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
@@ -175,7 +175,7 @@ func runVoiceTokenMint(arguments []string) int {
 		return writeVoiceTokenOutput(jsonOutput, voiceTokenOutput{OK: false, Operation: "mint", Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
 	traceResult, traceErr := gate.EmitSignedTrace(policy, normalizedIntent, outcome.Result, gate.EmitTraceOptions{
-		ProducerVersion:    version,
+		ProducerVersion:    currentVersion(),
 		CorrelationID:      currentCorrelationID(),
 		ContextSource:      outcome.ContextSource,
 		CompositeRiskClass: outcome.CompositeRiskClass,
@@ -212,7 +212,7 @@ func runVoiceTokenMint(arguments []string) int {
 		}, exitCode)
 	}
 	tokenResult, err := gate.MintSayToken(gate.MintSayTokenOptions{
-		ProducerVersion:    version,
+		ProducerVersion:    currentVersion(),
 		CommitmentClass:    normalizedCommitment.CommitmentClass,
 		IntentDigest:       intentDigest,
 		PolicyDigest:       policyDigest,

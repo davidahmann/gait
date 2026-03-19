@@ -265,7 +265,7 @@ func TestRunDispatchVersionJSONAliases(t *testing.T) {
 			}
 			expected := versionOutput{
 				OK:      true,
-				Version: version,
+				Version: currentVersion(),
 			}
 			if output != expected {
 				t.Fatalf("unexpected version output: got=%#v want=%#v", output, expected)
@@ -291,7 +291,7 @@ func TestRunDispatchVersionTextAliases(t *testing.T) {
 					t.Fatalf("run version text: expected %d got %d", exitOK, code)
 				}
 			})
-			if strings.TrimSpace(raw) != "gait "+version {
+			if strings.TrimSpace(raw) != "gait "+currentVersion() {
 				t.Fatalf("unexpected version text: %q", raw)
 			}
 		})

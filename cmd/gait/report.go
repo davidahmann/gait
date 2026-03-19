@@ -102,7 +102,7 @@ func runReportTop(arguments []string) int {
 		TracePaths:   tracePaths,
 		Limit:        limit,
 	}, scout.TopActionsOptions{
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeReportTopOutput(jsonOutput, reportTopOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

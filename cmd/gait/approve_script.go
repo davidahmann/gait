@@ -122,7 +122,7 @@ func runApproveScript(arguments []string) int {
 		SchemaID:         "gait.gate.approved_script_entry",
 		SchemaVersion:    "1.0.0",
 		CreatedAt:        nowUTC,
-		ProducerVersion:  version,
+		ProducerVersion:  currentVersion(),
 		PatternID:        strings.TrimSpace(patternID),
 		PolicyDigest:     policyDigest,
 		ScriptHash:       scriptHash,

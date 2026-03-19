@@ -21,7 +21,7 @@ BENCH_BASELINE ?= perf/bench_baseline.json
 
 .PHONY: fmt lint lint-fast codeql test test-fast test-scenarios prepush prepush-full github-guardrails github-guardrails-strict test-hardening test-hardening-acceptance test-chaos test-e2e test-acceptance test-v1-6-acceptance test-v1-7-acceptance test-v1-8-acceptance test-v2-3-acceptance test-v2-4-acceptance test-v2-5-acceptance test-v2-6-acceptance test-voice-acceptance test-context-conformance test-context-chaos test-packspec-tck test-script-intent-acceptance test-ui-acceptance test-ui-unit test-ui-e2e-smoke test-ui-perf test-claude-code-hook-contract test-adoption test-adapter-parity test-ecosystem-automation test-release-smoke test-install test-install-path-versions test-contracts test-intent-receipt-conformance test-ci-regress-template test-ci-portability-templates test-live-connectors test-skill-supply-chain test-runtime-slo test-ent-consumer-contract test-uat-local test-openclaw-skill-install test-beads-bridge test-docs-storyline test-docs-consistency test-demo-recording test-github-action-runtime-guard openclaw-skill-install build bench bench-check bench-budgets context-budgets skills-validate ecosystem-validate ecosystem-release-notes demo-90s demo-hero-gif homebrew-formula wiki-publish tool-allowlist-policy ui-build ui-sync ui-deps-check
 .PHONY: hooks
-.PHONY: docs-site-install docs-site-build docs-site-lint docs-site-check
+.PHONY: docs-site-install docs-site-build docs-site-lint docs-site-check docs-site-validate
 
 fmt:
 	gofmt -w .
@@ -306,16 +306,23 @@ openclaw-skill-install:
 	@if [ -z "$(TARGET_DIR)" ]; then bash scripts/install_openclaw_skill.sh; else bash scripts/install_openclaw_skill.sh --target-dir "$(TARGET_DIR)"; fi
 
 docs-site-install:
-	cd docs-site && npm ci
+	mkdir -p .cache/npm
+	cd docs-site && NPM_CONFIG_CACHE=../.cache/npm npm ci
 
-docs-site-build:
+docs-site-build: docs-site-install
 	cd docs-site && npm run build
 
-docs-site-lint:
+docs-site-lint: docs-site-install
 	cd docs-site && npm run lint
 
 docs-site-check:
 	$(PYTHON) scripts/check_docs_site_validation.py --report gait-out/docs_site_validation_report.json
+
+docs-site-validate:
+	mkdir -p .cache/npm
+	cd docs-site && NPM_CONFIG_CACHE=../.cache/npm npm ci && npm run lint && npm run build
+	$(PYTHON) scripts/check_docs_site_validation.py --report gait-out/docs_site_validation_report.json
+	rm -rf docs-site/node_modules
 
 ui-build:
 	bash scripts/ui_build.sh

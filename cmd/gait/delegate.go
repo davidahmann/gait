@@ -109,7 +109,7 @@ func runDelegateMint(arguments []string) int {
 	}
 
 	result, err := gate.MintDelegationToken(gate.MintDelegationTokenOptions{
-		ProducerVersion:   version,
+		ProducerVersion:   currentVersion(),
 		DelegatorIdentity: delegator,
 		DelegateIdentity:  delegate,
 		Scope:             scopeValues,

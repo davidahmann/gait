@@ -7,7 +7,7 @@ description: "Wire Gait regression fixtures into GitHub Actions, GitLab CI, Jenk
 
 This kit keeps CI adoption "one PR to adopt" while preserving deterministic regress contracts.
 
-Version note: this page is evergreen. Release-specific packaging rollout notes belong in `docs/PLAN_v2.7_distribution.md` and release notes.
+Version note: this page is evergreen. Release-specific rollout notes belong in changelog and internal plan documents, not here.
 
 ## One-PR Adoption Path (Default)
 

@@ -493,7 +493,7 @@ func currentSurfaceContract() surfaceContract {
 }
 
 func detectRepoSurface(root string) (repoDetection, error) {
-	provider := scout.DefaultProvider{Options: scout.SnapshotOptions{ProducerVersion: version}}
+	provider := scout.DefaultProvider{Options: scout.SnapshotOptions{ProducerVersion: currentVersion()}}
 	snapshot, err := provider.Snapshot(context.Background(), scout.SnapshotRequest{Roots: []string{root}})
 	if err != nil {
 		return repoDetection{}, fmt.Errorf("detect repo surface: %w", err)

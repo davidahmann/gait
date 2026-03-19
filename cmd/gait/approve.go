@@ -95,7 +95,7 @@ func runApprove(arguments []string) int {
 	}
 
 	result, err := gate.MintApprovalToken(gate.MintApprovalTokenOptions{
-		ProducerVersion:         version,
+		ProducerVersion:         currentVersion(),
 		ApproverIdentity:        approver,
 		ReasonCode:              reasonCode,
 		IntentDigest:            intentDigest,

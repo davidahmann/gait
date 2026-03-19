@@ -11,16 +11,13 @@ This matrix defines compatibility between producer and consumer surfaces.
 
 - This page is the contract-level source for version compatibility.
 - Evergreen operational docs should not carry release tags in titles.
-- Release-lane context belongs in release notes and plan documents (for example `docs/PLAN_v2.7_distribution.md`).
+- Internal rollout labels belong in changelog and plan documents, not evergreen compatibility copy.
 
 ## Version Matrix
 
 | Gait CLI | PackSpec | `gait pack verify` behavior | Legacy runpack verify via `pack verify` |
 | --- | --- | --- | --- |
-| v2.4.x | 1.0.0 | verifies PackSpec v1 (`run`, `job`) | supported |
-| v2.5.x | 1.0.0 | verifies PackSpec v1 (`run`, `job`, `call`) | supported |
-| v2.6.x | 1.0.0 | verifies PackSpec v1 (`run`, `job`, `call`) + context-aware diff metadata | supported |
-| v2.7.x | 1.0.0 | same as v2.6 with CI/template hardening updates | supported |
+| current `1.x` release line | 1.0.0 | verifies PackSpec v1 (`run`, `job`, `call`) with additive verifier hardening and context-aware diff metadata where applicable | supported |
 
 ## Stability Guarantees
 

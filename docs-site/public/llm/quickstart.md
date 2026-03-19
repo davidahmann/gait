@@ -82,7 +82,7 @@ Do not treat `oss-prod` enforcement as production-ready until that doctor comman
 
 Standard `gait doctor --json` is truthful in a clean writable directory after a binary-only install: repo-only schema/example checks stay scoped to a Gait repo checkout.
 
-Wrapper lane example:
+Reference boundary demo:
 
 ```bash
 gait test --json -- python3 examples/integrations/openai_agents/quickstart.py --scenario allow
@@ -90,6 +90,8 @@ gait trace --json -- python3 examples/integrations/openai_agents/quickstart.py -
 gait capture --from run_demo --json
 gait regress add --from ./gait-out/capture.json --json
 ```
+
+The in-repo OpenAI Agents example is a reference boundary demo, not a package-backed official SDK lane. LangChain remains the official middleware lane.
 
 For MCP server admission, keep trust inputs local:
 

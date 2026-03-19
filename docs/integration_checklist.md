@@ -1,6 +1,6 @@
 ---
 title: "Integration Checklist"
-description: "Step-by-step checklist for integrating Gait at the tool boundary with the shipped OpenAI Agents lane, official LangChain middleware, and reference adapters."
+description: "Step-by-step checklist for integrating Gait at the tool boundary with the OpenAI reference demo, official LangChain middleware, and reference adapters."
 ---
 
 # Gait Integration Checklist
@@ -22,9 +22,13 @@ This checklist is evergreen guidance. Release-specific rollouts belong in plan/c
 
 ## Lane Governance (Locked)
 
-Blessed default lane:
+Official framework lane:
 
-- local coding-agent wrapper flow (`examples/integrations/openai_agents/`)
+- LangChain middleware (`examples/integrations/langchain/`)
+
+Reference starter surfaces:
+
+- local coding-agent wrapper demo (`examples/integrations/openai_agents/`)
 - GitHub Actions CI regress gate (`.github/workflows/adoption-regress-template.yml`)
 - one-PR CI adoption target via reusable workflow or composite action
 
@@ -196,13 +200,13 @@ Contract docs:
 
 ### Adapter Parity / Secondary Lanes
 
-Official lanes:
+Official lane:
 
-- `examples/integrations/openai_agents/`
 - `examples/integrations/langchain/` (official middleware with optional callback correlation)
 
-Reference adapters:
+Reference demos and adapters:
 
+- `examples/integrations/openai_agents/` (reference boundary demo)
 - `examples/integrations/autogen/`
 - `examples/integrations/openclaw/`
 - `examples/integrations/autogpt/`
@@ -228,7 +232,7 @@ bash scripts/test_adoption_smoke.sh
 5. Emit runpack
 6. Convert runpack into regress fixture
 
-### Minimal Commands (Blessed Path)
+### Minimal Commands (Reference + Official Paths)
 
 ```bash
 go build -o ./gait ./cmd/gait
@@ -309,7 +313,7 @@ If your agent runtime is fully hosted with no interception point, Gait can still
 
 ### Which integration path should I start with?
 
-The blessed lane is OpenAI Agents (`examples/integrations/openai_agents/`). LangChain is the official middleware lane. Other adapters are reference parity lanes on the same contract.
+Start with the OpenAI reference demo when you want the fastest local boundary proof, or start with LangChain when you want the official middleware lane. Other adapters are reference parity lanes on the same contract.
 
 ### Do I need to modify my agent code?
 

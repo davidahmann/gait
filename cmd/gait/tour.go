@@ -97,7 +97,7 @@ func runTour(arguments []string) int {
 		OutputPath:      regressOutputPath,
 		JUnitPath:       regressJUnitPath,
 		WorkDir:         ".",
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeTourOutput(jsonOutput, tourOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

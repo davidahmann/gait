@@ -47,7 +47,7 @@
       "id": "adapter-openai-agents-official",
       "kind": "adapter",
       "name": "OpenAI Agents Adapter Example",
-      "summary": "Reference OpenAI Agents integration preserving no-bypass execution-boundary controls.",
+      "summary": "Reference OpenAI-style boundary demo preserving no-bypass execution-boundary controls; not a package-backed official SDK lane.",
       "repo": "https://github.com/Clyra-AI/gait",
       "source": "official",
       "status": "stable",

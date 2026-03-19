@@ -240,7 +240,7 @@ func executeDurableDemo() (demoOutput, int) {
 	baseNow := time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC)
 	if _, err := jobruntime.Submit(jobRoot, jobruntime.SubmitOptions{
 		JobID:                  demoDurableJobID,
-		ProducerVersion:        version,
+		ProducerVersion:        currentVersion(),
 		EnvironmentFingerprint: "envfp:demo-durable",
 		Actor:                  "demo.user",
 		Now:                    baseNow,
@@ -301,7 +301,7 @@ func executeDurableDemo() (demoOutput, int) {
 	if err := os.Remove(packPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return demoOutput{OK: false, Mode: string(demoModeDurable), Error: err.Error()}, exitCodeForError(err, exitInvalidInput)
 	}
-	if _, err := pack.BuildJobPackFromPath(jobRoot, demoDurableJobID, packPath, version, nil); err != nil {
+	if _, err := pack.BuildJobPackFromPath(jobRoot, demoDurableJobID, packPath, currentVersion(), nil); err != nil {
 		return demoOutput{OK: false, Mode: string(demoModeDurable), Error: err.Error()}, exitCodeForError(err, exitInvalidInput)
 	}
 	verifyResult, err := pack.Verify(packPath, pack.VerifyOptions{})
@@ -365,7 +365,7 @@ func executePolicyDemo() (demoOutput, int) {
 		SchemaID:        "gait.gate.intent_request",
 		SchemaVersion:   "1.0.0",
 		CreatedAt:       time.Date(2026, time.February, 14, 0, 0, 0, 0, time.UTC),
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		ToolName:        "tool.delete",
 		Args:            map[string]any{"path": "/tmp/demo/delete-me.txt"},
 		Targets: []schemagate.IntentTarget{{
@@ -390,7 +390,7 @@ func executePolicyDemo() (demoOutput, int) {
 		return demoOutput{OK: false, Mode: string(demoModePolicy), Error: err.Error()}, exitCodeForError(err, exitInvalidInput)
 	}
 
-	evalResult, err := gatecore.EvaluatePolicyDetailed(policy, intent, gatecore.EvalOptions{ProducerVersion: version})
+	evalResult, err := gatecore.EvaluatePolicyDetailed(policy, intent, gatecore.EvalOptions{ProducerVersion: currentVersion()})
 	if err != nil {
 		return demoOutput{OK: false, Mode: string(demoModePolicy), Error: err.Error()}, exitCodeForError(err, exitInvalidInput)
 	}
@@ -444,7 +444,7 @@ func buildDemoRunpack() (schemarunpack.Run, []schemarunpack.IntentRecord, []sche
 		SchemaID:        "gait.runpack.run",
 		SchemaVersion:   "1.0.0",
 		CreatedAt:       ts,
-		ProducerVersion: "0.0.0-dev",
+		ProducerVersion: currentVersion(),
 		RunID:           demoRunID,
 		Env: schemarunpack.RunEnv{
 			OS:      "demo",

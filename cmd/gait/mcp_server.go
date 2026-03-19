@@ -496,7 +496,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 		if _, err := runpack.StartSession(journalPath, runpack.SessionStartOptions{
 			SessionID:       sessionID,
 			RunID:           output.RunID,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 		}); err != nil {
 			if strings.TrimSpace(input.SessionJournal) == "" && strings.Contains(err.Error(), "different session/run") {
 				base := sanitizeSessionFileBase(sessionID)
@@ -504,7 +504,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 				if _, retryErr := runpack.StartSession(journalPath, runpack.SessionStartOptions{
 					SessionID:       sessionID,
 					RunID:           output.RunID,
-					ProducerVersion: version,
+					ProducerVersion: currentVersion(),
 				}); retryErr != nil {
 					return mcpServeEvaluateResponse{}, retryErr
 				}
@@ -525,7 +525,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 			agentChain = append(agentChain, output.Relationship.AgentChain...)
 		}
 		event, err := runpack.AppendSessionEvent(journalPath, runpack.SessionAppendOptions{
-			ProducerVersion:        version,
+			ProducerVersion:        currentVersion(),
 			ToolName:               output.ToolName,
 			IntentDigest:           output.IntentDigest,
 			PolicyDigest:           output.PolicyDigest,
@@ -553,7 +553,7 @@ func evaluateMCPServeRequest(config mcpServeConfig, writer http.ResponseWriter, 
 		if input.CheckpointInterval > 0 && event.Sequence%int64(input.CheckpointInterval) == 0 && config.RunpackDir != "" {
 			checkpointOut := filepath.Join(config.RunpackDir, fmt.Sprintf("%s_cp_%06d.zip", sanitizeSessionFileBase(sessionID), event.Sequence))
 			_, chainPath, checkpointErr := runpack.SessionCheckpointAndWriteChain(journalPath, checkpointOut, runpack.SessionCheckpointOptions{
-				ProducerVersion: version,
+				ProducerVersion: currentVersion(),
 			})
 			if checkpointErr != nil {
 				return mcpServeEvaluateResponse{}, checkpointErr

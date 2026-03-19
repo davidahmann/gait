@@ -98,7 +98,7 @@ func runSessionStart(arguments []string) int {
 	status, err := runpack.StartSession(journal, runpack.SessionStartOptions{
 		SessionID:       sessionID,
 		RunID:           runID,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeRunSessionOutput(jsonOutput, runSessionOutput{
@@ -193,7 +193,7 @@ func runSessionAppend(arguments []string) int {
 	}
 
 	event, err := runpack.AppendSessionEvent(journal, runpack.SessionAppendOptions{
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		IntentID:        intentID,
 		ToolName:        toolName,
 		IntentDigest:    intentDigest,
@@ -327,7 +327,7 @@ func runSessionCheckpoint(arguments []string) int {
 	}
 
 	result, chainPath, err := runpack.SessionCheckpointAndWriteChain(journal, outPath, runpack.SessionCheckpointOptions{
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeRunSessionOutput(jsonOutput, runSessionOutput{
@@ -405,7 +405,7 @@ func runSessionCompact(arguments []string) int {
 	}
 
 	result, err := runpack.CompactSessionJournal(journal, runpack.SessionCompactionOptions{
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		OutputPath:      outPath,
 		DryRun:          dryRun,
 	})

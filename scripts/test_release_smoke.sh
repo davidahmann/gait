@@ -35,6 +35,32 @@ bash "$REPO_ROOT/scripts/test_onboarding_contract.sh" "$BIN_PATH" "$WORK_DIR/onb
 
 cd "$WORK_DIR"
 
+echo "==> version probe aliases"
+"$BIN_PATH" version --json > version.json
+"$BIN_PATH" --version --json > version_alias.json
+"$BIN_PATH" -v --json > version_short.json
+
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+version = json.loads(Path("version.json").read_text(encoding="utf-8"))
+alias = json.loads(Path("version_alias.json").read_text(encoding="utf-8"))
+short = json.loads(Path("version_short.json").read_text(encoding="utf-8"))
+
+for name, payload in {"version": version, "alias": alias, "short": short}.items():
+    if payload.get("ok") is not True:
+        raise SystemExit(f"{name} probe expected ok=true, got {payload}")
+    if not isinstance(payload.get("version"), str) or not payload["version"]:
+        raise SystemExit(f"{name} probe missing version: {payload}")
+
+expected = version["version"]
+if alias["version"] != expected or short["version"] != expected:
+    raise SystemExit(
+        f"version probe mismatch: version={expected} alias={alias['version']} short={short['version']}"
+    )
+PY
+
 echo "==> demo -> verify"
 "$BIN_PATH" demo > demo.txt
 grep -q '^run_id=run_demo$' demo.txt

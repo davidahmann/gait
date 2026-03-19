@@ -2,10 +2,13 @@
 
 This directory contains framework adapters that demonstrate the same Gait execution contract across runtimes.
 
-Official lanes:
+Official lane:
+
+- `langchain` (official middleware with optional callback correlation)
+
+Reference boundary demo:
 
 - `openai_agents`
-- `langchain` (official middleware with optional callback correlation)
 
 Quick commands:
 

@@ -42,7 +42,7 @@
 - Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
 - For `gait mcp serve`, same-host callers may use `call.context.context_envelope_path` only when the server explicitly enables `--allow-client-artifact-paths`.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
-- Official framework lanes today: OpenAI Agents and LangChain middleware.
+- OpenAI Agents in this repo is a reference boundary demo, not a package-backed official SDK lane.
 - Reference adapters stay in-repo but outside official-lane claims until they clear the promotion scorecard threshold. CrewAI is not an official lane today.
 
 ## When To Use
@@ -59,6 +59,7 @@
 - Fail-closed by default for ambiguous high-risk policy outcomes.
 - Equal-priority rule overlaps resolve to the most restrictive verdict for that priority tier, not by rule name ordering.
 - `gait --help` is text-only and exits `0`; machine consumers should use `gait version --json`, `gait --version --json`, or `gait -v --json`.
+- `sdk/python` keeps repo-local dev metadata (`0.0.0.dev0`); release/install automation should use `gait version --json`.
 - Machine-readable wrappers and SDKs use `gait demo --json`; the text form is human-facing only.
 - Python run-session capture delegates digest-bearing artifact fields to `gait run record` in Go; convert `set` values to JSON lists before calling the SDK.
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.

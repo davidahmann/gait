@@ -60,7 +60,7 @@ func run(arguments []string) int {
 
 func runDispatch(arguments []string) int {
 	if len(arguments) < 2 {
-		fmt.Println("gait", version)
+		fmt.Println("gait", currentVersion())
 		return exitOK
 	}
 	if isTopLevelHelp(arguments[1]) {
@@ -159,10 +159,10 @@ func runVersion(arguments []string) int {
 	if hasJSONFlag(arguments) {
 		return writeJSONOutput(versionOutput{
 			OK:      true,
-			Version: version,
+			Version: currentVersion(),
 		}, exitOK)
 	}
-	fmt.Println("gait", version)
+	fmt.Println("gait", currentVersion())
 	return exitOK
 }
 
@@ -198,7 +198,7 @@ func writeAdoptionEvent(command string, exitCode int, elapsed time.Duration, now
 		return
 	}
 	workflowID := strings.TrimSpace(os.Getenv("GAIT_ADOPTION_WORKFLOW"))
-	event := scout.NewAdoptionEvent(command, exitCode, elapsed, version, now, workflowID)
+	event := scout.NewAdoptionEvent(command, exitCode, elapsed, currentVersion(), now, workflowID)
 	recordTelemetryWriteOutcome("adoption", scout.AppendAdoptionEvent(adoptionPath, event))
 }
 
@@ -207,7 +207,7 @@ func writeOperationalEventStart(command string, correlationID string, now time.T
 	if operationalPath == "" {
 		return
 	}
-	event := scout.NewOperationalStartEvent(command, correlationID, version, now)
+	event := scout.NewOperationalStartEvent(command, correlationID, currentVersion(), now)
 	recordTelemetryWriteOutcome("operational_start", scout.AppendOperationalEvent(operationalPath, event))
 }
 
@@ -223,7 +223,7 @@ func writeOperationalEventEnd(command string, correlationID string, exitCode int
 		category = string(resolvedCategory)
 		retryable = defaultRetryable(resolvedCategory)
 	}
-	event := scout.NewOperationalEndEvent(command, correlationID, version, exitCode, category, retryable, elapsed, now)
+	event := scout.NewOperationalEndEvent(command, correlationID, currentVersion(), exitCode, category, retryable, elapsed, now)
 	recordTelemetryWriteOutcome("operational_end", scout.AppendOperationalEvent(operationalPath, event))
 }
 
@@ -255,7 +255,7 @@ func recordTelemetryWriteOutcome(stream string, err error) {
 		SchemaID:        "gait.scout.telemetry_health",
 		SchemaVersion:   "1.0.0",
 		CreatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		Streams:         make(map[string]telemetryStreamHealth, len(telemetryState.streams)),
 	}
 	for key, value := range telemetryState.streams {
