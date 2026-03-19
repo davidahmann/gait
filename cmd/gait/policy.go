@@ -461,7 +461,7 @@ func runPolicySimulate(arguments []string) int {
 		baselineRun, baselineErr := policytest.Run(policytest.RunOptions{
 			Policy:          baselinePolicy,
 			Intent:          intent,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 		})
 		if baselineErr != nil {
 			return writePolicySimulateOutput(jsonOutput, policySimulateOutput{OK: false, Error: baselineErr.Error()}, exitCodeForError(baselineErr, exitInvalidInput))
@@ -469,7 +469,7 @@ func runPolicySimulate(arguments []string) int {
 		candidateRun, candidateErr := policytest.Run(policytest.RunOptions{
 			Policy:          candidatePolicy,
 			Intent:          intent,
-			ProducerVersion: version,
+			ProducerVersion: currentVersion(),
 		})
 		if candidateErr != nil {
 			return writePolicySimulateOutput(jsonOutput, policySimulateOutput{OK: false, Error: candidateErr.Error()}, exitCodeForError(candidateErr, exitInvalidInput))
@@ -561,7 +561,7 @@ func runPolicyTest(arguments []string) int {
 	runResult, err := policytest.Run(policytest.RunOptions{
 		Policy:          policy,
 		Intent:          intent,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writePolicyTestOutput(jsonOutput, policyTestOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

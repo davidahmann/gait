@@ -164,7 +164,7 @@ func runPackBuild(arguments []string) int {
 		result, buildErr := pack.BuildRunPack(pack.BuildRunOptions{
 			RunpackPath:       runPath,
 			OutputPath:        strings.TrimSpace(outPath),
-			ProducerVersion:   version,
+			ProducerVersion:   currentVersion(),
 			SigningPrivateKey: keyPair.Private,
 		})
 		if buildErr != nil {
@@ -176,7 +176,7 @@ func runPackBuild(arguments []string) int {
 		if resolveErr != nil {
 			return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: resolveErr.Error()}, exitCodeForError(resolveErr, exitInvalidInput))
 		}
-		result, buildErr := pack.BuildJobPackFromPath(root, jobID, strings.TrimSpace(outPath), version, keyPair.Private)
+		result, buildErr := pack.BuildJobPackFromPath(root, jobID, strings.TrimSpace(outPath), currentVersion(), keyPair.Private)
 		if buildErr != nil {
 			return writePackOutput(jsonOutput, packOutput{OK: false, Operation: "build", Error: buildErr.Error()}, exitCodeForError(buildErr, exitInvalidInput))
 		}
@@ -185,7 +185,7 @@ func runPackBuild(arguments []string) int {
 		result, buildErr := pack.BuildCallPack(pack.BuildCallOptions{
 			CallRecordPath:    strings.TrimSpace(from),
 			OutputPath:        strings.TrimSpace(outPath),
-			ProducerVersion:   version,
+			ProducerVersion:   currentVersion(),
 			SigningPrivateKey: keyPair.Private,
 		})
 		if buildErr != nil {

@@ -380,7 +380,7 @@ func writeRegistryVerificationReport(pathValue string, result registry.VerifyRes
 		SchemaID:          "gait.registry.verification_report",
 		SchemaVersion:     "1.0.0",
 		CreatedAt:         time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC),
-		ProducerVersion:   version,
+		ProducerVersion:   currentVersion(),
 		PackName:          result.PackName,
 		PackVersion:       result.PackVersion,
 		Digest:            result.Digest,

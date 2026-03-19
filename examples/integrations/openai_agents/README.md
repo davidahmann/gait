@@ -1,11 +1,11 @@
-# OpenAI Agents Quickstart (Blessed v2.3 Lane)
+# OpenAI Agents Reference Boundary Demo
 
-This is the top-of-funnel integration lane for v2.3:
+This is the fastest in-repo reference demo for the boundary contract:
 
 - local wrapper enforcement for OpenAI-style tool calls
 - direct mapping to GitHub Actions regress gate
 
-Use this when you want the clearest runtime-boundary example of where Gait sits between agent and tool execution.
+Use this when you want the clearest runtime-boundary example of where Gait sits between agent and tool execution. It is not a package-backed official SDK lane.
 
 Related onboarding:
 

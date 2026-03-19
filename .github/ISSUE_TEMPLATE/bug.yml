@@ -8,8 +8,8 @@ body:
     id: gait_version
     attributes:
       label: Gait version
-      description: Output of `gait --version`
-      placeholder: gait version 1.0.0
+      description: Output of `gait version --json` (authoritative install probe)
+      placeholder: '{"ok":true,"version":"1.3.6"}'
     validations:
       required: true
   - type: input

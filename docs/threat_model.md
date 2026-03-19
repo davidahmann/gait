@@ -5,7 +5,7 @@ description: "Baseline OSS threat model for Gait runtime boundaries, artifact in
 
 # Gait Threat Model
 
-Status: baseline threat model for current OSS release line (`v2.7.x`).
+Status: baseline threat model for the current OSS `1.x` release line.
 
 This document defines what Gait protects, where trust boundaries are, and which controls are expected in production deployment.
 

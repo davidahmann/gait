@@ -212,6 +212,8 @@ else
 fi
 log "Requested install-path suite mode for release/brew: ${INSTALL_PATH_MODE_REQUESTED}"
 
+rm -rf "${REPO_ROOT}/docs-site/node_modules"
+
 run_step "quality_lint" make -C "${REPO_ROOT}" lint
 run_step "quality_test" make -C "${REPO_ROOT}" test
 run_step "quality_e2e" make -C "${REPO_ROOT}" test-e2e
@@ -247,7 +249,7 @@ fi
 if [[ "${SKIP_DOCS_SITE}" == "true" ]]; then
   log "SKIP quality_docs_site (requested)"
 elif command -v npm >/dev/null 2>&1; then
-  run_step "quality_docs_site" make -C "${REPO_ROOT}" docs-site-lint docs-site-build docs-site-check
+  run_step "quality_docs_site" make -C "${REPO_ROOT}" docs-site-validate
 else
   log "SKIP quality_docs_site (npm missing)"
 fi

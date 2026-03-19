@@ -187,7 +187,7 @@ func runGuardPack(arguments []string) int {
 		TemplateID:              templateID,
 		RenderPDF:               renderPDF,
 		AutoDiscoverV12:         true,
-		ProducerVersion:         version,
+		ProducerVersion:         currentVersion(),
 		SignKey:                 keyPair.Private,
 	})
 	if err != nil {
@@ -373,7 +373,7 @@ func runGuardRetain(arguments []string) int {
 		PackTTL:         parsedPackTTL,
 		DryRun:          dryRun,
 		ReportOutput:    reportPath,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeGuardRetainOutput(jsonOutput, guardRetainOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
@@ -440,7 +440,7 @@ func runGuardEncrypt(arguments []string) int {
 		KeyEnv:          keyEnv,
 		KeyCommand:      keyCommand,
 		KeyCommandArgs:  parseCSVList(keyCommandArgs),
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeGuardEncryptOutput(jsonOutput, guardEncryptOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

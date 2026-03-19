@@ -225,4 +225,26 @@ else
   assert_version "brew-install" "${brew_prefix}/bin/gait-local" "${release_version}"
 fi
 
+echo "==> python sdk metadata stays dev-only"
+python3 - <<'PY' "${REPO_ROOT}/sdk/python/pyproject.toml" "${REPO_ROOT}/sdk/python/gait/__init__.py"
+import re
+import sys
+import tomllib
+from pathlib import Path
+
+pyproject = Path(sys.argv[1])
+init_py = Path(sys.argv[2])
+project = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]
+sdk_version = project["version"]
+description = project["description"]
+match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_py.read_text(encoding="utf-8"), re.MULTILINE)
+if not match:
+    raise SystemExit("__version__ not found in sdk/python/gait/__init__.py")
+init_version = match.group(1)
+if sdk_version != "0.0.0.dev0" or init_version != "0.0.0.dev0":
+    raise SystemExit(f"expected repo-local dev sdk version 0.0.0.dev0, got pyproject={sdk_version} init={init_version}")
+if "repo-local dev" not in description:
+    raise SystemExit(f"expected repo-local dev description, got: {description}")
+PY
+
 echo "install-path version smoke: pass"

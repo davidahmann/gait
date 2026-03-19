@@ -284,6 +284,96 @@ def test_evaluate_gate_with_all_optional_key_flags(tmp_path: Path) -> None:
     assert result.exit_code == 0
 
 
+def test_evaluate_gate_with_delegation_and_delegation_key_flags(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed_commands: list[list[str]] = []
+
+    def fake_run(command: Sequence[str], cwd: object = None) -> client_module._CommandResult:
+        observed_commands.append(list(command))
+        return client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout=json.dumps(
+                {
+                    "ok": True,
+                    "verdict": "allow",
+                    "reason_codes": ["default_allow"],
+                    "trace_id": "trace_1",
+                    "trace_path": "trace.json",
+                    "policy_digest": "p" * 64,
+                    "intent_digest": "i" * 64,
+                }
+            ),
+            stderr="",
+        )
+
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(client_module, "_run_command", fake_run)
+        result = evaluate_gate(
+            policy_path=tmp_path / "policy.yaml",
+            intent=intent,
+            gait_bin="gait",
+            cwd=tmp_path,
+            delegation_token=tmp_path / "delegation.json",
+            delegation_token_chain=[tmp_path / "delegation-a.json", tmp_path / "delegation-b.json"],
+            delegation_public_key=tmp_path / "delegation.pub",
+            delegation_public_key_env="GAIT_DELEGATION_PUBLIC_KEY",
+            delegation_private_key=tmp_path / "delegation.key",
+            delegation_private_key_env="GAIT_DELEGATION_PRIVATE_KEY",
+        )
+
+    assert result.ok
+    assert len(observed_commands) == 1
+    command = observed_commands[0]
+    assert command[:4] == ["gait", "gate", "eval", "--policy"]
+    assert str(tmp_path / "policy.yaml") in command
+    assert "--intent" in command
+    assert "--delegation-token" in command
+    assert str(tmp_path / "delegation.json") in command
+    assert "--delegation-token-chain" in command
+    assert f"{tmp_path / 'delegation-a.json'},{tmp_path / 'delegation-b.json'}" in command
+    assert "--delegation-public-key" in command
+    assert str(tmp_path / "delegation.pub") in command
+    assert "--delegation-public-key-env" in command
+    assert "GAIT_DELEGATION_PUBLIC_KEY" in command
+    assert "--delegation-private-key" in command
+    assert str(tmp_path / "delegation.key") in command
+    assert "--delegation-private-key-env" in command
+    assert "GAIT_DELEGATION_PRIVATE_KEY" in command
+
+
+def test_evaluate_gate_non_verdict_error_raises_command_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    intent = capture_intent(
+        tool_name="tool.allow",
+        args={"path": "/tmp/out.txt"},
+        context=IntentContext(identity="alice", workspace="/repo/gait", risk_class="high"),
+    )
+
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=1,
+            stdout=json.dumps({"ok": False, "error": "gate exploded"}),
+            stderr="boom",
+        ),
+    )
+
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        evaluate_gate(policy_path=tmp_path / "policy.yaml", intent=intent, gait_bin="gait")
+    assert "gate exploded" in str(raised.value)
+
+
 def test_internal_helpers_parse_json_and_prefix() -> None:
     assert client_module._parse_json_stdout("") is None
     assert client_module._parse_json_stdout("[]") is None
@@ -404,3 +494,107 @@ def test_record_runpack_invalid_capture_mode_raises(tmp_path: Path) -> None:
             cwd=tmp_path,
             capture_mode="invalid",
         )
+
+
+def test_write_trace_rejects_missing_file_and_wrong_schema(tmp_path: Path) -> None:
+    with pytest.raises(client_module.GaitError) as missing:
+        write_trace(trace_path=tmp_path / "missing.json", destination_path=tmp_path / "out.json")
+    assert "trace file not found" in str(missing.value)
+
+    wrong_schema = tmp_path / "wrong-trace.json"
+    wrong_schema.write_text(
+        json.dumps(
+            {
+                "schema_id": "gait.not_trace",
+                "schema_version": "1.0.0",
+                "created_at": "2026-02-05T00:00:00Z",
+                "producer_version": "0.0.0-dev",
+                "trace_id": "trace_1",
+                "tool_name": "tool.write",
+                "args_digest": "1" * 64,
+                "intent_digest": "2" * 64,
+                "policy_digest": "3" * 64,
+                "verdict": "allow",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(client_module.GaitError) as wrong:
+        write_trace(trace_path=wrong_schema, destination_path=tmp_path / "out.json")
+    assert "unexpected trace schema_id" in str(wrong.value)
+
+
+def test_capture_demo_runpack_error_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=1,
+            stdout=json.dumps({"ok": False, "error": "demo failed"}),
+            stderr="",
+        ),
+    )
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        capture_demo_runpack(gait_bin="gait", cwd=tmp_path)
+    assert "demo failed" in str(raised.value)
+
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout=json.dumps({"ok": False}),
+            stderr="",
+        ),
+    )
+    with pytest.raises(client_module.GaitError) as ok_false:
+        capture_demo_runpack(gait_bin="gait", cwd=tmp_path)
+    assert "ok=false" in str(ok_false.value)
+
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout=json.dumps({"ok": True, "run_id": "", "bundle": ""}),
+            stderr="",
+        ),
+    )
+    with pytest.raises(client_module.GaitError) as missing_fields:
+        capture_demo_runpack(gait_bin="gait", cwd=tmp_path)
+    assert "missing run_id or bundle" in str(missing_fields.value)
+
+
+def test_create_regress_fixture_error_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=1,
+            stdout=json.dumps({"ok": False, "error": "regress init failed"}),
+            stderr="",
+        ),
+    )
+    with pytest.raises(client_module.GaitCommandError) as raised:
+        create_regress_fixture(from_run="run_demo", gait_bin="gait", cwd=tmp_path)
+    assert "regress init failed" in str(raised.value)
+
+    monkeypatch.setattr(
+        client_module,
+        "_run_command",
+        lambda command, cwd=None: client_module._CommandResult(
+            command=list(command),
+            exit_code=0,
+            stdout=json.dumps({"ok": False}),
+            stderr="",
+        ),
+    )
+    with pytest.raises(client_module.GaitError) as ok_false:
+        create_regress_fixture(from_run="run_demo", gait_bin="gait", cwd=tmp_path)
+    assert "ok=false" in str(ok_false.value)

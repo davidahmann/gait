@@ -108,7 +108,7 @@ func runScoutSnapshot(arguments []string) int {
 		return writeScoutSnapshotOutput(jsonOutput, scoutSnapshotOutput{OK: false, Error: "unexpected positional arguments"}, exitInvalidInput)
 	}
 
-	provider := scout.DefaultProvider{Options: scout.SnapshotOptions{ProducerVersion: version}}
+	provider := scout.DefaultProvider{Options: scout.SnapshotOptions{ProducerVersion: currentVersion()}}
 	snapshot, err := provider.Snapshot(context.Background(), scout.SnapshotRequest{
 		Roots:   parseCSVList(rootsCSV),
 		Include: parseCSVList(includeCSV),
@@ -278,7 +278,7 @@ func runScoutSignal(arguments []string) int {
 		TracePaths:   parseCSVList(tracesCSV),
 		RegressPaths: parseCSVList(regressCSV),
 	}, scout.SignalOptions{
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeScoutSignalOutput(jsonOutput, scoutSignalOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

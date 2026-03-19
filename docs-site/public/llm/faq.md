@@ -52,7 +52,7 @@ Yes. `gait run replay` uses recorded results as deterministic stubs so you can d
 
 Gait provides wrapper or sidecar, Python SDK, and MCP boundary modes. The official LangChain surface is middleware with optional callback correlation; enforcement still happens only at the tool boundary. Claude Code remains a reference adapter, and its hook/runtime/input errors fail closed by default unless an operator explicitly opts into unsafe fail-open behavior.
 
-Official lanes today are OpenAI Agents and LangChain. Reference adapters stay in-repo, but they are not promoted into official launch claims until they clear the scorecard threshold. CrewAI is not an official lane today.
+The in-repo OpenAI Agents path is a reference boundary demo. LangChain is the official framework lane today. Reference adapters stay in-repo, but they are not promoted into official launch claims until they clear the scorecard threshold. CrewAI is not an official lane today.
 
 If you use `gait test`, `gait enforce`, or `gait trace`, the child integration must emit a `trace_path=<path>` seam. Wrapper JSON makes that explicit with `boundary_contract=explicit_trace_reference`, `trace_reference_required=true`, and stable `failure_reason` values such as `missing_trace_reference` or `invalid_trace_artifact`.
 

@@ -14,11 +14,13 @@ Required in proposal:
 - fail-closed behavior (`allow` vs non-`allow` execution)
 - deterministic output paths + test plan
 
-## 2) Respect v2.3 Lane Governance
+## 2) Respect Current Lane Governance
 
-Blessed lane in v2.3:
+Default starter surfaces:
 
-- coding-agent wrapper + GitHub Actions regress template
+- official framework lane: LangChain middleware
+- reference boundary demo: `examples/integrations/openai_agents/`
+- GitHub Actions regress template
 
 No new official lane is merged without scorecard evidence:
 

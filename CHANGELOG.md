@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Gate intent normalization now treats omitted target `discovery_method` as `unknown` instead of empty so policies can deterministically match unknown/dynamic discovery paths.
 - Durable job resume now preserves the originally bound identity and rejects attempts to resume with a different identity.
+- `gait version --json` now prefers clean release metadata for promoted install paths while keeping repo-local contributor builds on the explicit `0.0.0-dev` fallback.
+- Public onboarding/docs copy now treats LangChain as the official middleware lane and the OpenAI example as a reference boundary demo.
 
 ### Upgrade Notes
 

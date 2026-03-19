@@ -107,7 +107,7 @@ func runIncidentPack(arguments []string) int {
 		Window:          parsedWindow,
 		TemplateID:      templateID,
 		RenderPDF:       renderPDF,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 	})
 	if err != nil {
 		return writeIncidentPackOutput(jsonOutput, incidentPackOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))

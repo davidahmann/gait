@@ -114,6 +114,10 @@ LangChain is opt-in:
 
 Python 3.11 or higher.
 
+### Should I use `gait.__version__` as the install probe?
+
+No. `sdk/python` keeps repo-local dev metadata (`0.0.0.dev0`) and is not the public release signal. Use `gait version --json` for install automation, support intake, and release verification.
+
 ### How do I wrap a tool function with Gait?
 
 Use the `@gate_tool` decorator from the SDK. It automatically evaluates gate policy before executing the tool and records the result.

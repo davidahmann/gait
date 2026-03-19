@@ -87,6 +87,43 @@ fi
 
 export PATH="${install_dir}:$PATH"
 
+echo "==> installed binary version probe"
+SOURCE_VERSION_JSON="$("${BIN_PATH}" version --json)"
+INSTALLED_VERSION_JSON="$("${install_dir}/gait" version --json)"
+ALIAS_VERSION_JSON="$("${install_dir}/gait" --version --json)"
+SHORT_VERSION_JSON="$("${install_dir}/gait" -v --json)"
+
+SOURCE_VERSION_JSON="${SOURCE_VERSION_JSON}" \
+INSTALLED_VERSION_JSON="${INSTALLED_VERSION_JSON}" \
+ALIAS_VERSION_JSON="${ALIAS_VERSION_JSON}" \
+SHORT_VERSION_JSON="${SHORT_VERSION_JSON}" \
+python3 - <<'PY'
+import json
+import os
+
+source = json.loads(os.environ["SOURCE_VERSION_JSON"])
+installed = json.loads(os.environ["INSTALLED_VERSION_JSON"])
+alias = json.loads(os.environ["ALIAS_VERSION_JSON"])
+short = json.loads(os.environ["SHORT_VERSION_JSON"])
+
+for name, payload in {
+    "source": source,
+    "installed": installed,
+    "alias": alias,
+    "short": short,
+}.items():
+    if payload.get("ok") is not True:
+        raise SystemExit(f"{name} version probe expected ok=true, got {payload}")
+    version = payload.get("version")
+    if not isinstance(version, str) or not version:
+        raise SystemExit(f"{name} version probe missing version: {payload}")
+
+expected = source["version"]
+for name, payload in {"installed": installed, "alias": alias, "short": short}.items():
+    if payload["version"] != expected:
+        raise SystemExit(f"{name} version {payload['version']} != source version {expected}")
+PY
+
 bash "${REPO_ROOT}/scripts/test_onboarding_contract.sh" "${install_dir}/gait" "${work_dir}/onboarding"
 
 "${install_dir}/gait" demo > "${work_dir}/demo.txt"

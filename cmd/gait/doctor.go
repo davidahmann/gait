@@ -82,7 +82,7 @@ func runDoctor(arguments []string) int {
 	result := doctor.Run(doctor.Options{
 		WorkDir:         workDir,
 		OutputDir:       outputDir,
-		ProducerVersion: version,
+		ProducerVersion: currentVersion(),
 		KeyMode:         sign.KeyMode(strings.ToLower(strings.TrimSpace(keyMode))),
 		KeyConfig: sign.KeyConfig{
 			PrivateKeyPath: privateKeyPath,
@@ -151,7 +151,7 @@ func runDoctorAdoption(arguments []string) int {
 	if err != nil {
 		return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{OK: false, Error: err.Error()}, exitCodeForError(err, exitInvalidInput))
 	}
-	report := scout.BuildAdoptionReport(events, fromPath, version, time.Time{})
+	report := scout.BuildAdoptionReport(events, fromPath, currentVersion(), time.Time{})
 	return writeDoctorAdoptionOutput(jsonOutput, doctorAdoptionOutput{
 		OK:     true,
 		Report: &report,

@@ -25,7 +25,7 @@ A tool boundary is the exact call site where your runtime is about to execute a 
 
 Where to inspect this in code:
 
-- wrapper flow: `examples/integrations/openai_agents/quickstart.py`
+- reference wrapper flow: `examples/integrations/openai_agents/quickstart.py`
 - gate command wiring: `cmd/gait/gate.go`
 - policy evaluation engine: `core/gate/`
 

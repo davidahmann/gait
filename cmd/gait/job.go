@@ -118,7 +118,7 @@ func runJobSubmit(arguments []string) int {
 		JobID:                  strings.TrimSpace(jobID),
 		Actor:                  strings.TrimSpace(actor),
 		Identity:               strings.TrimSpace(identity),
-		ProducerVersion:        version,
+		ProducerVersion:        currentVersion(),
 		EnvironmentFingerprint: jobruntime.EnvironmentFingerprint(envFingerprint),
 		PolicyDigest:           resolvedPolicyDigest,
 		PolicyRef:              resolvedPolicyRef,

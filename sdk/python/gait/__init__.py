@@ -64,4 +64,6 @@ __all__ = [
     "write_trace",
 ]
 
+# Repo-local development metadata only; use `gait version --json` as the
+# authoritative install/version probe for release binaries and support intake.
 __version__ = "0.0.0.dev0"

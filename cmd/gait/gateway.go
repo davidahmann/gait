@@ -103,7 +103,7 @@ func runGatewayIngest(arguments []string) int {
 		Source:            strings.TrimSpace(source),
 		LogPath:           strings.TrimSpace(logPath),
 		OutputPath:        strings.TrimSpace(proofOut),
-		ProducerVersion:   version,
+		ProducerVersion:   currentVersion(),
 		SigningPrivateKey: keyPair.Private,
 	})
 	if err != nil {

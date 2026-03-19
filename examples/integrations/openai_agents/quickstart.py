@@ -146,7 +146,7 @@ def execute_wrapped_tool(intent_payload: dict[str, Any], output_path: Path) -> N
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="OpenAI Agents wrapped tool-call quickstart"
+        description="OpenAI-style reference boundary demo"
     )
     parser.add_argument(
         "--scenario",

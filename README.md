@@ -16,7 +16,13 @@ Managed/preloaded agent note: if you cannot intercept tool execution before side
 
 ## Install
 
-Choose one install path:
+Choose one install path. Prefer release binaries for onboarding and support flows, then confirm the installed version with `gait version --json`.
+
+### Release Installer
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
+```
 
 ### Homebrew
 
@@ -30,11 +36,7 @@ brew install Clyra-AI/tap/gait
 go install github.com/Clyra-AI/gait/cmd/gait@latest
 ```
 
-### Release Installer
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
-```
+Tagged module installs resolve the release version from Go build metadata. Local checkout builds remain contributor/dev builds and may still report `0.0.0-dev`.
 
 ## Start Here
 
@@ -73,10 +75,10 @@ This path writes `.gait.yaml`, reports the live policy contract, and returns ins
 
 Use this when your agent already makes real tool calls and you want enforcement at the execution seam.
 
-Official lanes:
+Official and reference lanes:
 
-- OpenAI Agents wrapper lane: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
-- LangChain middleware lane: [`examples/integrations/langchain/`](examples/integrations/langchain/)
+- LangChain middleware lane (official): [`examples/integrations/langchain/`](examples/integrations/langchain/)
+- OpenAI-style reference boundary demo: [`examples/integrations/openai_agents/`](examples/integrations/openai_agents/)
 
 Other supported boundary paths:
 
@@ -131,9 +133,9 @@ This is the core contract across wrappers, middleware, sidecars, and MCP boundar
 
 ## Runtime Integration Paths
 
-### OpenAI Agents
+### OpenAI Agents Reference Demo
 
-This is the blessed top-of-funnel runtime lane: a local wrapper at the tool boundary with deterministic allow, block, and approval quickstarts.
+This is the fastest in-repo reference demo for the runtime boundary contract: a local wrapper at the tool boundary with deterministic allow, block, and approval quickstarts. It is not a package-backed official SDK lane.
 
 ```bash
 python3 examples/integrations/openai_agents/quickstart.py --scenario allow
@@ -174,7 +176,7 @@ gait enforce --json -- <child command...>
 
 ## Simple End-To-End Scenario
 
-See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md) and the promoted wrapper quickstart at `examples/integrations/openai_agents/quickstart.py`.
+See [`docs/scenarios/simple_agent_tool_boundary.md`](docs/scenarios/simple_agent_tool_boundary.md) and the reference wrapper quickstart at `examples/integrations/openai_agents/quickstart.py`.
 
 ## Policy Onboarding
 
