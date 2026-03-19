@@ -7,6 +7,14 @@ Gait keeps one execution-boundary and artifact contract across all of them.
 
 It is also not a framework replacement. The framework keeps planning and orchestration; Gait owns the execution verdict and evidence contract.
 
+## "Does the quickstart mean we're production-ready?"
+
+No.
+The quickstart proves install, artifact generation, and CI regression wiring.
+
+Strict inline fail-closed enforcement starts only when Gait sits at a real tool boundary before execution.
+Hardened `oss-prod` claims require the explicit readiness gate: `gait doctor --production-readiness --json`.
+
 ## "Is this another prompt-injection scanner?"
 
 No. Gait enforces policy at tool-call execution boundary.

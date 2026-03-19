@@ -55,6 +55,7 @@ Keep monitored GitHub Actions references on the repo's Node 24-safe baseline:
 - `actions/checkout@v5` or newer
 - `actions/setup-go@v6` or newer
 - `actions/setup-python@v6` or newer
+- `actions/setup-node@v5` or newer
 - `github/codeql-action/init@v4` and `github/codeql-action/analyze@v4` or newer
 
 Validate that baseline locally before opening a PR:
@@ -64,6 +65,7 @@ python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/a
 ```
 
 `make lint-fast` and `make lint` run the same guard through `scripts/check_repo_hygiene.sh`, so runtime deprecations fail before longer suites.
+The guard covers action runtime majors, not the application Node version configured in a workflow, so docs/UI jobs may keep `node-version: "22"` while still requiring `actions/setup-node@v5+`.
 Do not rely on `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` or `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true` as the default fix path; keep those as emergency-only compatibility levers while the action pin is being updated.
 
 ## Branch protection and required checks

@@ -13,6 +13,8 @@ Fail-closed enforcement requires an interception point before real tool executio
 
 If you cannot intercept tool calls, Gait can still add observe/report/regress value, but it cannot block side effects inline.
 
+Fast proof commands such as `gait doctor --json`, `gait demo`, and `gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml` are still useful without interception. Treat them as install, artifact, and CI proof, not as proof of strict inline blocking.
+
 Concrete boundary touchpoints:
 
 - call `gait gate eval` at the final adapter or middleware dispatch site before execution
@@ -88,6 +90,11 @@ What Gait cannot do (without interception):
 2. If yes: use Tier A and enforce non-`allow` as non-executable.
 3. If partially: use Tier B and close bypass paths first.
 4. If no: use Tier C and treat controls as observe/report/regress until interception is available.
+
+Production-readiness note:
+
+- `gait doctor --production-readiness --json` is the hardening gate for high-risk `oss-prod` claims after the boundary is in place.
+- It does not replace the need for a real interception seam.
 
 ## Practical Paths
 

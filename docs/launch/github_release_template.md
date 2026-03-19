@@ -10,6 +10,10 @@ Use this structure for tagged releases.
 
 Gait is the offline-first policy-as-code runtime for AI agent tool calls.
 
+Supporting promise:
+
+Prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
+
 ## What Shipped
 
 - `<feature 1>` with path references
@@ -27,6 +31,8 @@ gait demo
 gait verify run_demo --json
 gait regress bootstrap --from run_demo --json --junit ./gait-out/junit.xml
 ```
+
+This is the fast-proof path. It is not the same thing as hardened `oss-prod` readiness, and it does not imply strict inline enforcement without a real interception seam.
 
 ## Security Boundary Example
 
@@ -65,6 +71,15 @@ Required release check:
 
 - breaking changes: `<none | list>`
 - schema or exit-code compatibility notes: `<notes>`
+
+## Go / No-Go
+
+- decision: `<GO | NO-GO>`
+- doctor truthfulness evidence: `gait doctor --json`
+- production-readiness evidence: `gait doctor --production-readiness --json`
+- workflow runtime guard evidence: `python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md`
+- staged-boundary note: fast proof != hardened `oss-prod` readiness; strict inline enforcement requires interception before tool execution
+- residual non-blocking risks: `<none | list>`
 
 ## Docs
 

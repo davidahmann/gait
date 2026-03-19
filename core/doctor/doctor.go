@@ -27,6 +27,10 @@ const (
 
 	onboardingModeInstalledBinary = "installed_binary"
 	onboardingModeRepoCheckout    = "repo_checkout"
+
+	binaryPathSourceInvokedExecutable = "invoked_executable"
+	binaryPathSourcePath              = "path"
+	binaryPathSourceWorkDir           = "workdir"
 )
 
 type Options struct {
@@ -36,19 +40,24 @@ type Options struct {
 	KeyMode             sign.KeyMode
 	KeyConfig           sign.KeyConfig
 	ProductionReadiness bool
+	InvokedBinaryPath   string
 }
 
 type Result struct {
-	SchemaID        string   `json:"schema_id"`
-	SchemaVersion   string   `json:"schema_version"`
-	CreatedAt       string   `json:"created_at"`
-	ProducerVersion string   `json:"producer_version"`
-	OnboardingMode  string   `json:"onboarding_mode,omitempty"`
-	Status          string   `json:"status"`
-	NonFixable      bool     `json:"non_fixable"`
-	Summary         string   `json:"summary"`
-	FixCommands     []string `json:"fix_commands"`
-	Checks          []Check  `json:"checks"`
+	SchemaID         string   `json:"schema_id"`
+	SchemaVersion    string   `json:"schema_version"`
+	CreatedAt        string   `json:"created_at"`
+	ProducerVersion  string   `json:"producer_version"`
+	OnboardingMode   string   `json:"onboarding_mode,omitempty"`
+	Status           string   `json:"status"`
+	NonFixable       bool     `json:"non_fixable"`
+	Summary          string   `json:"summary"`
+	FixCommands      []string `json:"fix_commands"`
+	BinaryPath       string   `json:"binary_path,omitempty"`
+	BinaryPathSource string   `json:"binary_path_source,omitempty"`
+	PathBinaryPath   string   `json:"path_binary_path,omitempty"`
+	BinaryVersion    string   `json:"binary_version,omitempty"`
+	Checks           []Check  `json:"checks"`
 }
 
 type Check struct {
@@ -58,6 +67,20 @@ type Check struct {
 	Message    string `json:"message"`
 	FixCommand string `json:"fix_command,omitempty"`
 	NonFixable bool   `json:"non_fixable,omitempty"`
+}
+
+type onboardingBinaryResult struct {
+	Check            Check
+	BinaryPath       string
+	BinaryPathSource string
+	PathBinaryPath   string
+	BinaryVersion    string
+}
+
+type binaryResolution struct {
+	BinaryPath       string
+	BinaryPathSource string
+	PathBinaryPath   string
 }
 
 var requiredSchemaPaths = []string{
@@ -112,6 +135,7 @@ func Run(opts Options) Result {
 	}
 
 	onboardingMode := detectOnboardingMode(workDir)
+	onboardingBinary := onboardingBinaryResult{}
 
 	var checks []Check
 	if opts.ProductionReadiness {
@@ -133,11 +157,12 @@ func Run(opts Options) Result {
 			withScope(checkTempDirWritable(), checkScopeUniversal),
 			withScope(checkRegistryCacheHealth(), checkScopeUniversal),
 			withScope(checkRateLimitLock(outputDir), checkScopeUniversal),
-			withScope(checkOnboardingBinary(workDir), checkScopeUniversal),
 			withScope(checkKeySourceAmbiguity(opts.KeyConfig), checkScopeUniversal),
 			withScope(checkKeyFilePermissions(opts.KeyConfig), checkScopeUniversal),
 			withScope(checkKeyConfig(opts.KeyMode, opts.KeyConfig), checkScopeUniversal),
 		}
+		onboardingBinary = checkOnboardingBinary(workDir, opts.InvokedBinaryPath)
+		checks = append(checks[:6], append([]Check{withScope(onboardingBinary.Check, checkScopeUniversal)}, checks[6:]...)...)
 		if onboardingMode == onboardingModeRepoCheckout {
 			checks = append(checks,
 				withScope(checkSchemaFiles(workDir), checkScopeRepoCheckout),
@@ -188,16 +213,20 @@ func Run(opts Options) Result {
 	)
 
 	return Result{
-		SchemaID:        "gait.doctor.result",
-		SchemaVersion:   "1.0.0",
-		CreatedAt:       time.Now().UTC().Format(time.RFC3339Nano),
-		ProducerVersion: producerVersion,
-		OnboardingMode:  onboardingMode,
-		Status:          status,
-		NonFixable:      nonFixable,
-		Summary:         summary,
-		FixCommands:     fixCommands,
-		Checks:          checks,
+		SchemaID:         "gait.doctor.result",
+		SchemaVersion:    "1.0.0",
+		CreatedAt:        time.Now().UTC().Format(time.RFC3339Nano),
+		ProducerVersion:  producerVersion,
+		OnboardingMode:   onboardingMode,
+		Status:           status,
+		NonFixable:       nonFixable,
+		Summary:          summary,
+		FixCommands:      fixCommands,
+		BinaryPath:       onboardingBinary.BinaryPath,
+		BinaryPathSource: onboardingBinary.BinaryPathSource,
+		PathBinaryPath:   onboardingBinary.PathBinaryPath,
+		BinaryVersion:    onboardingBinary.BinaryVersion,
+		Checks:           checks,
 	}
 }
 
@@ -589,50 +618,63 @@ func checkKeySourceAmbiguity(cfg sign.KeyConfig) Check {
 	}
 }
 
-func checkOnboardingBinary(workDir string) Check {
-	binaryPath, err := findGaitBinaryPath(workDir)
+func checkOnboardingBinary(workDir, invokedBinaryPath string) onboardingBinaryResult {
+	resolution, err := findGaitBinaryPath(workDir, invokedBinaryPath)
 	if err != nil {
-		return Check{
-			Name:       "onboarding_binary",
-			Status:     statusWarn,
-			Message:    "gait binary not found; onboarding commands may fail",
-			FixCommand: "go build -o ./gait ./cmd/gait",
+		return onboardingBinaryResult{
+			Check: Check{
+				Name:       "onboarding_binary",
+				Status:     statusWarn,
+				Message:    "gait binary not found; onboarding commands may fail",
+				FixCommand: "go build -o ./gait ./cmd/gait",
+			},
 		}
 	}
 
-	info, err := os.Stat(binaryPath)
+	result := onboardingBinaryResult{
+		BinaryPath:       resolution.BinaryPath,
+		BinaryPathSource: resolution.BinaryPathSource,
+		PathBinaryPath:   resolution.PathBinaryPath,
+	}
+
+	info, err := os.Stat(resolution.BinaryPath)
 	if err != nil || info.IsDir() {
-		return Check{
+		result.Check = Check{
 			Name:       "onboarding_binary",
 			Status:     statusWarn,
 			Message:    "gait binary path is not accessible",
 			FixCommand: "go build -o ./gait ./cmd/gait",
 		}
+		return result
 	}
-	if !isExecutableBinary(binaryPath, info) {
-		return Check{
+	if !isExecutableBinary(resolution.BinaryPath, info) {
+		result.Check = Check{
 			Name:       "onboarding_binary",
 			Status:     statusWarn,
-			Message:    fmt.Sprintf("gait binary is not executable: %s", binaryPath),
-			FixCommand: fmt.Sprintf("chmod +x %s", shellQuote(binaryPath)),
+			Message:    fmt.Sprintf("gait binary is not executable: %s", resolution.BinaryPath),
+			FixCommand: fmt.Sprintf("chmod +x %s", shellQuote(resolution.BinaryPath)),
 		}
+		return result
 	}
 
-	versionOutput, versionErr := readGaitVersion(binaryPath)
+	versionOutput, versionErr := readGaitVersion(resolution.BinaryPath)
 	if versionErr != nil {
-		return Check{
+		result.Check = Check{
 			Name:       "onboarding_binary",
 			Status:     statusWarn,
-			Message:    fmt.Sprintf("gait binary version check failed (%s): %v", binaryPath, versionErr),
+			Message:    fmt.Sprintf("gait binary version check failed (%s): %v", resolution.BinaryPath, versionErr),
 			FixCommand: "go build -o ./gait ./cmd/gait",
 		}
+		return result
 	}
 
-	return Check{
+	result.BinaryVersion = versionOutput
+	result.Check = Check{
 		Name:    "onboarding_binary",
 		Status:  statusPass,
-		Message: fmt.Sprintf("gait binary ready (path=%s version=%s)", binaryPath, versionOutput),
+		Message: formatOnboardingBinaryMessage(resolution, versionOutput),
 	}
+	return result
 }
 
 func checkOnboardingAssets(workDir string) Check {
@@ -1006,21 +1048,97 @@ func checkKeyFilePermissions(cfg sign.KeyConfig) Check {
 	}
 }
 
-func findGaitBinaryPath(workDir string) (string, error) {
-	if path, err := exec.LookPath("gait"); err == nil {
-		return path, nil
+func findGaitBinaryPath(workDir, invokedBinaryPath string) (binaryResolution, error) {
+	if path, ok := normalizeBinaryPath(invokedBinaryPath); ok {
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			resolution := binaryResolution{
+				BinaryPath:       path,
+				BinaryPathSource: binaryPathSourceInvokedExecutable,
+			}
+			if pathBinary, err := exec.LookPath("gait"); err == nil {
+				pathBinary = filepath.Clean(pathBinary)
+				if !sameBinaryPath(path, pathBinary) {
+					resolution.PathBinaryPath = pathBinary
+				}
+			}
+			return resolution, nil
+		}
 	}
 
+	if path, err := exec.LookPath("gait"); err == nil {
+		return binaryResolution{
+			BinaryPath:       filepath.Clean(path),
+			BinaryPathSource: binaryPathSourcePath,
+		}, nil
+	}
+
+	for _, candidate := range workDirBinaryCandidates(workDir) {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return binaryResolution{
+				BinaryPath:       candidate,
+				BinaryPathSource: binaryPathSourceWorkDir,
+			}, nil
+		}
+	}
+	return binaryResolution{}, fmt.Errorf("gait binary not found")
+}
+
+func workDirBinaryCandidates(workDir string) []string {
 	candidates := []string{
 		filepath.Join(workDir, "gait"),
 		filepath.Join(workDir, "gait.exe"),
 	}
-	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate, nil
-		}
+	if runtime.GOOS == "windows" {
+		candidates = append(candidates,
+			filepath.Join(workDir, "gait.cmd"),
+			filepath.Join(workDir, "gait.bat"),
+		)
 	}
-	return "", fmt.Errorf("gait binary not found")
+	return candidates
+}
+
+func normalizeBinaryPath(path string) (string, bool) {
+	trimmed := strings.TrimSpace(path)
+	if trimmed == "" {
+		return "", false
+	}
+	if !filepath.IsAbs(trimmed) {
+		absolute, err := filepath.Abs(trimmed)
+		if err != nil {
+			return filepath.Clean(trimmed), true
+		}
+		return filepath.Clean(absolute), true
+	}
+	return filepath.Clean(trimmed), true
+}
+
+func sameBinaryPath(leftPath, rightPath string) bool {
+	leftInfo, leftErr := os.Stat(leftPath)
+	rightInfo, rightErr := os.Stat(rightPath)
+	if leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo) {
+		return true
+	}
+
+	leftClean := filepath.Clean(leftPath)
+	rightClean := filepath.Clean(rightPath)
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(leftClean, rightClean)
+	}
+	return leftClean == rightClean
+}
+
+func formatOnboardingBinaryMessage(resolution binaryResolution, version string) string {
+	switch resolution.BinaryPathSource {
+	case binaryPathSourceInvokedExecutable:
+		if resolution.PathBinaryPath != "" {
+			return fmt.Sprintf("gait binary ready (invoked_path=%s version=%s path_binary=%s)", resolution.BinaryPath, version, resolution.PathBinaryPath)
+		}
+		return fmt.Sprintf("gait binary ready (invoked_path=%s version=%s)", resolution.BinaryPath, version)
+	case binaryPathSourceWorkDir:
+		return fmt.Sprintf("gait binary ready (workdir_path=%s version=%s)", resolution.BinaryPath, version)
+	default:
+		return fmt.Sprintf("gait binary ready (path=%s version=%s)", resolution.BinaryPath, version)
+	}
 }
 
 func isExecutableBinary(path string, info os.FileInfo) bool {

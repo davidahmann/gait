@@ -55,8 +55,9 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 	if err := rejectDuplicateZipEntries(zipReader.File); err != nil {
 		return VerifyResult{}, err
 	}
+	filesByPath := indexZipFiles(zipReader.File)
 
-	manifestFile, manifestFound := findZipFile(zipReader.File, "manifest.json")
+	manifestFile, manifestFound := filesByPath["manifest.json"]
 	if !manifestFound {
 		return VerifyResult{}, fmt.Errorf("missing manifest.json")
 	}
@@ -103,7 +104,7 @@ func VerifyZip(path string, opts VerifyOptions) (VerifyResult, error) {
 		case "refs.json":
 			hasRefs = true
 		}
-		zipFile, exists := findZipFile(zipReader.File, name)
+		zipFile, exists := filesByPath[name]
 		if !exists {
 			result.MissingFiles = append(result.MissingFiles, name)
 			continue
@@ -217,6 +218,14 @@ func signableManifestBytes(manifest []byte) ([]byte, error) {
 	}
 	delete(obj, "signatures")
 	return json.Marshal(obj)
+}
+
+func indexZipFiles(files []*zip.File) map[string]*zip.File {
+	index := make(map[string]*zip.File, len(files))
+	for _, zipFile := range files {
+		index[filepath.ToSlash(zipFile.Name)] = zipFile
+	}
+	return index
 }
 
 func findZipFile(files []*zip.File, name string) (*zip.File, bool) {

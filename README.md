@@ -6,6 +6,8 @@ Gait sits at the execution boundary between an agent decision and a real tool ca
 
 Offline-first. Fail-closed. Portable evidence.
 
+Fast proof is not the same as hardened `oss-prod` readiness. Strict inline fail-closed enforcement starts only when you control the real tool-execution seam.
+
 Docs: [clyra-ai.github.io/gait](https://clyra-ai.github.io/gait/) | Install: [`docs/install.md`](docs/install.md) | Examples: [`examples/integrations/`](examples/integrations/) | Command docs: [`docs/README.md`](docs/README.md)
 
 ## In Brief
@@ -60,6 +62,8 @@ This path gives you:
 - one signed demo artifact you can verify offline
 - one deterministic regress gate you can drop into CI immediately
 
+This is proof of install plus artifact contract. It does not put Gait in front of a live tool boundary yet.
+
 ### Add Repo Policy To A Real Project
 
 Use this when you want a repo-root policy file and a local contract check.
@@ -71,9 +75,13 @@ gait check --json
 
 This path writes `.gait.yaml`, reports the live policy contract, and returns install-safe next commands.
 
+It still does not enforce inline unless you wire Gait into a real wrapper, sidecar, middleware, or MCP boundary before the tool call executes.
+
 ### Integrate At The Runtime Boundary
 
 Use this when your agent already makes real tool calls and you want enforcement at the execution seam.
+
+This is the first path that enables strict inline fail-closed enforcement. If you cannot intercept tool execution before side effects, stay on the proof, observe, capture, and regress paths instead of claiming runtime blocking.
 
 Official and reference lanes:
 
@@ -86,6 +94,24 @@ Other supported boundary paths:
 - MCP trust and transport boundary via `gait mcp verify`, `gait mcp proxy`, or `gait mcp serve`
 
 No account. No API key. No hosted dependency.
+
+### Harden `oss-prod` Readiness Explicitly
+
+Use this only after the fast proof and a real runtime boundary are already in place.
+
+```bash
+gait init --json
+# From a repo checkout:
+cp examples/config/oss_prod_template.yaml .gait/config.yaml
+
+# Or, after a binary-only install:
+curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/examples/config/oss_prod_template.yaml -o .gait/config.yaml
+
+gait check --json
+gait doctor --production-readiness --json
+```
+
+Do not describe a deployment as hardened `oss-prod` until that readiness check returns `ok=true`.
 
 ## Why Gait
 

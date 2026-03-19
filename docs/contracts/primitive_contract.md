@@ -32,6 +32,7 @@ These file locations and command roles are part of the public OSS onboarding con
 Onboarding JSON obligations:
 
 - `gait doctor --json` MUST remain truthful for the installed-binary lane and MAY add fields such as `onboarding_mode` or per-check `scope` only additively.
+- `gait doctor --json` MAY add machine-readable binary provenance fields only additively, including `binary_path`, `binary_path_source`, `binary_version`, and `path_binary_path` when the invoked executable differs from the PATH-resolved `gait`.
 - `gait init --json` and `gait check --json` `next_commands` MUST be executable in the environment they are emitted for, or MUST include an explicit repo/fetch step in the command text.
 
 Canonical migration notes:

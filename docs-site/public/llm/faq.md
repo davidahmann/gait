@@ -10,6 +10,8 @@ Run `gait version --json`, `gait doctor --json`, `gait init --json`, `gait check
 
 `gait doctor --json` stays install-safe in a clean writable directory. `gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`. `gait check --json` reports structured `findings` and install-safe `next_commands` in addition to compatibility `gap_warnings`.
 
+Treat that as fast proof. Strict inline enforcement is a separate step at the real tool boundary, and hardened `oss-prod` claims require `gait doctor --production-readiness --json`.
+
 ## What problem does Gait solve for long-running agent work?
 
 Multi-step and multi-hour agent jobs fail mid-flight, losing state and provenance. Gait dispatches durable jobs with checkpointed state, pause/resume/stop/cancel, and deterministic stop reasons so work survives failures and stays auditable.

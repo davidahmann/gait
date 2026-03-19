@@ -2,6 +2,14 @@
 
 This file defines where each topic lives so docs stay accurate and non-duplicative.
 
+Primary category line:
+
+- Gait is the offline-first policy-as-code runtime for AI agent tool calls.
+
+Supporting promise line:
+
+- Prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
+
 ## Canonical Surface Taxonomy
 
 Core surfaces:
@@ -72,7 +80,7 @@ Extended first-class surfaces:
 - Prime-time runbook: `docs/hardening/prime_time_runbook.md`
 - Runtime SLOs: `docs/slo/runtime_slo.md`
 - Retention profiles: `docs/slo/retention_profiles.md`
-- Maintainer CI/runtime policy and local workflow guard: `CONTRIBUTING.md`
+- Maintainer CI/runtime policy and local workflow guard: `CONTRIBUTING.md` (checkout, setup-go, setup-python, setup-node, and CodeQL action majors)
 - CI regress runbook: `docs/ci_regress_kit.md`
 - One-PR adoption page: `docs/adopt_in_one_pr.md`
 - Threat model: `docs/threat_model.md`

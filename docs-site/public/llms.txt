@@ -1,6 +1,6 @@
 # Gait
 
-> Offline-first policy-as-code runtime for AI agent tool calls: bootstrap `.gait.yaml` with `gait init` and `gait check`, enforce fail-closed verdicts at the execution boundary, keep signed evidence, and turn incidents into deterministic CI regressions.
+> Gait is the offline-first policy-as-code runtime for AI agent tool calls. Prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
 
 ## Canonical
 - https://github.com/Clyra-AI/gait
@@ -39,6 +39,7 @@
 - Boundary location: the exact adapter call site before real tool side effects execute.
 - Input: structured intent payload.
 - Rule: `verdict != allow` means no tool execution.
+- Fast proof (`gait doctor --json`, `gait demo`, `gait regress bootstrap`) is not the same thing as strict inline enforcement.
 - Context-required policies must receive `--context-envelope <context_envelope.json>` at that boundary; raw context digest/mode/age claims are not authoritative alone.
 - For `gait mcp serve`, same-host callers may use `call.context.context_envelope_path` only when the server explicitly enables `--allow-client-artifact-paths`.
 - Official LangChain lane: middleware with optional callback correlation, not a separate policy engine.
@@ -64,6 +65,7 @@
 - Python run-session capture delegates digest-bearing artifact fields to `gait run record` in Go; convert `set` values to JSON lists before calling the SDK.
 - `examples/integrations/claude_code/` is a reference adapter; hook/runtime/input errors fail closed by default and `GAIT_CLAUDE_UNSAFE_FAIL_OPEN=1` is an unsafe opt-in override.
 - `gait doctor --json` is install-safe in a clean writable directory: it returns the installed-binary lane with `status=pass|warn` and only adds repo-only checks in a Gait repo checkout.
+- High-risk `oss-prod` claims require the separate readiness gate: `gait doctor --production-readiness --json`.
 - High-risk enforcement is not production-ready until `gait doctor --production-readiness --json` returns `ok=true`, typically from config seeded by `examples/config/oss_prod_template.yaml` from a repo checkout or by fetching that same file after a binary-only install.
 - `gait init` writes `.gait.yaml`; `gait check` reports the live policy contract and gap warnings.
 - Repo bootstrap JSON: `gait init --json` returns `detected_signals`, conservative `generated_rules`, and `unknown_signals`; `gait check --json` returns structured `findings`, compatibility `gap_warnings`, and install-safe `next_commands`.

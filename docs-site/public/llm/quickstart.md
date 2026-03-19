@@ -2,6 +2,8 @@
 
 Use this when you need deterministic control plus evidence at agent tool boundaries.
 
+Treat this page as the fast-proof lane first. Strict inline fail-closed enforcement starts only when you place Gait at a real tool boundary, and hardened `oss-prod` claims come later with `gait doctor --production-readiness --json`.
+
 ```bash
 # Install
 curl -fsSL https://raw.githubusercontent.com/Clyra-AI/gait/main/scripts/install.sh | bash
@@ -81,6 +83,8 @@ gait doctor --production-readiness --json
 Do not treat `oss-prod` enforcement as production-ready until that doctor command reports `ok=true`.
 
 Standard `gait doctor --json` is truthful in a clean writable directory after a binary-only install: repo-only schema/example checks stay scoped to a Gait repo checkout.
+
+That proof is not the same thing as runtime blocking. Managed or preloaded runtimes without an interception seam can still use the quickstart, but they should stay in the proof, observe, capture, and regress lane until the boundary is under user control.
 
 Reference boundary demo:
 

@@ -2,20 +2,24 @@
 
 Gait is the offline-first policy-as-code runtime for AI agent tool calls. It bootstraps repo policy with `gait init` and `gait check`, enforces fail-closed verdicts at the tool boundary, captures signed evidence, and turns incidents into deterministic CI regressions.
 
+Supporting promise: prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
+
 Repo bootstrap stays machine-readable: `gait doctor --json` is truthful for binary installs, `gait init --json` returns repo `detected_signals`, conservative `generated_rules`, and `unknown_signals`, and `gait check --json` reports structured `findings` plus install-safe `next_commands` for readiness follow-up.
 
-It provides seven OSS primitives:
+Primary adoption checkpoints:
 
-1. **Gate**: Evaluate structured tool-call intent against YAML policy with fail-closed enforcement. Supports destructive plan/apply boundaries, destructive budgets, multi-step script rollups, Wrkr context enrichment, and signed approved-script fast-path allow.
-2. **Evidence**: Signed traces, runpacks, packs, and callpacks with Ed25519 signatures and SHA-256 manifests.
-3. **Regress**: Convert incidents into deterministic CI regression fixtures with JUnit output and stable exit codes through `gait capture`, `gait regress add`, and `gait regress bootstrap`.
-4. **Jobs**: Dispatch multi-step, multi-hour agent work with checkpoints, pause/resume/stop/cancel, approval gates, deterministic stop reasons, and emergency-stop preemption evidence.
-5. **Voice**: Gate high-stakes spoken commitments before they are uttered with SayToken capability tokens and callpack artifacts.
-6. **Context Evidence**: Deterministic proof of what context the model was working from at decision time. Privacy-aware envelopes with fail-closed enforcement when evidence is missing, and context-required gate checks bind digest/mode/freshness from a verified `--context-envelope`.
-7. **Doctor**: Diagnose first-run environment issues with stable JSON output. `gait doctor --production-readiness --json` is the explicit gate before claiming high-risk `oss-prod` readiness.
+1. **Fast proof**: `gait version --json`, `gait doctor --json`, `gait demo`, `gait verify run_demo --json`, and `gait regress bootstrap --from run_demo --json --junit ...` validate install, evidence, and CI wiring.
+2. **Strict inline enforcement**: place Gait at the real wrapper, sidecar, middleware, or MCP execution seam so non-`allow` outcomes do not execute side effects.
+3. **Hardened `oss-prod` readiness**: seed `examples/config/oss_prod_template.yaml`, run `gait check --json`, then require `gait doctor --production-readiness --json` to return `ok=true`.
 
 Secondary boundary surfaces:
 
+- **Doctor**: truthful first-run diagnostics and the explicit production-readiness gate.
+- **Evidence**: signed traces, runpacks, packs, and callpacks with Ed25519 signatures and SHA-256 manifests.
+- **Regress**: convert incidents into deterministic CI regression fixtures with JUnit output and stable exit codes through `gait capture`, `gait regress add`, and `gait regress bootstrap`.
+- **Jobs**: dispatch multi-step, multi-hour agent work with checkpoints, pause/resume/stop/cancel, approval gates, deterministic stop reasons, and emergency-stop preemption evidence.
+- **Voice**: gate high-stakes spoken commitments before they are uttered with SayToken capability tokens and callpack artifacts.
+- **Context Evidence**: deterministic proof of what context the model was working from at decision time, with fail-closed checks bound to a verified `--context-envelope`.
 - **MCP Trust**: evaluate local trust snapshots for MCP server admission with `gait mcp verify`, `gait mcp proxy`, and `gait mcp serve`.
 - **Trace**: observe-only wrapper mode with `gait trace` for integrations that already emit Gait trace references.
 - **LangChain Middleware**: official Python middleware with optional callback correlation; callbacks never decide allow or block behavior, and demo capture stays bound to `gait demo --json`.
@@ -35,6 +39,7 @@ Tool boundary (canonical):
 - exact call site where runtime is about to execute a real tool side effect
 - adapter sends structured intent to Gait
 - only `allow` executes tool side effects; non-allow outcomes are non-executing
+- quickstart/demo proof is valuable without that seam, but it is not evidence of strict inline enforcement by itself
 
 When to use:
 

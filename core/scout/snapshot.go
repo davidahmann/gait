@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 
 	schemacommon "github.com/Clyra-AI/gait/core/schema/v1/common"
 	schemascout "github.com/Clyra-AI/gait/core/schema/v1/scout"
-	jcs "github.com/Clyra-AI/proof/canon"
 	"github.com/goccy/go-yaml"
 )
 
@@ -352,22 +352,25 @@ func collectMCPServerNames(value any, names map[string]struct{}) {
 }
 
 func computeSnapshotID(workspace string, items []schemascout.InventoryItem) (string, error) {
-	payload := struct {
-		Workspace string                      `json:"workspace"`
-		Items     []schemascout.InventoryItem `json:"items"`
-	}{
-		Workspace: workspace,
-		Items:     items,
+	digest := sha256.New()
+	writeSnapshotIDField(digest, workspace)
+	for _, item := range items {
+		writeSnapshotIDField(digest, item.ID)
+		writeSnapshotIDField(digest, item.Kind)
+		writeSnapshotIDField(digest, item.Name)
+		writeSnapshotIDField(digest, item.Locator)
+		writeSnapshotIDField(digest, item.RiskLevel)
+		for _, tag := range item.Tags {
+			writeSnapshotIDField(digest, tag)
+		}
+		digest.Write([]byte{0xff})
 	}
-	encoded, err := json.Marshal(payload)
-	if err != nil {
-		return "", err
-	}
-	digest, err := jcs.DigestJCS(encoded)
-	if err != nil {
-		return "", err
-	}
-	return "snap_" + digest[:12], nil
+	return "snap_" + hex.EncodeToString(digest.Sum(nil)[:6]), nil
+}
+
+func writeSnapshotIDField(digest hash.Hash, value string) {
+	digest.Write([]byte(value))
+	digest.Write([]byte{0})
 }
 
 func classifyRisk(name string) string {

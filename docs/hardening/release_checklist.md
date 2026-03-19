@@ -10,6 +10,10 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
   - Python coverage >= 85%
 - [ ] `make test-hardening-acceptance` passes.
 - [ ] `make test-install-path-versions` passes.
+- [ ] Docs and release-story gates pass:
+  - `make test-docs-consistency`
+  - `make docs-site-check`
+  - `make test-release-smoke`
 - [ ] Versioned acceptance/context gates pass:
   - `make test-v2-3-acceptance`
   - `make test-v2-4-acceptance`
@@ -69,7 +73,13 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 ## 6) Operational Readiness (RECOMMENDED)
 
 - [ ] `gait doctor --json` includes green checks for hooks, cache, lock staleness, temp writeability, and key-source ambiguity.
+- [ ] `gait doctor --json` reports the invoked binary truthfully and only surfaces `path_binary_path` when a different PATH `gait` is present.
+- [ ] `python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md` passes, including `actions/setup-node`.
 - [ ] Install and release docs point operators to `examples/config/oss_prod_template.yaml` and require `gait doctor --production-readiness --json` before claiming `oss-prod` readiness.
+- [ ] README, launch docs, and docs-site public LLM mirrors all keep the same staged launch story:
+  - fast proof
+  - strict inline enforcement only at a real interception seam
+  - hardened `oss-prod` readiness as a separate explicit gate
 - [ ] Installer/Homebrew/manual verification uses `gait version --json` as the machine-readable binary probe.
 - [ ] Correlation IDs and operational events are emitted in opt-in logs where enabled.
 - [ ] Homebrew tap install/test smoke passes for the release:
@@ -84,4 +94,7 @@ Use this checklist before creating a release tag. Items marked "MANDATORY" are r
 
 - [ ] Release manager sign-off (engineering owner)
 - [ ] Security sign-off (if security-sensitive changes included)
-- [ ] Go/No-Go recorded in release notes
+- [ ] Go/No-Go recorded in release notes with:
+  - decision date
+  - evidence command list
+  - residual non-blocking risks or `none`

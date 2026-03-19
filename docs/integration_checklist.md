@@ -9,6 +9,12 @@ This checklist is for OSS teams integrating Gait at the tool-call boundary.
 
 Target: first deterministic wrapper integration in <= 15 minutes from clean checkout.
 
+Keep these checkpoints separate while you read the rest of this guide:
+
+1. Fast proof: install, `gait doctor --json`, `gait demo`, verify, and regress bootstrap
+2. Strict inline enforcement: a real wrapper, middleware, sidecar, or MCP seam before tool execution
+3. Hardened `oss-prod` readiness: explicit config plus `gait doctor --production-readiness --json`
+
 Fast path scenario:
 
 - `docs/scenarios/simple_agent_tool_boundary.md`
@@ -65,6 +71,8 @@ Choose the highest tier you can support:
 1. Full interception at tool boundary (best): wrapper/sidecar/middleware or `gait mcp serve`.
 2. Partial interception: enforce where possible and treat uncovered paths as observe-only.
 3. No interception (some managed/preloaded agent products): use observe/report/regress workflows; inline fail-closed enforcement is not guaranteed.
+
+Do not collapse Tier 3 proof into Tier 1 enforcement language. Managed or preloaded products without the seam can still prove install correctness, artifact generation, and CI regression wiring, but they cannot honestly claim strict inline blocking.
 
 Reference: `docs/agent_integration_boundary.md`.
 
