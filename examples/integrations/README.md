@@ -2,6 +2,8 @@
 
 This directory contains framework adapters that demonstrate the same Gait execution contract across runtimes.
 
+Use these examples only when you control a real tool-dispatch seam. If your runtime is managed or preloaded and does not expose that seam, stay on the observe, verify, capture, and regress paths instead of describing the integration as strict inline enforcement.
+
 Official lane:
 
 - `langchain` (official middleware with optional callback correlation)
@@ -9,6 +11,11 @@ Official lane:
 Reference boundary demo:
 
 - `openai_agents`
+
+Reference-demo versus official-lane rule:
+
+- `openai_agents` is the in-repo reference boundary demo
+- `langchain` is the official middleware lane
 
 Quick commands:
 

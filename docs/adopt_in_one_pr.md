@@ -154,7 +154,7 @@ If you want a passing lane after validating setup, remove the forced-drift step.
 
 Maintainer runtime policy:
 
-- Keep published GitHub Actions examples on the repo's Node 24-safe baseline, including `actions/checkout@v5` or newer.
+- Keep published GitHub Actions examples and repo workflow docs on the repo's Node 24-safe baseline, including `actions/checkout@v5` and `actions/setup-node@v5` or newer where they appear.
 - Run `python3 scripts/check_github_action_runtime_versions.py .github/workflows docs/adopt_in_one_pr.md` before opening a PR that changes workflow YAML or this example.
 - Treat `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` and `ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true` as emergency-only compatibility toggles, not the normal remediation path.
 

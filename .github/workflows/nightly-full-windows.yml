@@ -49,12 +49,13 @@ jobs:
         shell: bash
         run: |
           set +e
-          go test ./... -cover > coverage-go-packages.out 2>&1
+          mapfile -t go_test_packages < <(python scripts/list_go_test_packages.py)
+          go test "${go_test_packages[@]}" -cover > coverage-go-packages.out 2>&1
           package_test_status=$?
           set -e
           cat coverage-go-packages.out
           if [[ "${package_test_status}" -ne 0 ]]; then
-            echo "go test ./... -cover failed"
+            echo "go test filtered packages with coverage failed"
             exit "${package_test_status}"
           fi
           python scripts/check_go_package_coverage.py coverage-go-packages.out 75

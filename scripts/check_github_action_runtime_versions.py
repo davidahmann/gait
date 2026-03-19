@@ -26,6 +26,7 @@ RULES: dict[str, Rule] = {
     "actions/checkout": Rule(minimum_major=5),
     "actions/setup-go": Rule(minimum_major=6),
     "actions/setup-python": Rule(minimum_major=6),
+    "actions/setup-node": Rule(minimum_major=5),
     "github/codeql-action/init": Rule(minimum_major=4),
     "github/codeql-action/analyze": Rule(minimum_major=4),
 }

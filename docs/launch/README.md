@@ -4,6 +4,11 @@ This folder is the repeatable distribution package for OSS launch cycles.
 
 Use it when shipping a major release, announcing a wedge milestone, or running a re-launch.
 
+Lead every launch asset with the same two lines:
+
+- Primary category line: Gait is the offline-first policy-as-code runtime for AI agent tool calls.
+- Supporting promise line: Prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
+
 Current safe-default rollout note:
 
 - ship `examples/policy/knowledge_worker_safe.yaml` as reversible-first profile
@@ -11,6 +16,7 @@ Current safe-default rollout note:
 - stage rollout: monitor -> approval -> enforce
 - when citing MCP trust, show local snapshot + `gait mcp verify`, not a hosted scanner replacement story
 - keep category language fixed: policy-as-code for agent tool calls, not control plane, dashboard, or framework replacement
+- keep packs, jobs, voice, context evidence, and MCP trust as supporting surfaces under that wedge, not competing category lines
 
 ## Contents
 

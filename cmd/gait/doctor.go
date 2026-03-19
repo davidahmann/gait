@@ -4,6 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,19 +16,23 @@ import (
 )
 
 type doctorOutput struct {
-	OK              bool           `json:"ok"`
-	SummaryMode     bool           `json:"summary_mode,omitempty"`
-	SchemaID        string         `json:"schema_id,omitempty"`
-	SchemaVersion   string         `json:"schema_version,omitempty"`
-	CreatedAt       string         `json:"created_at,omitempty"`
-	ProducerVersion string         `json:"producer_version,omitempty"`
-	OnboardingMode  string         `json:"onboarding_mode,omitempty"`
-	Status          string         `json:"status,omitempty"`
-	NonFixable      bool           `json:"non_fixable,omitempty"`
-	Summary         string         `json:"summary,omitempty"`
-	FixCommands     []string       `json:"fix_commands,omitempty"`
-	Checks          []doctor.Check `json:"checks,omitempty"`
-	Error           string         `json:"error,omitempty"`
+	OK               bool           `json:"ok"`
+	SummaryMode      bool           `json:"summary_mode,omitempty"`
+	SchemaID         string         `json:"schema_id,omitempty"`
+	SchemaVersion    string         `json:"schema_version,omitempty"`
+	CreatedAt        string         `json:"created_at,omitempty"`
+	ProducerVersion  string         `json:"producer_version,omitempty"`
+	OnboardingMode   string         `json:"onboarding_mode,omitempty"`
+	Status           string         `json:"status,omitempty"`
+	NonFixable       bool           `json:"non_fixable,omitempty"`
+	Summary          string         `json:"summary,omitempty"`
+	FixCommands      []string       `json:"fix_commands,omitempty"`
+	BinaryPath       string         `json:"binary_path,omitempty"`
+	BinaryPathSource string         `json:"binary_path_source,omitempty"`
+	PathBinaryPath   string         `json:"path_binary_path,omitempty"`
+	BinaryVersion    string         `json:"binary_version,omitempty"`
+	Checks           []doctor.Check `json:"checks,omitempty"`
+	Error            string         `json:"error,omitempty"`
 }
 
 type doctorAdoptionOutput struct {
@@ -33,6 +40,8 @@ type doctorAdoptionOutput struct {
 	Report *scout.AdoptionReport `json:"report,omitempty"`
 	Error  string                `json:"error,omitempty"`
 }
+
+var resolveDoctorInvokedBinaryPath = currentDoctorInvokedBinaryPath
 
 func runDoctor(arguments []string) int {
 	if len(arguments) > 0 && strings.TrimSpace(arguments[0]) == "adoption" {
@@ -91,6 +100,7 @@ func runDoctor(arguments []string) int {
 			PublicKeyEnv:   publicKeyEnv,
 		},
 		ProductionReadiness: productionReadiness,
+		InvokedBinaryPath:   resolveDoctorInvokedBinaryPath(),
 	})
 
 	exitCode := exitOK
@@ -103,18 +113,22 @@ func runDoctor(arguments []string) int {
 		ok = false
 	}
 	return writeDoctorOutput(jsonOutput, doctorOutput{
-		OK:              ok,
-		SummaryMode:     summaryMode,
-		SchemaID:        result.SchemaID,
-		SchemaVersion:   result.SchemaVersion,
-		CreatedAt:       result.CreatedAt,
-		ProducerVersion: result.ProducerVersion,
-		OnboardingMode:  result.OnboardingMode,
-		Status:          result.Status,
-		NonFixable:      result.NonFixable,
-		Summary:         result.Summary,
-		FixCommands:     result.FixCommands,
-		Checks:          result.Checks,
+		OK:               ok,
+		SummaryMode:      summaryMode,
+		SchemaID:         result.SchemaID,
+		SchemaVersion:    result.SchemaVersion,
+		CreatedAt:        result.CreatedAt,
+		ProducerVersion:  result.ProducerVersion,
+		OnboardingMode:   result.OnboardingMode,
+		Status:           result.Status,
+		NonFixable:       result.NonFixable,
+		Summary:          result.Summary,
+		FixCommands:      result.FixCommands,
+		BinaryPath:       result.BinaryPath,
+		BinaryPathSource: result.BinaryPathSource,
+		PathBinaryPath:   result.PathBinaryPath,
+		BinaryVersion:    result.BinaryVersion,
+		Checks:           result.Checks,
 	}, exitCode)
 }
 
@@ -223,4 +237,45 @@ func printDoctorUsage() {
 func printDoctorAdoptionUsage() {
 	fmt.Println("Usage:")
 	fmt.Println("  gait doctor adoption --from <events.jsonl> [--json] [--explain]")
+}
+
+func currentDoctorInvokedBinaryPath() string {
+	if path, ok := resolveDoctorExecutablePath(os.Args[0]); ok {
+		return path
+	}
+	executablePath, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	path, ok := resolveDoctorExecutablePath(executablePath)
+	if !ok {
+		return ""
+	}
+	return path
+}
+
+func resolveDoctorExecutablePath(rawPath string) (string, bool) {
+	trimmed := strings.TrimSpace(rawPath)
+	if trimmed == "" {
+		return "", false
+	}
+	base := strings.ToLower(filepath.Base(trimmed))
+	if base != "gait" && base != "gait.exe" {
+		return "", false
+	}
+	if filepath.IsAbs(trimmed) {
+		return filepath.Clean(trimmed), true
+	}
+	if strings.ContainsRune(trimmed, filepath.Separator) {
+		absolute, err := filepath.Abs(trimmed)
+		if err != nil {
+			return filepath.Clean(trimmed), true
+		}
+		return filepath.Clean(absolute), true
+	}
+	resolved, err := exec.LookPath(trimmed)
+	if err != nil {
+		return filepath.Clean(trimmed), true
+	}
+	return filepath.Clean(resolved), true
 }

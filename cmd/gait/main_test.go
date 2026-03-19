@@ -2897,6 +2897,75 @@ func TestDoctorProductionReadinessIgnoresRepoOnlyChecks(t *testing.T) {
 	}
 }
 
+func TestRunDoctorJSONReportsInvokedBinaryPathWhenPATHDiffers(t *testing.T) {
+	workDir := t.TempDir()
+	withWorkingDir(t, workDir)
+
+	outputDir := filepath.Join(workDir, "gait-out")
+	if err := os.MkdirAll(outputDir, 0o750); err != nil {
+		t.Fatalf("mkdir output dir: %v", err)
+	}
+
+	pathDir := t.TempDir()
+	pathBinary := writeFakeDoctorBinary(t, pathDir, "gait", "gait 0.0.0-path")
+	invokedBinary := writeFakeDoctorBinary(t, t.TempDir(), "gait", "gait 0.0.0-invoked")
+	t.Setenv("PATH", pathDir)
+
+	originalResolve := resolveDoctorInvokedBinaryPath
+	resolveDoctorInvokedBinaryPath = func() string {
+		return invokedBinary
+	}
+	t.Cleanup(func() {
+		resolveDoctorInvokedBinaryPath = originalResolve
+	})
+
+	var code int
+	raw := captureStdout(t, func() {
+		code = runDoctor([]string{
+			"--workdir", workDir,
+			"--output-dir", outputDir,
+			"--json",
+		})
+	})
+	if code != exitOK {
+		t.Fatalf("runDoctor expected %d got %d", exitOK, code)
+	}
+
+	var output doctorOutput
+	if err := json.Unmarshal([]byte(raw), &output); err != nil {
+		t.Fatalf("decode doctor output: %v (%s)", err, raw)
+	}
+	if output.BinaryPath != invokedBinary {
+		t.Fatalf("expected invoked binary path %q, got %q", invokedBinary, output.BinaryPath)
+	}
+	if output.BinaryPathSource != "invoked_executable" {
+		t.Fatalf("expected invoked_executable source, got %q", output.BinaryPathSource)
+	}
+	if output.PathBinaryPath != pathBinary {
+		t.Fatalf("expected PATH binary path %q, got %q", pathBinary, output.PathBinaryPath)
+	}
+	if output.BinaryVersion != "gait 0.0.0-invoked" {
+		t.Fatalf("expected invoked binary version, got %q", output.BinaryVersion)
+	}
+
+	var onboardingCheck *doctor.Check
+	for index := range output.Checks {
+		if output.Checks[index].Name == "onboarding_binary" {
+			onboardingCheck = &output.Checks[index]
+			break
+		}
+	}
+	if onboardingCheck == nil {
+		t.Fatalf("expected onboarding_binary check in output")
+	}
+	if !strings.Contains(onboardingCheck.Message, "invoked_path="+invokedBinary) {
+		t.Fatalf("expected invoked path in onboarding message, got %q", onboardingCheck.Message)
+	}
+	if !strings.Contains(onboardingCheck.Message, "path_binary="+pathBinary) {
+		t.Fatalf("expected PATH collision in onboarding message, got %q", onboardingCheck.Message)
+	}
+}
+
 func assertNoRepoExampleNextCommands(t *testing.T, nextCommands []string) {
 	t.Helper()
 	for _, command := range nextCommands {
@@ -4090,6 +4159,24 @@ func mustWriteFile(t *testing.T, path, content string) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}
+}
+
+func writeFakeDoctorBinary(t *testing.T, dir, baseName, version string) string {
+	t.Helper()
+
+	binaryPath := filepath.Join(dir, baseName)
+	content := "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then\n  echo \"" + version + "\"\n  exit 0\nfi\necho \"" + version + "\"\n"
+	mode := os.FileMode(0o755)
+	if runtime.GOOS == "windows" {
+		baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		binaryPath = filepath.Join(dir, baseName+".cmd")
+		content = "@echo off\r\nif \"%1\"==\"version\" (\r\n  echo " + version + "\r\n  exit /b 0\r\n)\r\necho " + version + "\r\n"
+		mode = 0o600
+	}
+	if err := os.WriteFile(binaryPath, []byte(content), mode); err != nil {
+		t.Fatalf("write fake doctor binary: %v", err)
+	}
+	return binaryPath
 }
 
 func repoRootFromPackageDir(t *testing.T) string {

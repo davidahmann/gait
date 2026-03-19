@@ -13,6 +13,7 @@ endif
 
 SDK_DIR := sdk/python
 UV_PY := 3.11
+GO_TEST_PACKAGES := $(shell GO=$(GO) $(PYTHON) scripts/list_go_test_packages.py)
 GO_COVERAGE_PACKAGES := ./core/... ./cmd/gait
 BENCH_PACKAGES := ./core/gate ./core/runpack ./core/scout ./core/guard ./core/registry ./core/mcp
 BENCH_REGEX := Benchmark(EvaluatePolicyTypical|VerifyZipTypical|DiffRunpacksTypical|SnapshotTypical|DiffSnapshotsTypical|VerifyPackTypical|BuildIncidentPackTypical|InstallLocalTypical|VerifyInstalledTypical|DecodeToolCallOpenAITypical|EvaluateToolCallTypical)$$
@@ -55,7 +56,7 @@ codeql:
 	bash scripts/run_codeql_local.sh
 
 test:
-	$(GO) test ./... -cover > coverage-go-packages.out
+	$(GO) test $(GO_TEST_PACKAGES) -cover > coverage-go-packages.out
 	cat coverage-go-packages.out
 	$(PYTHON) scripts/check_go_package_coverage.py coverage-go-packages.out $(GO_PACKAGE_COVERAGE_THRESHOLD)
 	$(GO) test $(GO_COVERAGE_PACKAGES) -coverprofile=coverage-go.out
@@ -64,7 +65,7 @@ test:
 	bash scripts/test_github_action_runtime_versions.sh
 
 test-fast:
-	$(GO) test ./...
+	$(GO) test $(GO_TEST_PACKAGES)
 	(cd $(SDK_DIR) && PYTHONPATH=. uv run --python $(UV_PY) --extra dev pytest)
 	bash scripts/test_github_action_runtime_versions.sh
 

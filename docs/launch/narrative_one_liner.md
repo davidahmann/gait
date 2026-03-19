@@ -8,7 +8,7 @@ Gait is the offline-first policy-as-code runtime for AI agent tool calls.
 
 ## Product Promise Line
 
-Bootstrap `.gait.yaml` with `gait init` and `gait check`, enforce at the tool boundary, and turn incidents into deterministic CI regressions.
+Prove the install fast, enforce at the tool boundary when you own the seam, and graduate to hardened `oss-prod` readiness explicitly.
 
 ## Audience Variants
 
@@ -33,3 +33,5 @@ Compliance:
 - Not an agent builder or orchestrator.
 - Not prompt-only filtering.
 - Not a hosted governance dashboard requirement.
+- Quickstart or demo proof is not hardened `oss-prod` readiness.
+- Strict inline fail-closed enforcement requires interception before tool execution.

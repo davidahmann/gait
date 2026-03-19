@@ -166,6 +166,95 @@ func TestRunPassesWithValidWorkspaceAndSchemas(t *testing.T) {
 	}
 }
 
+func TestRunPrefersInvokedBinaryAndReportsPATHCollision(t *testing.T) {
+	workDir := t.TempDir()
+	outputDir := filepath.Join(workDir, "gait-out")
+	if err := ensureDir(outputDir); err != nil {
+		t.Fatalf("create output dir: %v", err)
+	}
+
+	pathDir := t.TempDir()
+	pathBinary := writeFakeGaitBinary(t, pathDir, "gait", "gait 0.0.0-path")
+	invokedBinary := writeFakeGaitBinary(t, t.TempDir(), "gait", "gait 0.0.0-invoked")
+	t.Setenv("PATH", pathDir)
+
+	result := Run(Options{
+		WorkDir:           workDir,
+		OutputDir:         outputDir,
+		ProducerVersion:   "test",
+		KeyMode:           sign.ModeDev,
+		InvokedBinaryPath: invokedBinary,
+	})
+
+	if result.BinaryPath != invokedBinary {
+		t.Fatalf("expected invoked binary path, got %q", result.BinaryPath)
+	}
+	if result.BinaryPathSource != binaryPathSourceInvokedExecutable {
+		t.Fatalf("expected invoked executable source, got %q", result.BinaryPathSource)
+	}
+	if result.PathBinaryPath != pathBinary {
+		t.Fatalf("expected PATH binary path %q, got %q", pathBinary, result.PathBinaryPath)
+	}
+	if result.BinaryVersion != "gait 0.0.0-invoked" {
+		t.Fatalf("expected invoked binary version, got %q", result.BinaryVersion)
+	}
+
+	check := findCheck(result.Checks, "onboarding_binary")
+	if check == nil {
+		t.Fatalf("expected onboarding_binary check")
+	}
+	if check.Status != statusPass {
+		t.Fatalf("expected onboarding_binary pass, got %#v", check)
+	}
+	if !strings.Contains(check.Message, "invoked_path="+invokedBinary) {
+		t.Fatalf("expected invoked path in message, got %q", check.Message)
+	}
+	if !strings.Contains(check.Message, "path_binary="+pathBinary) {
+		t.Fatalf("expected PATH collision in message, got %q", check.Message)
+	}
+}
+
+func TestRunFallsBackToWorkDirBinaryWhenPATHMissing(t *testing.T) {
+	workDir := t.TempDir()
+	outputDir := filepath.Join(workDir, "gait-out")
+	if err := ensureDir(outputDir); err != nil {
+		t.Fatalf("create output dir: %v", err)
+	}
+	workDirBinary := writeFakeGaitBinary(t, workDir, "gait", "gait 0.0.0-workdir")
+	t.Setenv("PATH", "")
+
+	result := Run(Options{
+		WorkDir:         workDir,
+		OutputDir:       outputDir,
+		ProducerVersion: "test",
+		KeyMode:         sign.ModeDev,
+	})
+
+	if result.BinaryPath != workDirBinary {
+		t.Fatalf("expected workdir binary path, got %q", result.BinaryPath)
+	}
+	if result.BinaryPathSource != binaryPathSourceWorkDir {
+		t.Fatalf("expected workdir source, got %q", result.BinaryPathSource)
+	}
+	if result.PathBinaryPath != "" {
+		t.Fatalf("expected empty PATH binary path, got %q", result.PathBinaryPath)
+	}
+	if result.BinaryVersion != "gait 0.0.0-workdir" {
+		t.Fatalf("expected workdir binary version, got %q", result.BinaryVersion)
+	}
+
+	check := findCheck(result.Checks, "onboarding_binary")
+	if check == nil {
+		t.Fatalf("expected onboarding_binary check")
+	}
+	if check.Status != statusPass {
+		t.Fatalf("expected onboarding_binary pass, got %#v", check)
+	}
+	if !strings.Contains(check.Message, "workdir_path="+workDirBinary) {
+		t.Fatalf("expected workdir path in message, got %q", check.Message)
+	}
+}
+
 func TestRunDetectsDurableStateDivergence(t *testing.T) {
 	installFakeGaitBinaryInPath(t)
 
@@ -359,20 +448,20 @@ func TestOnboardingChecks(t *testing.T) {
 	workDir := t.TempDir()
 	t.Setenv("PATH", "")
 
-	check := checkOnboardingBinary(workDir)
-	if check.Status != statusWarn {
-		t.Fatalf("expected onboarding binary warning, got %#v", check)
+	binaryCheck := checkOnboardingBinary(workDir, "")
+	if binaryCheck.Check.Status != statusWarn {
+		t.Fatalf("expected onboarding binary warning, got %#v", binaryCheck)
 	}
-	if !strings.Contains(check.FixCommand, "go build -o ./gait ./cmd/gait") {
-		t.Fatalf("unexpected binary fix command: %#v", check)
+	if !strings.Contains(binaryCheck.Check.FixCommand, "go build -o ./gait ./cmd/gait") {
+		t.Fatalf("unexpected binary fix command: %#v", binaryCheck)
 	}
 
-	check = checkOnboardingAssets(workDir)
-	if check.Status != statusWarn {
-		t.Fatalf("expected onboarding assets warning, got %#v", check)
+	assetsCheck := checkOnboardingAssets(workDir)
+	if assetsCheck.Status != statusWarn {
+		t.Fatalf("expected onboarding assets warning, got %#v", assetsCheck)
 	}
-	if !strings.Contains(check.FixCommand, "git restore --source=HEAD -- scripts/quickstart.sh examples/integrations") {
-		t.Fatalf("unexpected assets fix command: %#v", check)
+	if !strings.Contains(assetsCheck.FixCommand, "git restore --source=HEAD -- scripts/quickstart.sh examples/integrations") {
+		t.Fatalf("unexpected assets fix command: %#v", assetsCheck)
 	}
 
 	quickstartPath := filepath.Join(workDir, "scripts", "quickstart.sh")
@@ -396,21 +485,21 @@ func TestOnboardingChecks(t *testing.T) {
 		}
 	}
 
-	check = checkOnboardingAssets(workDir)
+	assetsCheck = checkOnboardingAssets(workDir)
 	if runtime.GOOS == "windows" {
-		if check.Status != statusPass {
-			t.Fatalf("expected onboarding assets pass on windows, got %#v", check)
+		if assetsCheck.Status != statusPass {
+			t.Fatalf("expected onboarding assets pass on windows, got %#v", assetsCheck)
 		}
-	} else if check.Status != statusWarn || !strings.Contains(check.FixCommand, "chmod +x scripts/quickstart.sh") {
-		t.Fatalf("expected onboarding quickstart chmod warning, got %#v", check)
+	} else if assetsCheck.Status != statusWarn || !strings.Contains(assetsCheck.FixCommand, "chmod +x scripts/quickstart.sh") {
+		t.Fatalf("expected onboarding quickstart chmod warning, got %#v", assetsCheck)
 	}
 
 	if err := os.Chmod(quickstartPath, 0o755); err != nil {
 		t.Fatalf("chmod quickstart: %v", err)
 	}
-	check = checkOnboardingAssets(workDir)
-	if check.Status != statusPass {
-		t.Fatalf("expected onboarding assets pass, got %#v", check)
+	assetsCheck = checkOnboardingAssets(workDir)
+	if assetsCheck.Status != statusPass {
+		t.Fatalf("expected onboarding assets pass, got %#v", assetsCheck)
 	}
 }
 
@@ -724,6 +813,15 @@ func ensureDir(path string) error {
 	return os.MkdirAll(path, 0o750)
 }
 
+func findCheck(checks []Check, name string) *Check {
+	for index := range checks {
+		if checks[index].Name == name {
+			return &checks[index]
+		}
+	}
+	return nil
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)
@@ -738,16 +836,24 @@ func installFakeGaitBinaryInPath(t *testing.T) {
 	t.Helper()
 
 	binDir := t.TempDir()
-	binPath := filepath.Join(binDir, "gait")
-	content := "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then\n  echo \"gait 0.0.0-test\"\n  exit 0\nfi\necho \"gait 0.0.0-test\"\n"
+	writeFakeGaitBinary(t, binDir, "gait", "gait 0.0.0-test")
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+}
+
+func writeFakeGaitBinary(t *testing.T, dir, baseName, version string) string {
+	t.Helper()
+
+	binPath := filepath.Join(dir, baseName)
+	content := "#!/bin/sh\nif [ \"$1\" = \"version\" ]; then\n  echo \"" + version + "\"\n  exit 0\nfi\necho \"" + version + "\"\n"
 	mode := os.FileMode(0o755)
 	if runtime.GOOS == "windows" {
-		binPath = filepath.Join(binDir, "gait.cmd")
-		content = "@echo off\r\nif \"%1\"==\"version\" (\r\n  echo gait 0.0.0-test\r\n  exit /b 0\r\n)\r\necho gait 0.0.0-test\r\n"
+		baseName = strings.TrimSuffix(baseName, filepath.Ext(baseName))
+		binPath = filepath.Join(dir, baseName+".cmd")
+		content = "@echo off\r\nif \"%1\"==\"version\" (\r\n  echo " + version + "\r\n  exit /b 0\r\n)\r\necho " + version + "\r\n"
 		mode = 0o600
 	}
 	if err := os.WriteFile(binPath, []byte(content), mode); err != nil {
 		t.Fatalf("write fake gait binary: %v", err)
 	}
-	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return binPath
 }
