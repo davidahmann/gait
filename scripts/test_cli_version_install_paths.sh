@@ -166,7 +166,12 @@ mkdir -p "${release_dir}" "${install_dir}"
 source_bin="${work_dir}/gait-source"
 cp "${BIN_PATH}" "${source_bin}"
 chmod 0755 "${source_bin}"
-assert_version "source-build" "${source_bin}" "0.0.0-dev"
+source_version="$(extract_version "${source_bin}")"
+if [[ -z "${source_version}" ]]; then
+  echo "source-build: version output was empty" >&2
+  exit 1
+fi
+assert_version "source-build" "${source_bin}" "${source_version}"
 
 release_bin="${work_dir}/gait-release"
 go build -ldflags "-X main.version=${release_version}" -o "${release_bin}" ./cmd/gait
